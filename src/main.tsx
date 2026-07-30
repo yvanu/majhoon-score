@@ -66,6 +66,9 @@ function App(){
   const [modal,setModal]=useState(false)
   const [loading,setLoading]=useState(false)
   const [error,setError]=useState('')
+  const [dialog,setDialog]=useState<null|{
+    title:string;message:string;confirmText?:string;danger?:boolean;onConfirm:()=>void
+  }>(null)
   const [theme,setTheme]=useState<'dark'|'light'>(()=>
     (localStorage.getItem('mahjong-theme') as 'dark'|'light')||'dark')
 
@@ -127,7 +130,12 @@ function App(){
     finally{setLoading(false)}
   }
   async function undo(){
-    if(!match||!confirm('撤销上一局计分？'))return
+    if(!match)return
+    setDialog({title:'撤销上一局',message:'确定撤销上一局计分？',confirmText:'确认撤销',
+      onConfirm:()=>{setDialog(null);void performUndo()}})
+  }
+  async function performUndo(){
+    if(!match)return
     setLoading(true)
     try{
       const data=await api<{match:Match}>(`/api/matches/${match.id}/hands/last`,
@@ -137,7 +145,12 @@ function App(){
     finally{setLoading(false)}
   }
   async function finish(){
-    if(!match||!confirm('确定结束本将？结束后不能继续录分。'))return
+    if(!match)return
+    setDialog({title:'结束本将',message:'结束后将不能继续录分，确定结束本将？',confirmText:'确认结束',
+      danger:true,onConfirm:()=>{setDialog(null);void performFinish()}})
+  }
+  async function performFinish(){
+    if(!match)return
     setLoading(true)
     try{
       const data=await api<{match:Match}>(`/api/matches/${match.id}/finish`,
@@ -187,7 +200,10 @@ function App(){
     finally{setLoading(false)}
   }
   async function deleteHistoryMatch(id:string){
-    if(!confirm('确定删除这条历史牌局？删除后无法恢复。'))return
+    setDialog({title:'删除历史牌局',message:'删除后无法恢复，确定删除这条历史牌局？',confirmText:'确认删除',
+      danger:true,onConfirm:()=>{setDialog(null);void performDeleteHistoryMatch(id)}})
+  }
+  async function performDeleteHistoryMatch(id:string){
     setLoading(true);setError('')
     try{
       await api(`/api/me/matches/${id}`,writeInit('DELETE'))
@@ -227,7 +243,23 @@ function App(){
       onUndo={undo} onFinish={finish} loading={loading}/>}
     {screen==='stats'&&match&&stats&&<StatsScreen match={match} stats={stats} onReset={reset}/>}
     {modal&&match&&<ScoreModal players={match.players} onClose={()=>setModal(false)}
-      onSubmit={submitHand} loading={loading}/>}
+      onSubmit={submitHand} loading={loading} onMessage={setError}/>}
+    {dialog&&<ConfirmDialog {...dialog} onCancel={()=>setDialog(null)}/>}
+  </div>
+}
+
+function ConfirmDialog({title,message,confirmText='确定',danger=false,onConfirm,onCancel}:{
+  title:string;message:string;confirmText?:string;danger?:boolean;onConfirm:()=>void;onCancel:()=>void
+}){
+  return <div className="modal-backdrop dialog-backdrop" onClick={onCancel}>
+    <section className="confirm-dialog" onClick={event=>event.stopPropagation()}>
+      <div className="confirm-dialog-icon">{danger?'!':'?'}</div>
+      <h2>{title}</h2><p>{message}</p>
+      <div className="confirm-dialog-actions">
+        <button onClick={onCancel}>取消</button>
+        <button className={danger?'danger':''} onClick={onConfirm}>{confirmText}</button>
+      </div>
+    </section>
   </div>
 }
 
@@ -417,8 +449,9 @@ function PlayerDetailModal({player,match,onClose}:{player:Player;match:Match;onC
   </section></div>
 }
 
-function ScoreModal({players,onClose,onSubmit,loading}:{
-  players:Player[];onClose:()=>void;onSubmit:(x:HandInput)=>Promise<boolean>;loading:boolean
+function ScoreModal({players,onClose,onSubmit,loading,onMessage}:{
+  players:Player[];onClose:()=>void;onSubmit:(x:HandInput)=>Promise<boolean>;loading:boolean;
+  onMessage:(message:string)=>void
 }){
   const [type,setType]=useState<'ron'|'tsumo'|'draw'|'custom'>('ron')
   const [winner,setWinner]=useState(players[0].id)
@@ -448,7 +481,7 @@ function ScoreModal({players,onClose,onSubmit,loading}:{
       scores=players.map(p=>({playerId:p.id,change:0}))
     }else{
       scores=players.map(p=>({playerId:p.id,change:Math.round(custom[p.id]||0)}))
-      if(scores.reduce((s,x)=>s+x.change,0)!==0){alert('自定义分数之和必须为 0');return}
+      if(scores.reduce((s,x)=>s+x.change,0)!==0){onMessage('自定义分数之和必须为 0');return}
     }
     await onSubmit({
       type,winnerPlayerId:type==='ron'||type==='tsumo'?winner:undefined,
