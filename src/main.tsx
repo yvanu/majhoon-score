@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ArrowLeft, BarChart3, Check, Copy, Crown, ImageDown, Moon, Plus, RotateCcw, Sun, Trophy, X } from 'lucide-react'
 import { hc } from 'hono/client'
@@ -68,14 +68,21 @@ function App() {
     } catch(e) { setError((e as Error).message) } finally { setLoading(false) }
   }
 
-  async function submitHand(input:HandInput) {
-    if (!match) return
+  async function submitHand(input:HandInput): Promise<boolean> {
+    if (!match) return false
     setLoading(true); setError('')
     try {
       const data = await unwrap<{match:Match|null}>(client.api.matches[':id'].hands.$post({ param: { id: match.id }, json: input }, { headers: { 'x-admin-token': token } }))
       if (!data.match) throw new Error('保存计分失败')
-      setMatch(data.match); setModal(false)
-    } catch(e) { setError((e as Error).message) } finally { setLoading(false) }
+      setMatch(data.match)
+      setModal(false)
+      return true
+    } catch(e) {
+      setError((e as Error).message)
+      return false
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function undo() {
@@ -167,28 +174,119 @@ function MatchScreen({match,onAdd,onUndo,onFinish,loading}:{match:Match;onAdd:()
   </main>
 }
 
-function ScoreModal({players,onClose,onSubmit,loading}:{players:Player[];onClose:()=>void;onSubmit:(x:HandInput)=>void;loading:boolean}) {
+type Draft = Partial<{
+  type:'ron'|'tsumo'|'draw'|'custom'
+  winner:string
+  loser:string
+  amount:number
+  payments:Record<string,number>
+  custom:Record<string,number>
+}>
+
+function ScoreModal({players,onClose,onSubmit,loading}:{players:Player[];onClose:()=>void;onSubmit:(x:HandInput)=>Promise<boolean>;loading:boolean}) {
   const draftKey = `mahjong-draft-${players.map(p=>p.id).join('-')}`
-  const savedDraft = (() => { try { return JSON.parse(localStorage.getItem(draftKey) || '{}') as Partial<{type:'ron'|'tsumo'|'draw'|'custom';winner:string;loser:string;amount:number;payments:Record<string,number>;custom:Record<string,number>}> } catch { return {} } })()
-  const [type,setType] = useState<'ron'|'tsumo'|'draw'|'custom'>(savedDraft.type || 'ron')
-  const [winner,setWinner] = useState(savedDraft.winner || players[0].id)
-  const [loser,setLoser] = useState(savedDraft.loser || players[1].id)
-  const [amount,setAmount] = useState(savedDraft.amount || 100)
-  const [payments,setPayments] = useState<Record<string,number>>(()=>savedDraft.payments || Object.fromEntries(players.map(p=>[p.id,p.id===players[0].id?0:50])))
-  const [custom,setCustom] = useState<Record<string,number>>(()=>savedDraft.custom || Object.fromEntries(players.map(p=>[p.id,0])))
+  const playerIds = new Set(players.map(p=>p.id))
 
-  useEffect(()=>{ if(winner===loser) setLoser(players.find(p=>p.id!==winner)!.id) },[winner, loser, players])
-  useEffect(()=>{ localStorage.setItem(draftKey, JSON.stringify({type,winner,loser,amount,payments,custom})) },[draftKey,type,winner,loser,amount,payments,custom])
-  const totalCustom = Object.values(custom).reduce((a,b)=>a+Number(b),0)
-
-  function build() {
-    if(type==='ron') return {type,winnerPlayerId:winner,loserPlayerId:loser,scores:players.map(p=>({playerId:p.id,change:p.id===winner?amount:p.id===loser?-amount:0}))}
-    if(type==='tsumo') {
-      const paid = players.filter(p=>p.id!==winner).reduce((sum,p)=>sum+Math.max(0,Number(payments[p.id]||0)),0)
-      return {type,winnerPlayerId:winner,scores:players.map(p=>({playerId:p.id,change:p.id===winner?paid:-Math.max(0,Number(payments[p.id]||0))}))}
+  const savedDraft = (() => {
+    try {
+      return JSON.parse(localStorage.getItem(draftKey) || '{}') as Draft
+    } catch {
+      return {}
     }
-    if(type==='draw') return {type,scores:players.map(p=>({playerId:p.id,change:0})),note:'流局'}
-    return {type,scores:players.map(p=>({playerId:p.id,change:Number(custom[p.id]||0)}))}
+  })()
+
+  const initialWinner = savedDraft.winner && playerIds.has(savedDraft.winner) ? savedDraft.winner : players[0].id
+  const initialLoser = savedDraft.loser && playerIds.has(savedDraft.loser) && savedDraft.loser !== initialWinner
+    ? savedDraft.loser
+    : players.find(p=>p.id!==initialWinner)!.id
+
+  const [type,setType] = useState<'ron'|'tsumo'|'draw'|'custom'>(savedDraft.type || 'ron')
+  const [winner,setWinner] = useState(initialWinner)
+  const [loser,setLoser] = useState(initialLoser)
+  const [amount,setAmount] = useState(Math.max(0, Number(savedDraft.amount ?? 100)))
+  const [payments,setPayments] = useState<Record<string,number>>(() =>
+    Object.fromEntries(players.map(p => [
+      p.id,
+      Math.max(0, Number(savedDraft.payments?.[p.id] ?? 50))
+    ]))
+  )
+  const [custom,setCustom] = useState<Record<string,number>>(() =>
+    Object.fromEntries(players.map(p => [
+      p.id,
+      Number(savedDraft.custom?.[p.id] ?? 0)
+    ]))
+  )
+
+  useEffect(() => {
+    if (winner === loser) {
+      setLoser(players.find(p=>p.id!==winner)!.id)
+    }
+
+    setPayments(current => {
+      const next = {...current}
+      for (const player of players) {
+        if (player.id !== winner && Number(next[player.id]) <= 0) {
+          next[player.id] = 50
+        }
+      }
+      return next
+    })
+  }, [winner, loser, players])
+
+  useEffect(() => {
+    localStorage.setItem(draftKey, JSON.stringify({type,winner,loser,amount,payments,custom}))
+  }, [draftKey,type,winner,loser,amount,payments,custom])
+
+  const totalCustom = Object.values(custom).reduce((sum,value)=>sum+Number(value),0)
+  const tsumoPayers = players.filter(p=>p.id!==winner)
+  const tsumoValid = tsumoPayers.every(p=>Number(payments[p.id])>0)
+
+  function build(): HandInput {
+    if(type==='ron') {
+      return {
+        type,
+        winnerPlayerId:winner,
+        loserPlayerId:loser,
+        scores:players.map(p=>({
+          playerId:p.id,
+          change:p.id===winner ? amount : p.id===loser ? -amount : 0
+        }))
+      }
+    }
+
+    if(type==='tsumo') {
+      const paid = tsumoPayers.reduce((sum,p)=>sum+Math.max(0,Number(payments[p.id]||0)),0)
+      return {
+        type,
+        winnerPlayerId:winner,
+        scores:players.map(p=>({
+          playerId:p.id,
+          change:p.id===winner ? paid : -Math.max(0,Number(payments[p.id]||0))
+        }))
+      }
+    }
+
+    if(type==='draw') {
+      return {
+        type,
+        scores:players.map(p=>({playerId:p.id,change:0})),
+        note:'流局'
+      }
+    }
+
+    return {
+      type,
+      scores:players.map(p=>({playerId:p.id,change:Number(custom[p.id]||0)}))
+    }
+  }
+
+  async function confirmHand() {
+    if (loading) return
+    if (type === 'tsumo' && !tsumoValid) return
+    if (type === 'custom' && totalCustom !== 0) return
+
+    const saved = await onSubmit(build())
+    if (saved) localStorage.removeItem(draftKey)
   }
 
   return <div className="modal-backdrop"><section className="modal-card">
@@ -196,10 +294,10 @@ function ScoreModal({players,onClose,onSubmit,loading}:{players:Player[];onClose
     <div className="tabs">{(['ron','tsumo','draw','custom'] as const).map(t=><button className={type===t?'active':''} onClick={()=>setType(t)} key={t}>{typeName[t]}</button>)}</div>
     {(type==='ron'||type==='tsumo') && <><p className="field-title">谁胡了？</p><div className="player-picker">{players.map(p=><button className={winner===p.id?'selected':''} onClick={()=>setWinner(p.id)} key={p.id}><Avatar player={p}/><span>{p.name}</span></button>)}</div></>}
     {type==='ron' && <><p className="field-title">谁放炮？</p><div className="player-picker">{players.filter(p=>p.id!==winner).map(p=><button className={loser===p.id?'selected danger':''} onClick={()=>setLoser(p.id)} key={p.id}><Avatar player={p}/><span>{p.name}</span></button>)}</div><Amount value={amount} setValue={setAmount}/></>}
-    {type==='tsumo' && <div className="payments"><p className="field-title">其他玩家支付</p>{players.filter(p=>p.id!==winner).map(p=><label key={p.id}><span>{p.name}</span><input type="number" value={payments[p.id]} onChange={e=>setPayments({...payments,[p.id]:Number(e.target.value)})}/></label>)}</div>}
+    {type==='tsumo' && <div className="payments"><p className="field-title">其他玩家支付</p>{tsumoPayers.map(p=><label key={p.id}><span>{p.name}</span><input min="1" type="number" value={payments[p.id]} onChange={e=>setPayments({...payments,[p.id]:Math.max(0,Number(e.target.value))})}/></label>)}</div>}
     {type==='draw' && <div className="empty-state">🀫<b>本局流局</b><span>四位玩家分数不变</span></div>}
     {type==='custom' && <div className="payments"><p className="field-title">录入四人分数变化</p>{players.map(p=><label key={p.id}><span>{p.name}</span><input type="number" value={custom[p.id]} onChange={e=>setCustom({...custom,[p.id]:Number(e.target.value)})}/></label>)}<div className={totalCustom===0?'sum-ok':'sum-error'}>合计：{totalCustom} {totalCustom===0?'✓':'（必须为 0）'}</div></div>}
-    <button className="primary giant" disabled={loading||(type==='custom'&&totalCustom!==0)} onClick={()=>{ localStorage.removeItem(draftKey); onSubmit(build()) }}>{loading?'保存中…':'确认本局'}</button>
+    <button className="primary giant" disabled={loading||(type==='tsumo'&&!tsumoValid)||(type==='custom'&&totalCustom!==0)} onClick={confirmHand}>{loading?'保存中…':'确认本局'}</button>
   </section></div>
 }
 
