@@ -22,7 +22,7 @@ const gradients = [
 ]
 const windName:Record<string,string>={east:'东',south:'南',west:'西',north:'北'}
 const typeName:Record<string,string>={tsumo:'自摸',ron:'点炮',draw:'流局',custom:'自定义'}
-const noteOptions=['对对胡','混一色','清一色','七对','全球独钓','龙七','花开','杠开','外包']
+const noteOptions=['无花果','对对胡','混一色','清一色','七对','全球独钓','龙七','花开','杠开','外包']
 
 async function api<T>(url:string, init:RequestInit={}):Promise<T>{
   const auth=localStorage.getItem(AUTH_KEY)
