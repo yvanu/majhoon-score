@@ -401,10 +401,9 @@ function ScoreModal({players,onClose,onSubmit,loading}:{
       <span>{p.name}</span><input type="number" value={custom[p.id]}
         onChange={e=>setCustom({...custom,[p.id]:Number(e.target.value)})}/></label>)}</section>}
     <div className="score-input"><span>备注（可选）</span>
-      <select value={note} onChange={e=>setNote(e.target.value)}>
-        <option value="">不选择</option>
-        {noteOptions.map(option=><option key={option} value={option}>{option}</option>)}
-      </select>
+      <div className="note-options">{noteOptions.map(option=><button type="button"
+        className={note===option?'selected':''} key={option}
+        onClick={()=>setNote(note===option?'':option)}>{option}</button>)}</div>
     </div>
     <button className="primary giant" disabled={loading} onClick={save}>
       {loading?'保存中…':'确认保存'}<Check/>
