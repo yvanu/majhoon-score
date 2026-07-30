@@ -341,7 +341,7 @@ function PlayerDetailModal({player,match,onClose}:{player:Player;match:Match;onC
   const tsumoHands=wins.filter(hand=>hand.result_type==='tsumo')
   const ronHands=wins.filter(hand=>hand.result_type==='ron')
   const dealInHands=match.hands.filter(hand=>hand.result_type==='ron'&&hand.loser_player_id===player.id)
-  const bigNotes=noteOptions.filter(note=>note!=='无花果')
+  const bigNotes=noteOptions
   const hasBigHand=(hand:Match['hands'][number])=>bigNotes.some(note=>hand.note?.split('、').includes(note))
   const tsumoBig=tsumoHands.filter(hasBigHand)
   const ronBig=ronHands.filter(hasBigHand)
