@@ -342,17 +342,13 @@ function ScoreModal({players,onClose,onSubmit,loading}:{
   const [winner,setWinner]=useState(players[0].id)
   const [loser,setLoser]=useState(players[1].id)
   const [amount,setAmount]=useState(100)
-  const [payments,setPayments]=useState<Record<string,number>>(
-    Object.fromEntries(players.map(p=>[p.id,50])))
+  const [tsumoPayment,setTsumoPayment]=useState(50)
   const [custom,setCustom]=useState<Record<string,number>>(
     Object.fromEntries(players.map(p=>[p.id,0])))
   const [note,setNote]=useState('')
 
   useEffect(()=>{
     if(winner===loser)setLoser(players.find(p=>p.id!==winner)!.id)
-    setPayments(old=>Object.fromEntries(players.map(p=>[
-      p.id,p.id===winner?0:Math.max(1,Number(old[p.id]||50))
-    ])))
   },[winner])
 
   async function save(){
@@ -361,10 +357,11 @@ function ScoreModal({players,onClose,onSubmit,loading}:{
       const value=Math.max(1,Math.round(amount))
       scores=players.map(p=>({playerId:p.id,change:p.id===winner?value:p.id===loser?-value:0}))
     }else if(type==='tsumo'){
+      const payment=Math.max(1,Math.round(tsumoPayment))
       const losses=players.filter(p=>p.id!==winner).map(p=>({
-        playerId:p.id,change:-Math.max(1,Math.round(payments[p.id]||0))
+        playerId:p.id,change:-payment
       }))
-      scores=[...losses,{playerId:winner,change:-losses.reduce((s,x)=>s+x.change,0)}]
+      scores=[...losses,{playerId:winner,change:payment*losses.length}]
     }else if(type==='draw'){
       scores=players.map(p=>({playerId:p.id,change:0}))
     }else{
@@ -394,9 +391,8 @@ function ScoreModal({players,onClose,onSubmit,loading}:{
       <label className="score-input"><span>分数</span><input type="number" min="1" value={amount}
         onChange={e=>setAmount(Number(e.target.value))}/></label>
     </>}
-    {type==='tsumo'&&<section className="payment-list">{players.filter(p=>p.id!==winner).map(p=>
-      <label key={p.id}><span>{p.name} 支付</span><input type="number" min="1"
-        value={payments[p.id]} onChange={e=>setPayments({...payments,[p.id]:Number(e.target.value)})}/></label>)}</section>}
+    {type==='tsumo'&&<label className="score-input"><span>每人支付</span><input type="number" min="1"
+      value={tsumoPayment} onChange={e=>setTsumoPayment(Number(e.target.value))}/></label>}
     {type==='custom'&&<section className="payment-list">{players.map(p=><label key={p.id}>
       <span>{p.name}</span><input type="number" value={custom[p.id]}
         onChange={e=>setCustom({...custom,[p.id]:Number(e.target.value)})}/></label>)}</section>}
