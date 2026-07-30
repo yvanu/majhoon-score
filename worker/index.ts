@@ -91,10 +91,16 @@ function safeEqual(a: string, b: string) {
   return diff === 0
 }
 async function derivePassword(password: string, saltHex: string) {
-  const key = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits'])
+  const key = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(password),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveBits'],
+  )
   const salt = Uint8Array.from(saltHex.match(/.{2}/g) ?? [], h => parseInt(h, 16))
   const bits = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', salt, iterations: 210_000, hash: 'SHA-256' },
+    { name: 'PBKDF2', salt, iterations: 100_000, hash: 'SHA-256' },
     key,
     256,
   )
@@ -200,24 +206,30 @@ async function getMatch(db: D1Database, idOrCode: string): Promise<Match | null>
 app.get('/api/health', c => c.json({ ok: true, timestamp: now() }))
 
 app.post('/api/auth/register', async c => {
-  const body = await c.req.json().catch(() => null) as { username?: unknown; password?: unknown } | null
-  const username = typeof body?.username === 'string' ? body.username.trim() : ''
-  const password = typeof body?.password === 'string' ? body.password : ''
-  if (!/^[\p{L}\p{N}_-]{3,24}$/u.test(username))
-    return jsonError(c, '用户名需为 3–24 位，可使用中文、字母、数字、下划线和短横线')
-  if (password.length < 8 || password.length > 72)
-    return jsonError(c, '密码长度需为 8–72 位')
-  await ensureAuthSchema(c)
-  if (await c.env.DB.prepare('SELECT 1 FROM users WHERE username=? COLLATE NOCASE').bind(username).first())
-    return jsonError(c, '用户名已存在', 409)
+  try {
+    const body = await c.req.json().catch(() => null) as { username?: unknown; password?: unknown } | null
+    const username = typeof body?.username === 'string' ? body.username.trim() : ''
+    const password = typeof body?.password === 'string' ? body.password : ''
+    if (!/^[\p{L}\p{N}_-]{3,24}$/u.test(username))
+      return jsonError(c, '用户名需为 3–24 位，可使用中文、字母、数字、下划线和短横线')
+    if (password.length < 8 || password.length > 72)
+      return jsonError(c, '密码长度需为 8–72 位')
+    await ensureAuthSchema(c)
+    if (await c.env.DB.prepare('SELECT 1 FROM users WHERE username=? COLLATE NOCASE').bind(username).first())
+      return jsonError(c, '用户名已存在', 409)
 
-  const id = uid(), salt = randomHex(16), createdAt = now()
-  await c.env.DB.prepare(`
-    INSERT INTO users(id,username,password_hash,password_salt,created_at)
-    VALUES(?,?,?,?,?)
-  `).bind(id, username, await derivePassword(password, salt), salt, createdAt).run()
-  const session = await createSession(c, id)
-  return c.json({ user: { id, username, created_at: createdAt }, ...session }, 201)
+    const id = uid(), salt = randomHex(16), createdAt = now()
+    const passwordHash = await derivePassword(password, salt)
+    await c.env.DB.prepare(`
+      INSERT INTO users(id,username,password_hash,password_salt,created_at)
+      VALUES(?,?,?,?,?)
+    `).bind(id, username, passwordHash, salt, createdAt).run()
+    const session = await createSession(c, id)
+    return c.json({ user: { id, username, created_at: createdAt }, ...session }, 201)
+  } catch (error) {
+    console.error('register failed', error)
+    return jsonError(c, '注册失败，请稍后重试', 500)
+  }
 })
 
 app.post('/api/auth/login', async c => {
