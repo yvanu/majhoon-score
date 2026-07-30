@@ -17,7 +17,8 @@ const gradients = [
 const windName:Record<string,string> = { east:'东', south:'南', west:'西', north:'北' }
 const typeName:Record<string,string> = { tsumo:'自摸', ron:'点炮', draw:'流局', custom:'自定义' }
 
-async function unwrap<T>(response: Response): Promise<T> {
+async function unwrap<T>(responsePromise: Promise<Response>): Promise<T> {
+  const response = await responsePromise
   const body = await response.json() as T | { error?: string }
   if (!response.ok) throw new Error('error' in (body as object) && (body as {error?:string}).error ? (body as {error:string}).error : '请求失败')
   return body as T
