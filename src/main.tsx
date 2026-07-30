@@ -328,10 +328,6 @@ function MatchScreen({match,onAdd,onUndo,onFinish,loading}:{
       <button onClick={onUndo} disabled={!match.hands.length||loading}><RotateCcw/>撤销上一局</button>
       <button onClick={onFinish} disabled={loading}><BarChart3/>结束本将</button>
     </div>
-    {!!match.hands.length&&<section className="recent"><h3>最近记录</h3>
-      {match.hands.slice(0,6).map(h=><div className="history-row" key={h.id}>
-        <span>{windName[h.wind]}{h.hand_number}</span><b>{typeName[h.result_type]}</b>
-        <small>{h.note||`第 ${h.sequence} 局`}</small></div>)}</section>}
   </main>
 }
 
