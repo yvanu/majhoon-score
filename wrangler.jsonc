@@ -13,7 +13,7 @@
     {
       "binding": "DB",
       "database_name": "mahjong-score-db",
-      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID",
+      "database_id": "3b7fbaf8-f0a9-4b92-b1b7-b6e945c5d754",
       "migrations_dir": "migrations"
     }
   ]
