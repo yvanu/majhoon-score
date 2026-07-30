@@ -341,7 +341,7 @@ function ScoreModal({players,onClose,onSubmit,loading}:{
   const [tsumoPayment,setTsumoPayment]=useState(50)
   const [custom,setCustom]=useState<Record<string,number>>(
     Object.fromEntries(players.map(p=>[p.id,0])))
-  const [note,setNote]=useState('')
+  const [notes,setNotes]=useState<string[]>([])
 
   useEffect(()=>{
     if(winner===loser)setLoser(players.find(p=>p.id!==winner)!.id)
@@ -366,7 +366,7 @@ function ScoreModal({players,onClose,onSubmit,loading}:{
     }
     await onSubmit({
       type,winnerPlayerId:type==='ron'||type==='tsumo'?winner:undefined,
-      loserPlayerId:type==='ron'?loser:undefined,scores,note:note.trim()||undefined,
+      loserPlayerId:type==='ron'?loser:undefined,scores,note:notes.length?notes.join('、'):undefined,
     })
   }
 
@@ -394,8 +394,9 @@ function ScoreModal({players,onClose,onSubmit,loading}:{
         onChange={e=>setCustom({...custom,[p.id]:Number(e.target.value)})}/></label>)}</section>}
     <div className="score-input"><span>备注（可选）</span>
       <div className="note-options">{noteOptions.map(option=><button type="button"
-        className={note===option?'selected':''} key={option}
-        onClick={()=>setNote(note===option?'':option)}>{option}</button>)}</div>
+        className={notes.includes(option)?'selected':''} key={option}
+        onClick={()=>setNotes(current=>current.includes(option)
+          ?current.filter(item=>item!==option):[...current,option])}>{option}</button>)}</div>
     </div>
     <button className="primary giant" disabled={loading} onClick={save}>
       {loading?'保存中…':'确认保存'}<Check/>
