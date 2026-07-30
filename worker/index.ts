@@ -1,6 +1,6 @@
 import { Hono, type Context } from 'hono'
 import type {
-  AuthUser, HandInput, HandType, Match, MatchSummary,
+  AuthUser, DailyStats, HandInput, HandType, Match, MatchSummary,
   Player, PlayerStat, Stats, Wind,
 } from '../shared/types'
 
@@ -286,6 +286,42 @@ app.get('/api/me/matches', async c => {
     player_names: typeof r.player_names === 'string' ? r.player_names.split(',') : [],
   }))
   return c.json({ matches })
+})
+
+app.get('/api/me/daily-statistics', async c => {
+  const user = await currentUser(c)
+  if (!user) return jsonError(c, '请先登录', 401)
+  const date = c.req.query('date') || now().slice(0,10)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return jsonError(c, '日期格式无效')
+  const start = `${date}T00:00:00.000Z`, end = `${date}T23:59:59.999Z`
+  const summary = await c.env.DB.prepare(`
+    SELECT COUNT(DISTINCT m.id) match_count, COUNT(DISTINCT h.id) hand_count
+    FROM matches m LEFT JOIN hands h ON h.match_id=m.id
+    WHERE m.owner_user_id=? AND m.created_at BETWEEN ? AND ?
+  `).bind(user.id,start,end).first<{match_count:number;hand_count:number}>()
+  const result = await c.env.DB.prepare(`
+    SELECT p.name,
+      COALESCE(SUM(hs.score_change),0) score,
+      SUM(CASE WHEN h.winner_player_id=p.id THEN 1 ELSE 0 END) wins,
+      SUM(CASE WHEN h.result_type='tsumo' AND h.winner_player_id=p.id THEN 1 ELSE 0 END) tsumo,
+      SUM(CASE WHEN h.result_type='ron' AND h.loser_player_id=p.id THEN 1 ELSE 0 END) deal_in
+    FROM matches m
+    JOIN players p ON p.match_id=m.id
+    LEFT JOIN hand_scores hs ON hs.player_id=p.id
+    LEFT JOIN hands h ON h.id=hs.hand_id
+    WHERE m.owner_user_id=? AND m.created_at BETWEEN ? AND ?
+    GROUP BY p.name ORDER BY score DESC,wins DESC,p.name ASC
+  `).bind(user.id,start,end).all<Record<string,unknown>>()
+  const stats: DailyStats = {
+    date,
+    matchCount:Number(summary?.match_count??0),
+    handCount:Number(summary?.hand_count??0),
+    players:result.results.map(row=>({
+      name:String(row.name),score:Number(row.score??0),wins:Number(row.wins??0),
+      tsumo:Number(row.tsumo??0),deal_in:Number(row.deal_in??0),
+    })),
+  }
+  return c.json(stats)
 })
 
 app.post('/api/matches', async c => {

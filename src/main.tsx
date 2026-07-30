@@ -5,7 +5,7 @@ import {
   LogOut, Moon, Plus, RotateCcw, Sun, UserPlus, X,
 } from 'lucide-react'
 import type {
-  AuthUser, HandInput, Match, MatchSummary, Player, Stats,
+  AuthUser, DailyStats, HandInput, Match, MatchSummary, Player, Stats,
 } from '../shared/types'
 import './styles.css'
 
@@ -53,7 +53,7 @@ function Avatar({player,large=false}:{player:Player;large?:boolean}){
   </div>
 }
 
-type Screen='home'|'create'|'match'|'stats'|'auth'|'history'|'join'
+type Screen='home'|'create'|'match'|'stats'|'auth'|'history'|'join'|'daily'
 
 function App(){
   const [screen,setScreen]=useState<Screen>('home')
@@ -62,6 +62,7 @@ function App(){
   const [adminToken,setAdminToken]=useState('')
   const [user,setUser]=useState<AuthUser|null>(null)
   const [history,setHistory]=useState<MatchSummary[]>([])
+  const [dailyStats,setDailyStats]=useState<DailyStats|null>(null)
   const [modal,setModal]=useState(false)
   const [loading,setLoading]=useState(false)
   const [error,setError]=useState('')
@@ -176,6 +177,15 @@ function App(){
     catch(e){setError((e as Error).message)}
     finally{setLoading(false)}
   }
+  async function showDailyStats(){
+    if(!user){setScreen('auth');return}
+    setLoading(true);setError('')
+    try{
+      setDailyStats(await api<DailyStats>('/api/me/daily-statistics'))
+      setScreen('daily')
+    }catch(e){setError((e as Error).message)}
+    finally{setLoading(false)}
+  }
   async function logout(){
     try{await api('/api/auth/logout',writeInit('POST'))}catch{}
     localStorage.removeItem(AUTH_KEY);setUser(null);setHistory([]);setScreen('home')
@@ -191,12 +201,13 @@ function App(){
     </button>
     {error&&<div className="toast" onClick={()=>setError('')}><span>{error}</span><X size={18}/></div>}
     {screen==='home'&&<Home user={user} onStart={()=>setScreen('create')}
-      onHistory={showHistory} onJoin={()=>setScreen('join')} onLogout={logout}/>}
+      onHistory={showHistory} onJoin={()=>setScreen('join')} onDaily={showDailyStats} onLogout={logout}/>}
     {screen==='create'&&<Create onBack={()=>setScreen('home')} onCreate={create} loading={loading}/>}
     {screen==='join'&&<Join onBack={()=>setScreen('home')} onOpen={code=>openMatch(code,true)} loading={loading}/>}
     {screen==='auth'&&<Auth onBack={()=>setScreen('home')} onSubmit={login} loading={loading}/>}
     {screen==='history'&&user&&<HistoryScreen user={user} matches={history}
       onBack={()=>setScreen('home')} onOpen={m=>openMatch(m.id,true)} onLogout={logout}/>}
+    {screen==='daily'&&dailyStats&&<DailyStatsScreen stats={dailyStats} onBack={()=>setScreen('home')}/>}
     {screen==='match'&&match&&<MatchScreen match={match} onAdd={()=>setModal(true)}
       onUndo={undo} onFinish={finish} loading={loading}/>}
     {screen==='stats'&&match&&stats&&<StatsScreen match={match} stats={stats} onReset={reset}/>}
@@ -205,8 +216,8 @@ function App(){
   </div>
 }
 
-function Home({user,onStart,onHistory,onJoin,onLogout}:{
-  user:AuthUser|null;onStart:()=>void;onHistory:()=>void;onJoin:()=>void;onLogout:()=>void
+function Home({user,onStart,onHistory,onJoin,onDaily,onLogout}:{
+  user:AuthUser|null;onStart:()=>void;onHistory:()=>void;onJoin:()=>void;onDaily:()=>void;onLogout:()=>void
 }){
   return <main className="home page">
     <section className="hero-card"><div className="brand-mark">雀</div>
@@ -219,11 +230,23 @@ function Home({user,onStart,onHistory,onJoin,onLogout}:{
       <button onClick={onJoin}><Copy/>输入分享码</button>
     </div>
     {user&&<button className="text-btn" onClick={onLogout}><LogOut size={16}/>退出登录</button>}
-    <section className="feature-grid">
-      <div><b>4 圈</b><span>完整一将</span></div>
-      <div><b>跨设备</b><span>登录后继续</span></div>
-      <div><b>统计</b><span>排名胜率</span></div>
+    <button className="daily-stats-entry" onClick={onDaily}><BarChart3/><span><b>每日战绩统计</b><small>查看今天所有牌局汇总</small></span></button>
+  </main>
+}
+
+function DailyStatsScreen({stats,onBack}:{stats:DailyStats;onBack:()=>void}){
+  return <main className="page"><Header onBack={onBack} eyebrow="DAILY RESULT" title="每日战绩统计"/>
+    <section className="daily-overview">
+      <div><span>日期</span><strong>{stats.date}</strong></div>
+      <div><span>牌局</span><strong>{stats.matchCount} 将</strong></div>
+      <div><span>局数</span><strong>{stats.handCount} 局</strong></div>
     </section>
+    {!stats.players.length&&<div className="empty">🀫<b>今日暂无战绩</b><span>完成牌局后会显示在这里</span></div>}
+    <section className="daily-player-list">{stats.players.map((player,index)=><article key={player.name}>
+      <span className="daily-rank">#{index+1}</span>
+      <div><b>{player.name}</b><small>胡牌 {player.wins} · 自摸 {player.tsumo} · 点炮 {player.deal_in}</small></div>
+      <strong className={player.score>=0?'positive':'negative'}>{player.score>0?'+':''}{player.score}</strong>
+    </article>)}</section>
   </main>
 }
 

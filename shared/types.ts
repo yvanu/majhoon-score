@@ -51,6 +51,19 @@ export interface PlayerStat extends Player {
   tsumoShare: number
 }
 export interface Stats { totalHands: number; players: PlayerStat[] }
+export interface DailyPlayerStat {
+  name: string
+  score: number
+  wins: number
+  tsumo: number
+  deal_in: number
+}
+export interface DailyStats {
+  date: string
+  matchCount: number
+  handCount: number
+  players: DailyPlayerStat[]
+}
 
 export interface AuthUser {
   id: string
