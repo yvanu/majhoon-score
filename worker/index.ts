@@ -20,6 +20,62 @@ const now = () => new Date().toISOString()
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null
 
+const authSchemaReady = new WeakMap<D1Database, Promise<void>>()
+
+async function ensureAuthSchema(c: Context<Env>) {
+  const existing = authSchemaReady.get(c.env.DB)
+  if (existing) return existing
+
+  const ready = (async () => {
+    await c.env.DB.batch([
+      c.env.DB.prepare(`
+        CREATE TABLE IF NOT EXISTS users (
+          id TEXT PRIMARY KEY,
+          username TEXT NOT NULL COLLATE NOCASE UNIQUE,
+          password_hash TEXT NOT NULL,
+          password_salt TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        )
+      `),
+      c.env.DB.prepare(`
+        CREATE TABLE IF NOT EXISTS sessions (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          token_hash TEXT NOT NULL UNIQUE,
+          expires_at TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+      `),
+      c.env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_token_hash ON sessions(token_hash)'),
+      c.env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)'),
+    ])
+
+    const columns = await c.env.DB.prepare('PRAGMA table_info(matches)')
+      .all<{ name: string }>()
+    if (columns.results.length > 0) {
+      const hasOwnerColumn = columns.results.some(column => column.name === 'owner_user_id')
+      if (!hasOwnerColumn) {
+        try {
+          await c.env.DB.prepare('ALTER TABLE matches ADD COLUMN owner_user_id TEXT REFERENCES users(id)').run()
+        } catch (error) {
+          if (!String(error).toLowerCase().includes('duplicate column')) throw error
+        }
+      }
+      await c.env.DB.prepare(`
+        CREATE INDEX IF NOT EXISTS idx_matches_owner_created
+        ON matches(owner_user_id, created_at DESC)
+      `).run()
+    }
+  })().catch(error => {
+    authSchemaReady.delete(c.env.DB)
+    throw error
+  })
+
+  authSchemaReady.set(c.env.DB, ready)
+  return ready
+}
+
 function randomHex(length: number) {
   const bytes = crypto.getRandomValues(new Uint8Array(length))
   return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('')
@@ -51,6 +107,7 @@ function bearer(c: Context<Env>) {
 async function currentUser(c: Context<Env>): Promise<AuthUser | null> {
   const token = bearer(c)
   if (!token) return null
+  await ensureAuthSchema(c)
   return await c.env.DB.prepare(`
     SELECT u.id, u.username, u.created_at
     FROM sessions s JOIN users u ON u.id = s.user_id
@@ -150,6 +207,7 @@ app.post('/api/auth/register', async c => {
     return jsonError(c, '用户名需为 3–24 位，可使用中文、字母、数字、下划线和短横线')
   if (password.length < 8 || password.length > 72)
     return jsonError(c, '密码长度需为 8–72 位')
+  await ensureAuthSchema(c)
   if (await c.env.DB.prepare('SELECT 1 FROM users WHERE username=? COLLATE NOCASE').bind(username).first())
     return jsonError(c, '用户名已存在', 409)
 
@@ -166,6 +224,7 @@ app.post('/api/auth/login', async c => {
   const body = await c.req.json().catch(() => null) as { username?: unknown; password?: unknown } | null
   const username = typeof body?.username === 'string' ? body.username.trim() : ''
   const password = typeof body?.password === 'string' ? body.password : ''
+  await ensureAuthSchema(c)
   const user = await c.env.DB.prepare(`
     SELECT id,username,password_hash,password_salt,created_at
     FROM users WHERE username=? COLLATE NOCASE
@@ -185,7 +244,10 @@ app.get('/api/auth/me', async c => {
 })
 app.post('/api/auth/logout', async c => {
   const token = bearer(c)
-  if (token) await c.env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(await sha256(token)).run()
+  if (token) {
+    await ensureAuthSchema(c)
+    await c.env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(await sha256(token)).run()
+  }
   return c.json({ ok: true })
 })
 
@@ -217,6 +279,7 @@ app.get('/api/me/matches', async c => {
 app.post('/api/matches', async c => {
   const players = validatePlayers(await c.req.json().catch(() => null))
   if (!players) return jsonError(c, '请输入四个不重复的玩家姓名')
+  await ensureAuthSchema(c)
   const matchId = uid(), adminToken = randomHex(24), createdAt = now()
   const user = await currentUser(c)
   let code = shareCode()
