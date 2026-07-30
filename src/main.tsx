@@ -342,10 +342,6 @@ function PlayerDetailModal({player,match,onClose}:{player:Player;match:Match;onC
   const ronHands=wins.filter(hand=>hand.result_type==='ron')
   const dealInHands=match.hands.filter(hand=>hand.result_type==='ron'&&hand.loser_player_id===player.id)
   const bigNotes=noteOptions
-  const hasBigHand=(hand:Match['hands'][number])=>bigNotes.some(note=>hand.note?.split('、').includes(note))
-  const tsumoBig=tsumoHands.filter(hasBigHand)
-  const ronBig=ronHands.filter(hasBigHand)
-  const dealInBig=dealInHands.filter(hasBigHand)
   const countNote=(hands:Match['hands'],note:string)=>hands.filter(hand=>hand.note?.split('、').includes(note)).length
   return <div className="modal-backdrop"><section className="modal player-detail-modal">
     <header><div><p className="eyebrow">PLAYER RECORD</p><h2>{player.name} 的战绩</h2></div>
@@ -356,20 +352,17 @@ function PlayerDetailModal({player,match,onClose}:{player:Player;match:Match;onC
       <div><span>点炮胡</span><strong>{ronHands.length}</strong></div>
       <div><span>点炮</span><strong>{dealInHands.length}</strong></div>
     </section>
-    <section className="detail-group"><h3>自摸明细</h3>
-      <p>普通自摸 <b>{tsumoHands.length-tsumoBig.length}</b> 把 · 大胡 <b>{tsumoBig.length}</b> 把</p>
+    <section className="detail-group"><h3>自摸明细 <span>共 {tsumoHands.length} 把</span></h3>
       <div className="detail-tags">{bigNotes.map(note=>{
         const count=countNote(tsumoHands,note);return count?<span key={note}>{note} {count}</span>:null
       })}</div>
     </section>
-    <section className="detail-group"><h3>点炮胡明细</h3>
-      <p>普通点炮胡 <b>{ronHands.length-ronBig.length}</b> 把 · 大胡 <b>{ronBig.length}</b> 把</p>
+    <section className="detail-group"><h3>点炮胡明细 <span>共 {ronHands.length} 把</span></h3>
       <div className="detail-tags">{bigNotes.map(note=>{
         const count=countNote(ronHands,note);return count?<span key={note}>{note} {count}</span>:null
       })}</div>
     </section>
-    <section className="detail-group"><h3>点炮明细</h3>
-      <p>普通点炮 <b>{dealInHands.length-dealInBig.length}</b> 把 · 大胡点炮 <b>{dealInBig.length}</b> 把</p>
+    <section className="detail-group"><h3>点炮明细 <span>共 {dealInHands.length} 把</span></h3>
       <div className="detail-tags">{bigNotes.map(note=>{
         const count=countNote(dealInHands,note);return count?<span key={note}>{note} {count}</span>:null
       })}</div>
