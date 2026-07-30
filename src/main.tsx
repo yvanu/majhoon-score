@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { ArrowLeft, BarChart3, Check, Copy, Crown, Plus, RotateCcw, Trophy, X } from 'lucide-react'
+import { ArrowLeft, BarChart3, Check, Copy, Crown, ImageDown, Moon, Plus, RotateCcw, Sun, Trophy, X } from 'lucide-react'
+import { hc } from 'hono/client'
+import type { AppType } from '../worker'
+import type { HandInput, Match, Player, Stats } from '../shared/types'
 import './styles.css'
 
-type Player = { id: string; name: string; avatar_seed: number; seat: number; score: number }
-type Hand = { id:string; sequence:number; wind:string; hand_number:number; result_type:string; winner_player_id?:string; loser_player_id?:string; note?:string }
-type Match = { id:string; share_code:string; status:'active'|'finished'; current_wind:string; current_hand:number; players:Player[]; hands:Hand[] }
-type Stats = { totalHands:number; players:Array<Player & {rank:number;wins:number;tsumo:number;deal_in:number;winRate:number;dealInRate:number;tsumoShare:number;max_gain:number;max_loss:number}> }
+const client = hc<AppType>('/')
 
 const animals = ['🐼','🐯','🦊','🐸','🐧','🐵','🦁','🐨','🐰','🐲','🦄','🐙']
 const gradients = [
@@ -17,14 +17,10 @@ const gradients = [
 const windName:Record<string,string> = { east:'东', south:'南', west:'西', north:'北' }
 const typeName:Record<string,string> = { tsumo:'自摸', ron:'点炮', draw:'流局', custom:'自定义' }
 
-async function api<T>(path:string, options:RequestInit = {}, token?:string):Promise<T> {
-  const response = await fetch(path, {
-    ...options,
-    headers: { 'content-type':'application/json', ...(token ? {'x-admin-token':token}:{}), ...(options.headers||{}) }
-  })
-  const body = await response.json() as any
-  if (!response.ok) throw new Error(body.error || '请求失败')
-  return body
+async function unwrap<T>(response: Response): Promise<T> {
+  const body = await response.json() as T | { error?: string }
+  if (!response.ok) throw new Error('error' in (body as object) && (body as {error?:string}).error ? (body as {error:string}).error : '请求失败')
+  return body as T
 }
 
 function Avatar({ player, large=false }:{player:Player;large?:boolean}) {
@@ -40,13 +36,16 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [stats, setStats] = useState<Stats|null>(null)
+  const [theme, setTheme] = useState<'dark'|'light'>(() => (localStorage.getItem('mahjong-theme') as 'dark'|'light') || 'dark')
+
+  useEffect(() => { document.documentElement.dataset.theme = theme; localStorage.setItem('mahjong-theme', theme) }, [theme])
 
   useEffect(() => {
     const saved = localStorage.getItem('mahjong-current')
     if (!saved) return
     try {
       const value = JSON.parse(saved)
-      api<{match:Match}>(`/api/matches/${value.id}`).then(({match}) => {
+      unwrap<{match:Match}>(client.api.matches[':id'].$get({ param: { id: value.id } })).then(({match}) => {
         setMatch(match); setToken(value.token || ''); setScreen(match.status === 'finished' ? 'stats' : 'match')
         if (match.status === 'finished') loadStats(match.id)
       }).catch(() => localStorage.removeItem('mahjong-current'))
@@ -54,24 +53,26 @@ function App() {
   }, [])
 
   async function loadStats(id:string) {
-    const value = await api<Stats>(`/api/matches/${id}/statistics`)
+    const value = await unwrap<Stats>(client.api.matches[':id'].statistics.$get({ param: { id } }))
     setStats(value)
   }
 
   async function create(names:string[]) {
     setLoading(true); setError('')
     try {
-      const data = await api<{match:Match;adminToken:string}>('/api/matches', {method:'POST', body:JSON.stringify({players:names})})
+      const data = await unwrap<{match:Match|null;adminToken:string}>(client.api.matches.$post({ json: { players: names } }))
+      if (!data.match) throw new Error('创建牌局失败')
       setMatch(data.match); setToken(data.adminToken); setScreen('match')
       localStorage.setItem('mahjong-current', JSON.stringify({id:data.match.id, token:data.adminToken}))
     } catch(e) { setError((e as Error).message) } finally { setLoading(false) }
   }
 
-  async function submitHand(input:any) {
+  async function submitHand(input:HandInput) {
     if (!match) return
     setLoading(true); setError('')
     try {
-      const data = await api<{match:Match}>(`/api/matches/${match.id}/hands`, {method:'POST', body:JSON.stringify(input)}, token)
+      const data = await unwrap<{match:Match|null}>(client.api.matches[':id'].hands.$post({ param: { id: match.id }, json: input }, { headers: { 'x-admin-token': token } }))
+      if (!data.match) throw new Error('保存计分失败')
       setMatch(data.match); setModal(false)
     } catch(e) { setError((e as Error).message) } finally { setLoading(false) }
   }
@@ -80,7 +81,8 @@ function App() {
     if (!match || !confirm('撤销上一局计分？')) return
     setLoading(true)
     try {
-      const data = await api<{match:Match}>(`/api/matches/${match.id}/hands/last`, {method:'DELETE'}, token)
+      const data = await unwrap<{match:Match|null}>(client.api.matches[':id'].hands.last.$delete({ param: { id: match.id } }, { headers: { 'x-admin-token': token } }))
+      if (!data.match) throw new Error('撤销失败')
       setMatch(data.match)
     } catch(e) { setError((e as Error).message) } finally { setLoading(false) }
   }
@@ -89,7 +91,8 @@ function App() {
     if (!match || !confirm('确定结束本将？结束后不能继续录分。')) return
     setLoading(true)
     try {
-      const data = await api<{match:Match}>(`/api/matches/${match.id}/finish`, {method:'POST'}, token)
+      const data = await unwrap<{match:Match|null}>(client.api.matches[':id'].finish.$post({ param: { id: match.id } }, { headers: { 'x-admin-token': token } }))
+      if (!data.match) throw new Error('结束牌局失败')
       setMatch(data.match); await loadStats(match.id); setScreen('stats')
     } catch(e) { setError((e as Error).message) } finally { setLoading(false) }
   }
@@ -99,6 +102,7 @@ function App() {
   }
 
   return <div className="app-shell">
+    <button className="theme-toggle" aria-label="切换主题" onClick={()=>setTheme(theme==='dark'?'light':'dark')}>{theme==='dark'?<Sun size={18}/>:<Moon size={18}/>}</button>
     {error && <div className="toast" onClick={()=>setError('')}><span>{error}</span><X size={18}/></div>}
     {screen === 'home' && <Home onStart={()=>setScreen('create')} />}
     {screen === 'create' && <Create onBack={()=>setScreen('home')} onCreate={create} loading={loading}/>} 
@@ -141,6 +145,9 @@ function Create({onBack,onCreate,loading}:{onBack:()=>void;onCreate:(n:string[])
 
 function MatchScreen({match,onAdd,onUndo,onFinish,loading}:{match:Match;onAdd:()=>void;onUndo:()=>void;onFinish:()=>void;loading:boolean}) {
   const ranked = [...match.players].sort((a,b)=>Number(b.score)-Number(a.score))
+  let undoTimer: number | undefined
+  const startUndo = () => { undoTimer = window.setTimeout(onUndo, 650) }
+  const stopUndo = () => { if (undoTimer) window.clearTimeout(undoTimer) }
   return <main className="page match-page">
     <header className="match-header">
       <div><p className="eyebrow">{windName[match.current_wind]}风 · 第 {match.current_hand} 局</p><h2>雀局进行中</h2></div>
@@ -153,21 +160,24 @@ function MatchScreen({match,onAdd,onUndo,onFinish,loading}:{match:Match;onAdd:()
       </article>)}
     </section>
     <section className="round-summary"><span>已完成</span><b>{match.hands.length} 局</b><span>·</span><span>总分守恒</span></section>
-    <button className="primary giant" onClick={onAdd} disabled={loading}><Plus/> 记一局</button>
-    <div className="secondary-actions"><button onClick={onUndo} disabled={!match.hands.length||loading}><RotateCcw size={17}/>撤销上一局</button><button onClick={onFinish} disabled={loading}><BarChart3 size={17}/>结束本将</button></div>
+    <div className="sticky-score-action"><button className="primary giant" onClick={onAdd} disabled={loading}><Plus/> 记一局</button></div>
+    <div className="secondary-actions"><button onClick={onUndo} onPointerDown={startUndo} onPointerUp={stopUndo} onPointerLeave={stopUndo} disabled={!match.hands.length||loading}><RotateCcw size={17}/>撤销上一局</button><button onClick={onFinish} disabled={loading}><BarChart3 size={17}/>结束本将</button></div>
     {match.hands.length>0 && <section className="recent"><h3>最近记录</h3>{match.hands.slice(0,5).map(h=><div className="history-row" key={h.id}><span>{windName[h.wind]}{h.hand_number}</span><b>{typeName[h.result_type]}</b><small>{h.note||`第 ${h.sequence} 局`}</small></div>)}</section>}
   </main>
 }
 
-function ScoreModal({players,onClose,onSubmit,loading}:{players:Player[];onClose:()=>void;onSubmit:(x:any)=>void;loading:boolean}) {
-  const [type,setType] = useState<'ron'|'tsumo'|'draw'|'custom'>('ron')
-  const [winner,setWinner] = useState(players[0].id)
-  const [loser,setLoser] = useState(players[1].id)
-  const [amount,setAmount] = useState(100)
-  const [payments,setPayments] = useState<Record<string,number>>(()=>Object.fromEntries(players.map(p=>[p.id,p.id===players[0].id?0:50])))
-  const [custom,setCustom] = useState<Record<string,number>>(()=>Object.fromEntries(players.map(p=>[p.id,0])))
+function ScoreModal({players,onClose,onSubmit,loading}:{players:Player[];onClose:()=>void;onSubmit:(x:HandInput)=>void;loading:boolean}) {
+  const draftKey = `mahjong-draft-${players.map(p=>p.id).join('-')}`
+  const savedDraft = (() => { try { return JSON.parse(localStorage.getItem(draftKey) || '{}') as Partial<{type:'ron'|'tsumo'|'draw'|'custom';winner:string;loser:string;amount:number;payments:Record<string,number>;custom:Record<string,number>}> } catch { return {} } })()
+  const [type,setType] = useState<'ron'|'tsumo'|'draw'|'custom'>(savedDraft.type || 'ron')
+  const [winner,setWinner] = useState(savedDraft.winner || players[0].id)
+  const [loser,setLoser] = useState(savedDraft.loser || players[1].id)
+  const [amount,setAmount] = useState(savedDraft.amount || 100)
+  const [payments,setPayments] = useState<Record<string,number>>(()=>savedDraft.payments || Object.fromEntries(players.map(p=>[p.id,p.id===players[0].id?0:50])))
+  const [custom,setCustom] = useState<Record<string,number>>(()=>savedDraft.custom || Object.fromEntries(players.map(p=>[p.id,0])))
 
-  useEffect(()=>{ if(winner===loser) setLoser(players.find(p=>p.id!==winner)!.id) },[winner])
+  useEffect(()=>{ if(winner===loser) setLoser(players.find(p=>p.id!==winner)!.id) },[winner, loser, players])
+  useEffect(()=>{ localStorage.setItem(draftKey, JSON.stringify({type,winner,loser,amount,payments,custom})) },[draftKey,type,winner,loser,amount,payments,custom])
   const totalCustom = Object.values(custom).reduce((a,b)=>a+Number(b),0)
 
   function build() {
@@ -188,12 +198,27 @@ function ScoreModal({players,onClose,onSubmit,loading}:{players:Player[];onClose
     {type==='tsumo' && <div className="payments"><p className="field-title">其他玩家支付</p>{players.filter(p=>p.id!==winner).map(p=><label key={p.id}><span>{p.name}</span><input type="number" value={payments[p.id]} onChange={e=>setPayments({...payments,[p.id]:Number(e.target.value)})}/></label>)}</div>}
     {type==='draw' && <div className="empty-state">🀫<b>本局流局</b><span>四位玩家分数不变</span></div>}
     {type==='custom' && <div className="payments"><p className="field-title">录入四人分数变化</p>{players.map(p=><label key={p.id}><span>{p.name}</span><input type="number" value={custom[p.id]} onChange={e=>setCustom({...custom,[p.id]:Number(e.target.value)})}/></label>)}<div className={totalCustom===0?'sum-ok':'sum-error'}>合计：{totalCustom} {totalCustom===0?'✓':'（必须为 0）'}</div></div>}
-    <button className="primary giant" disabled={loading||(type==='custom'&&totalCustom!==0)} onClick={()=>onSubmit(build())}>{loading?'保存中…':'确认本局'}</button>
+    <button className="primary giant" disabled={loading||(type==='custom'&&totalCustom!==0)} onClick={()=>{ localStorage.removeItem(draftKey); onSubmit(build()) }}>{loading?'保存中…':'确认本局'}</button>
   </section></div>
 }
 
 function Amount({value,setValue}:{value:number;setValue:(n:number)=>void}) {
   return <div className="amount-box"><p className="field-title">分数</p><div className="amount-control"><button onClick={()=>setValue(Math.max(0,value-10))}>−</button><input type="number" value={value} onChange={e=>setValue(Math.max(0,Number(e.target.value)))}/><button onClick={()=>setValue(value+10)}>＋</button></div><div className="chips">{[20,50,100,200].map(n=><button key={n} onClick={()=>setValue(n)}>{n}</button>)}</div></div>
+}
+
+async function shareStatsImage(stats: Stats) {
+  const canvas = document.createElement('canvas'); canvas.width = 1080; canvas.height = 1350
+  const ctx = canvas.getContext('2d'); if (!ctx) return
+  ctx.fillStyle = '#10251b'; ctx.fillRect(0,0,canvas.width,canvas.height)
+  ctx.fillStyle = '#e8c875'; ctx.font = 'bold 72px sans-serif'; ctx.fillText('雀记 · 本将战报', 80, 120)
+  ctx.font = '40px sans-serif'; ctx.fillStyle = '#f5eee0'
+  stats.players.forEach((p,i)=>ctx.fillText(`${i+1}. ${p.name}   ${p.score>0?'+':''}${p.score}`, 100, 270+i*150))
+  ctx.font = '30px sans-serif'; ctx.fillStyle = '#9faf9f'; ctx.fillText(`共 ${stats.totalHands} 局`, 80, 1240)
+  const blob = await new Promise<Blob|null>(resolve=>canvas.toBlob(resolve,'image/png'))
+  if (!blob) return
+  const file = new File([blob], 'mahjong-result.png', {type:'image/png'})
+  if (navigator.share && navigator.canShare?.({files:[file]})) await navigator.share({files:[file],title:'雀记战报'})
+  else { const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=file.name; a.click(); URL.revokeObjectURL(url) }
 }
 
 function StatsScreen({match,stats,onReset}:{match:Match;stats:Stats;onReset:()=>void}) {
@@ -203,7 +228,7 @@ function StatsScreen({match,stats,onReset}:{match:Match;stats:Stats;onReset:()=>
     <section className="winner-card"><Trophy size={42}/><p>本将冠军</p><Avatar player={champion} large/><h1>{champion.name}</h1><strong>{Number(champion.score)>0?'+':''}{champion.score}</strong><span>共完成 {stats.totalHands} 局</span></section>
     <section className="ranking"><h3>最终排名</h3>{stats.players.map(p=><article key={p.id}><span className="place">{p.rank}</span><Avatar player={p}/><b>{p.name}</b><strong className={Number(p.score)>=0?'positive':'negative'}>{Number(p.score)>0?'+':''}{p.score}</strong></article>)}</section>
     <section className="stat-cards">{stats.players.map(p=><article key={p.id}><div className="stat-person"><Avatar player={p}/><div><b>{p.name}</b><span>第 {p.rank} 名</span></div></div><div className="metrics"><div><b>{p.wins}</b><span>胡牌</span></div><div><b>{p.tsumo}</b><span>自摸</span></div><div><b>{p.deal_in}</b><span>放炮</span></div><div><b>{pct(p.winRate)}</b><span>胡牌率</span></div><div><b>{pct(p.tsumoShare)}</b><span>自摸占比</span></div><div><b>{pct(p.dealInRate)}</b><span>放炮率</span></div></div></article>)}</section>
-    <div className="share-panel"><span>牌局分享码</span><b>{match.share_code}</b><button onClick={()=>navigator.clipboard.writeText(`${location.origin}/?match=${match.share_code}`)}><Copy size={16}/>复制链接</button></div>
+    <div className="share-panel"><span>牌局分享码</span><b>{match.share_code}</b><button onClick={()=>navigator.clipboard.writeText(`${location.origin}/?match=${match.share_code}`)}><Copy size={16}/>复制链接</button><button onClick={()=>shareStatsImage(stats)}><ImageDown size={16}/>分享图片</button></div>
     <button className="primary giant" onClick={onReset}><Plus/> 再开一将</button>
   </main>
 }

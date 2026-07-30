@@ -1,23 +1,30 @@
-# 雀记 · 麻将计分 MVP
+# 雀记 · Cloudflare Workers v1.1
 
-手机优先的四人麻将计分网站，部署到 Cloudflare Workers，数据存储在 D1。
+手机优先的四人麻将计分应用：React + Vite 前端，Hono Worker API，Cloudflare D1 数据库。
 
-## 已实现
+## v1.1 升级内容
 
-- 创建一将并录入四位玩家
-- 根据姓名生成稳定的本地 Emoji 头像
-- 点炮、自摸、流局、自定义分数
-- 服务端校验四人分数之和为 0
-- 实时累计排名
-- 撤销上一局
-- 结束牌局
-- 胡牌率、自摸占比、放炮率、最高单局收益/损失等基础数据
-- 管理员令牌保存在创建者浏览器 localStorage
-- 分享码及只读查询接口
+- 修复 Worker Context / D1 泛型导致的 TS2347
+- Worker、D1 查询和前端领域模型均使用严格 TypeScript 类型
+- 导出 `AppType`，前端通过 `hono/client` RPC 调用全部 API
+- Wrangler JSONC：Workers Static Assets、SPA fallback、API worker-first、observability
+- React/Vite 严格构建配置
+- 新增增量 D1 migration、事件审计表与查询索引
+- 手机底部固定“记一局”入口
+- 长按撤销（650ms）与普通点击撤销
+- 深色/浅色模式并记忆偏好
+- 计分弹窗自动保存草稿
+- 统计页入场动画与战报图片分享
+- 历史记录保留并展示最近计分
+- Web App Manifest，可添加到手机桌面
 
-## 本地启动
+## 环境
 
-要求 Node.js 20+。
+- Node.js 20+
+- Cloudflare 账号
+- 已创建的 D1 数据库
+
+## 本地运行
 
 ```bash
 npm install
@@ -25,50 +32,78 @@ npm run db:migrate:local
 npm run dev
 ```
 
-`npm run dev` 会先构建前端，再通过 Wrangler 启动 Worker。修改前端后需要重新运行该命令。
+`npm run dev` 会先执行 TypeScript 检查和 Vite 构建，然后由 Wrangler 在本地启动 Worker，默认访问 `http://localhost:8787`。
 
-## 部署 Cloudflare
-
-### 1. 登录
+前端单独热更新：
 
 ```bash
-npx wrangler login
+npm run dev:ui
 ```
 
-### 2. 创建 D1
+注意：单独运行 Vite 时，API 仍需另开终端运行 Wrangler，或配置本地代理。
+
+## 验证
+
+```bash
+npm run typecheck
+npm run build
+```
+
+## D1
+
+首次新建数据库：
 
 ```bash
 npm run db:create
 ```
 
-复制命令返回的 `database_id`，替换 `wrangler.jsonc` 中：
+将命令返回的数据库 ID 写入 `wrangler.jsonc` 的 `database_id`。
 
-```json
-"database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+应用本地迁移：
+
+```bash
+npm run db:migrate:local
 ```
 
-### 3. 应用远程迁移
+应用线上迁移：
 
 ```bash
 npm run db:migrate:remote
 ```
 
-### 4. 部署
+已有 v1 数据库会按顺序执行 `0002_worker_v11.sql`，不会重建现有表。
+
+## 一键部署
 
 ```bash
+npx wrangler login
 npm run deploy
 ```
 
-## 统计口径
+`npm run deploy` 会依次：
 
-- 胡牌率 = 胡牌次数 / 已完成局数
-- 自摸占比 = 自摸次数 / 胡牌次数
-- 放炮率 = 放炮次数 / 已完成局数
-- 排名 = 总净得分降序；同分时胡牌次数优先
+1. TypeScript 类型检查
+2. Vite 前端构建
+3. 线上 D1 migration
+4. Wrangler 部署 Worker 与静态资源
 
-## 第一版限制
+只部署代码、不执行 migration：
 
-- 目前创建者浏览器是唯一管理员设备
-- 分享链接的前端只读恢复逻辑尚未接入，API 已支持用分享码读取
-- 未实现账号系统、多人实时 WebSocket、连庄和番型自动计算
-- “一将四圈”目前只显示轮次，北四之后不会自动结束，需手动点击结束
+```bash
+npm run deploy:worker
+```
+
+## 目录
+
+```text
+shared/types.ts          前后端共享领域类型
+src/main.tsx             React UI 与 Hono RPC 客户端
+worker/index.ts          Hono Worker 与 AppType
+migrations/              D1 migrations
+wrangler.jsonc           Cloudflare 配置
+public/manifest.webmanifest
+```
+
+## 安全说明
+
+创建牌局时生成的管理员令牌仅保存在创建者浏览器的 localStorage；D1 中只保存 SHA-256 摘要。分享码只能读取牌局与统计，无法修改计分。
