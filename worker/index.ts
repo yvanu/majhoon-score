@@ -288,6 +288,18 @@ app.get('/api/me/matches', async c => {
   return c.json({ matches })
 })
 
+app.delete('/api/me/matches/:id', async c => {
+  const user = await currentUser(c)
+  if (!user) return jsonError(c, '请先登录', 401)
+  const id = c.req.param('id')
+  const owned = await c.env.DB.prepare(
+    'SELECT id FROM matches WHERE id=? AND owner_user_id=?'
+  ).bind(id,user.id).first<{id:string}>()
+  if (!owned) return jsonError(c, '牌局不存在或无权删除', 404)
+  await c.env.DB.prepare('DELETE FROM matches WHERE id=?').bind(id).run()
+  return c.json({ ok: true })
+})
+
 app.get('/api/me/daily-statistics', async c => {
   const user = await currentUser(c)
   if (!user) return jsonError(c, '请先登录', 401)

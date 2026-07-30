@@ -186,6 +186,20 @@ function App(){
     }catch(e){setError((e as Error).message)}
     finally{setLoading(false)}
   }
+  async function deleteHistoryMatch(id:string){
+    if(!confirm('确定删除这条历史牌局？删除后无法恢复。'))return
+    setLoading(true);setError('')
+    try{
+      await api(`/api/me/matches/${id}`,writeInit('DELETE'))
+      setHistory(current=>current.filter(item=>item.id!==id))
+      const saved=localStorage.getItem(CURRENT_KEY)
+      if(saved)try{
+        const value=JSON.parse(saved)
+        if(value.id===id)localStorage.removeItem(CURRENT_KEY)
+      }catch{}
+    }catch(e){setError((e as Error).message)}
+    finally{setLoading(false)}
+  }
   async function logout(){
     try{await api('/api/auth/logout',writeInit('POST'))}catch{}
     localStorage.removeItem(AUTH_KEY);setUser(null);setHistory([]);setScreen('home')
@@ -206,7 +220,8 @@ function App(){
     {screen==='join'&&<Join onBack={()=>setScreen('home')} onOpen={code=>openMatch(code,true)} loading={loading}/>}
     {screen==='auth'&&<Auth onBack={()=>setScreen('home')} onSubmit={login} loading={loading}/>}
     {screen==='history'&&user&&<HistoryScreen user={user} matches={history}
-      onBack={()=>setScreen('home')} onOpen={m=>openMatch(m.id,true)} onLogout={logout}/>}
+      onBack={()=>setScreen('home')} onOpen={m=>openMatch(m.id,true)} onDelete={deleteHistoryMatch}
+      onLogout={logout} loading={loading}/>}
     {screen==='daily'&&dailyStats&&<DailyStatsScreen stats={dailyStats} onBack={()=>setScreen('home')}/>}
     {screen==='match'&&match&&<MatchScreen match={match} onAdd={()=>setModal(true)}
       onUndo={undo} onFinish={finish} loading={loading}/>}
@@ -313,20 +328,23 @@ function Auth({onBack,onSubmit,loading}:{
   </main>
 }
 
-function HistoryScreen({user,matches,onBack,onOpen,onLogout}:{
-  user:AuthUser;matches:MatchSummary[];onBack:()=>void;onOpen:(m:MatchSummary)=>void;onLogout:()=>void
+function HistoryScreen({user,matches,onBack,onOpen,onDelete,onLogout,loading}:{
+  user:AuthUser;matches:MatchSummary[];onBack:()=>void;onOpen:(m:MatchSummary)=>void;
+  onDelete:(id:string)=>void;onLogout:()=>void;loading:boolean
 }){
   return <main className="page"><Header onBack={onBack} eyebrow="MY MATCHES"
     title={`${user.username} 的牌局`}/>
     <button className="text-btn logout" onClick={onLogout}><LogOut size={16}/>退出登录</button>
     {!matches.length&&<div className="empty">🀫<b>暂无历史牌局</b><span>登录后创建的牌局会显示在这里</span></div>}
-    <section className="history-list">{matches.map(m=><button className="history-card"
-      key={m.id} onClick={()=>onOpen(m)}>
-      <div><b>{m.player_names.join(' · ')||'四人牌局'}</b>
-        <span>{new Date(m.created_at).toLocaleString()}</span></div>
-      <div className="history-meta"><strong>{m.hand_count} 局</strong>
-        <span>{m.status==='finished'?'已结束':'进行中'}</span><code>{m.share_code}</code></div>
-    </button>)}</section>
+    <section className="history-list">{matches.map(m=><article className="history-card" key={m.id}>
+      <button className="history-open" onClick={()=>onOpen(m)}>
+        <div><b>{m.player_names.join(' · ')||'四人牌局'}</b>
+          <span>{new Date(m.created_at).toLocaleString()}</span></div>
+        <div className="history-meta"><strong>{m.hand_count} 局</strong>
+          <span>{m.status==='finished'?'已结束':'进行中'}</span><code>{m.share_code}</code></div>
+      </button>
+      <button className="history-delete" disabled={loading} onClick={()=>onDelete(m.id)}>删除</button>
+    </article>)}</section>
   </main>
 }
 
