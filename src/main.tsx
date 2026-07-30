@@ -310,25 +310,71 @@ function HistoryScreen({user,matches,onBack,onOpen,onLogout}:{
 function MatchScreen({match,onAdd,onUndo,onFinish,loading}:{
   match:Match;onAdd:()=>void;onUndo:()=>void;onFinish:()=>void;loading:boolean
 }){
+  const [selectedPlayerId,setSelectedPlayerId]=useState<string|null>(null)
   const ranked=[...match.players].sort((a,b)=>b.score-a.score)
+  const selectedPlayer=match.players.find(player=>player.id===selectedPlayerId)||null
   return <main className="page match-page">
     <header className="match-header"><div><p className="eyebrow">
       {windName[match.current_wind]}风 · 第 {match.current_hand} 局</p><h2>雀局进行中</h2></div>
       <button className="share-code" onClick={()=>navigator.clipboard.writeText(
         `${location.origin}/?match=${match.share_code}`)}><Copy size={14}/>{match.share_code}</button>
     </header>
-    <section className="scoreboard">{ranked.map((p,i)=><article className="player-score" key={p.id}>
+    <section className="scoreboard">{ranked.map((p,i)=><button className="player-score" key={p.id}
+      onClick={()=>setSelectedPlayerId(p.id)}>
       <div className="rank-badge">{i===0?<Crown size={15}/>:i+1}</div><Avatar player={p}/>
       <div className="player-meta"><b>{p.name}</b><span>{['东','南','西','北'][p.seat]}家</span></div>
       <strong className={p.score>=0?'positive':'negative'}>{p.score>0?'+':''}{p.score}</strong>
-    </article>)}</section>
+    </button>)}</section>
     <section className="round-summary"><span>已完成</span><b>{match.hands.length} 局</b><span>· 总分守恒</span></section>
     <button className="primary giant" onClick={onAdd} disabled={loading}><Plus/>记一局</button>
     <div className="secondary-actions">
       <button onClick={onUndo} disabled={!match.hands.length||loading}><RotateCcw/>撤销上一局</button>
       <button onClick={onFinish} disabled={loading}><BarChart3/>结束本将</button>
     </div>
+    {selectedPlayer&&<PlayerDetailModal player={selectedPlayer} match={match}
+      onClose={()=>setSelectedPlayerId(null)}/>} 
   </main>
+}
+
+function PlayerDetailModal({player,match,onClose}:{player:Player;match:Match;onClose:()=>void}){
+  const wins=match.hands.filter(hand=>hand.winner_player_id===player.id)
+  const tsumoHands=wins.filter(hand=>hand.result_type==='tsumo')
+  const ronHands=wins.filter(hand=>hand.result_type==='ron')
+  const dealInHands=match.hands.filter(hand=>hand.result_type==='ron'&&hand.loser_player_id===player.id)
+  const bigNotes=noteOptions.filter(note=>note!=='无花果')
+  const hasBigHand=(hand:Match['hands'][number])=>bigNotes.some(note=>hand.note?.split('、').includes(note))
+  const tsumoBig=tsumoHands.filter(hasBigHand)
+  const ronBig=ronHands.filter(hasBigHand)
+  const dealInBig=dealInHands.filter(hasBigHand)
+  const countNote=(hands:Match['hands'],note:string)=>hands.filter(hand=>hand.note?.split('、').includes(note)).length
+  return <div className="modal-backdrop"><section className="modal player-detail-modal">
+    <header><div><p className="eyebrow">PLAYER RECORD</p><h2>{player.name} 的战绩</h2></div>
+      <button className="icon-btn" onClick={onClose}><X/></button></header>
+    <section className="detail-summary">
+      <div><span>总胡牌</span><strong>{wins.length}</strong></div>
+      <div><span>自摸</span><strong>{tsumoHands.length}</strong></div>
+      <div><span>点炮胡</span><strong>{ronHands.length}</strong></div>
+      <div><span>点炮</span><strong>{dealInHands.length}</strong></div>
+    </section>
+    <section className="detail-group"><h3>自摸明细</h3>
+      <p>普通自摸 <b>{tsumoHands.length-tsumoBig.length}</b> 把 · 大胡 <b>{tsumoBig.length}</b> 把</p>
+      <div className="detail-tags">{bigNotes.map(note=>{
+        const count=countNote(tsumoHands,note);return count?<span key={note}>{note} {count}</span>:null
+      })}</div>
+    </section>
+    <section className="detail-group"><h3>点炮胡明细</h3>
+      <p>普通点炮胡 <b>{ronHands.length-ronBig.length}</b> 把 · 大胡 <b>{ronBig.length}</b> 把</p>
+      <div className="detail-tags">{bigNotes.map(note=>{
+        const count=countNote(ronHands,note);return count?<span key={note}>{note} {count}</span>:null
+      })}</div>
+    </section>
+    <section className="detail-group"><h3>点炮明细</h3>
+      <p>普通点炮 <b>{dealInHands.length-dealInBig.length}</b> 把 · 大胡点炮 <b>{dealInBig.length}</b> 把</p>
+      <div className="detail-tags">{bigNotes.map(note=>{
+        const count=countNote(dealInHands,note);return count?<span key={note}>{note} {count}</span>:null
+      })}</div>
+    </section>
+  </section></div>
 }
 
 function ScoreModal({players,onClose,onSubmit,loading}:{
