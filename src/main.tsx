@@ -209,7 +209,7 @@ function Home({user,onStart,onHistory,onJoin,onLogout}:{
 }){
   return <main className="home page">
     <section className="hero-card"><div className="brand-mark">雀</div>
-      <div><p className="eyebrow">MAHJONG SCORE V2</p><h1>雀记</h1><p>四人麻将，轻松记分。</p></div>
+      <div><h1>雀记</h1><p>四人麻将，轻松记分。</p></div>
     </section>
     <div className="tile-row"><span>🀀</span><span>🀄</span><span>🀅</span><span>🀆</span></div>
     <button className="primary giant" onClick={onStart}><Plus/>开启一将</button>
@@ -223,7 +223,6 @@ function Home({user,onStart,onHistory,onJoin,onLogout}:{
       <div><b>跨设备</b><span>登录后继续</span></div>
       <div><b>统计</b><span>排名胜率</span></div>
     </section>
-    <p className="footnote">数据保存在 Cloudflare D1</p>
   </main>
 }
 
