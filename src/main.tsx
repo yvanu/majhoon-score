@@ -451,16 +451,21 @@ function ScoreModal({players,onClose,onSubmit,loading}:{
 }
 
 function StatsScreen({match,stats,onReset}:{match:Match;stats:Stats;onReset:()=>void}){
+  const [selectedPlayerId,setSelectedPlayerId]=useState<string|null>(null)
+  const selectedPlayer=match.players.find(player=>player.id===selectedPlayerId)||null
   return <main className="page"><div className="stats-hero"><p className="eyebrow">FINAL RESULT</p>
     <h1>本将结束</h1><span>共完成 {stats.totalHands} 局</span></div>
-    <section className="podium">{stats.players.map(p=><article key={p.id}>
+    <section className="podium">{stats.players.map(p=><button className="podium-card" key={p.id}
+      onClick={()=>setSelectedPlayerId(p.id)}>
       <span className="rank">#{p.rank}</span><Avatar player={p} large/><b>{p.name}</b>
       <strong className={p.score>=0?'positive':'negative'}>{p.score>0?'+':''}{p.score}</strong>
       <small>胜率 {(p.winRate*100).toFixed(0)}% · 放炮 {(p.dealInRate*100).toFixed(0)}%</small>
       <small>自摸占比 {(p.tsumoShare*100).toFixed(0)}%</small>
-    </article>)}</section>
+    </button>)}</section>
     <button className="primary giant" onClick={onReset}>返回首页</button>
     <p className="footnote">分享码：{match.share_code}</p>
+    {selectedPlayer&&<PlayerDetailModal player={selectedPlayer} match={match}
+      onClose={()=>setSelectedPlayerId(null)}/>} 
   </main>
 }
 
