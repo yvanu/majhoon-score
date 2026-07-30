@@ -22,6 +22,7 @@ const gradients = [
 ]
 const windName:Record<string,string>={east:'东',south:'南',west:'西',north:'北'}
 const typeName:Record<string,string>={tsumo:'自摸',ron:'点炮',draw:'流局',custom:'自定义'}
+const noteOptions=['对对胡','混一色','清一色','七对','全球独钓','龙七','花开','杠开','外包']
 
 async function api<T>(url:string, init:RequestInit={}):Promise<T>{
   const auth=localStorage.getItem(AUTH_KEY)
@@ -399,8 +400,12 @@ function ScoreModal({players,onClose,onSubmit,loading}:{
     {type==='custom'&&<section className="payment-list">{players.map(p=><label key={p.id}>
       <span>{p.name}</span><input type="number" value={custom[p.id]}
         onChange={e=>setCustom({...custom,[p.id]:Number(e.target.value)})}/></label>)}</section>}
-    <label className="score-input"><span>备注（可选）</span><input value={note}
-      maxLength={100} onChange={e=>setNote(e.target.value)}/></label>
+    <div className="score-input"><span>备注（可选）</span>
+      <select value={note} onChange={e=>setNote(e.target.value)}>
+        <option value="">不选择</option>
+        {noteOptions.map(option=><option key={option} value={option}>{option}</option>)}
+      </select>
+    </div>
     <button className="primary giant" disabled={loading} onClick={save}>
       {loading?'保存中…':'确认保存'}<Check/>
     </button>
