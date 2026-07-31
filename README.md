@@ -147,10 +147,27 @@ git pull
 git add .
 git commit -m "描述本次修改"
 git push
-npm run deploy
 ```
 
-`npm run deploy` 会先执行远程 D1 migration，再部署 Worker。Git 提交可用于查看历史、对比修改和回滚。需要推送即自动部署时，可以另外接入 Cloudflare Git 构建或 GitHub Actions；这不影响当前 Git 源码管理。
+`.github/workflows/deploy-worker.yml` 会监听 `wechat-taro-worker` 分支。每次 push 后，GitHub Actions 会自动：
+
+1. 安装锁文件中的依赖
+2. 执行 Worker TypeScript 检查
+3. 应用远程 D1 migration
+4. 执行 `wrangler deploy`
+
+在 GitHub 仓库的 `Settings → Secrets and variables → Actions` 中添加两个 Repository Secret：
+
+```text
+CLOUDFLARE_API_TOKEN
+CLOUDFLARE_ACCOUNT_ID
+```
+
+Cloudflare Token 至少需要 Worker 脚本和 D1 的编辑权限。由于 `wrangler.jsonc` 同时声明了 `wx.score.majhoon.site` 自定义域名，该 Token 还需要对应 Zone 的 Workers Routes 编辑权限。
+
+`WECHAT_APP_ID` 和 `WECHAT_APP_SECRET` 继续保存在 Cloudflare Worker Secrets 中，不需要放进 GitHub Actions，也不能提交到 Git。
+
+仍然可以在需要时手动执行 `npm run deploy`。Git 提交可用于查看历史、对比修改和回滚。
 
 ## 部署 Worker
 
