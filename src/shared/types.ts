@@ -24,6 +24,7 @@ export interface Friend {
 export interface MatchPlayerInput {
   name: string
   friendId?: string
+  isSelf?: boolean
 }
 
 export interface Hand {

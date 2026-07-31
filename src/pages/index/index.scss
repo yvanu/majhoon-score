@@ -227,8 +227,11 @@ button::after { border: 0; }
 .create-hint { display: block; margin: -8px 4px 24px; color: #8f8b82; font-size: 21px; line-height: 1.55; }
 .friend-player-field { padding-right: 16px; }
 .friend-player-field input { min-width: 0; }
-.friend-select { width: 112px; height: 58px; line-height: 58px; margin: 0; padding: 0; flex: 0 0 auto; border: 1px solid #eadfca; border-radius: 17px; background: #fff8e6; color: #9a6d00; font-size: 21px; }
+.player-actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.self-select, .friend-select { height: 58px; line-height: 58px; margin: 0; padding: 0 16px; flex: 0 0 auto; border: 1px solid #eadfca; border-radius: 17px; background: #fff8e6; color: #9a6d00; font-size: 20px; }
+.self-select { background: #fff; color: #5f5b54; }
 .friend-select.selected { border-color: #f0b229; background: #fff0bd; color: #805a00; }
+.self-selected { flex: 0 0 auto; padding: 11px 16px; border: 1px solid #f0b229; border-radius: 17px; background: #fff0bd; color: #805a00; font-size: 20px; white-space: nowrap; }
 .friend-picker-backdrop { z-index: 70; }
 .friend-picker { width: 100%; max-height: 78vh; overflow: hidden; padding: 30px; box-sizing: border-box; border: 1px solid #eee6d8; border-radius: 32px; background: #fffdf9; box-shadow: 0 30px 90px rgba(67,50,23,.22); }
 .friend-list { max-height: 58vh; }

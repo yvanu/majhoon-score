@@ -563,6 +563,15 @@ function Create({ user, onBack, onCreate, loading }: {
     setPlayers(current => current.map((player, seat) => seat === index ? { name } : player))
   }
 
+  function chooseSelf(index: number) {
+    if (!user) return
+    const selfName = displayUserName(user)
+    setPlayers(current => current.map((player, seat) => {
+      if (seat === index) return { name: selfName, isSelf: true }
+      return player.isSelf ? { name: '' } : player
+    }))
+  }
+
   function chooseFriend(friend: Friend) {
     if (pickerSeat === null) return
     if (players.some((player, seat) => seat !== pickerSeat && player.friendId === friend.id)) {
@@ -580,7 +589,9 @@ function Create({ user, onBack, onCreate, loading }: {
     {players.map((player, index) => <View className='field player-field friend-player-field' key={String(index)}>
       <Text>{['东', '南', '西', '北'][index]}家</Text>
       <Input value={player.name} maxlength={12} placeholder={`玩家 ${index + 1}`} onInput={event => updateName(index, event.detail.value)} />
-      {user && <Button className={player.friendId ? 'friend-select selected' : 'friend-select'} onClick={() => setPickerSeat(index)}>{player.friendId ? '已选择' : '选牌友'}</Button>}
+      {user && (player.isSelf
+        ? <Text className='self-selected'>当前账号</Text>
+        : <View className='player-actions'><Button className='self-select' onClick={() => chooseSelf(index)}>选自己</Button><Button className={player.friendId ? 'friend-select selected' : 'friend-select'} onClick={() => setPickerSeat(index)}>{player.friendId ? '已选择' : '选牌友'}</Button></View>)}
     </View>)}
     <Button className='primary' disabled={!valid || loading} onClick={() => onCreate(players.map(player => ({ ...player, name: player.name.trim() })))}>{loading ? '创建中…' : '开始计分'}</Button>
 

@@ -147,7 +147,8 @@ function validatePlayers(value: unknown): MatchPlayerInput[] | null {
     if (!isRecord(player) || typeof player.name !== 'string') return null
     const name = player.name.trim()
     const friendId = typeof player.friendId === 'string' ? player.friendId.trim() : undefined
-    return { name, ...(friendId ? { friendId } : {}) }
+    const isSelf = player.isSelf === true
+    return { name, ...(friendId ? { friendId } : {}), ...(isSelf ? { isSelf: true } : {}) }
   })
   if (players.some(player => !player || !player.name || player.name.length > 12)) return null
   const valid = players as MatchPlayerInput[]
@@ -475,7 +476,7 @@ app.post('/api/matches', async c => {
 
   const resolved: Array<{ name: string; avatarSeed: number; friendId: string | null }> = []
   for (const input of inputs) {
-    if (!user) {
+    if (!user || input.isSelf) {
       resolved.push({ name: input.name, avatarSeed: avatarSeed(input.name), friendId: null })
       continue
     }
