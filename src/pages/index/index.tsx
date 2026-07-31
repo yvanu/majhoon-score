@@ -5,8 +5,10 @@ import type {
   AuthResult,
   AuthUser,
   DailyStats,
+  Friend,
   HandInput,
   Match,
+  MatchPlayerInput,
   MatchSummary,
   Player,
   Stats,
@@ -194,9 +196,9 @@ export default function Index() {
     })
   }
 
-  async function createMatch(names: string[]) {
+  async function createMatch(players: MatchPlayerInput[]) {
     await run(async () => {
-      const data = await api.createMatch(names)
+      const data = await api.createMatch(players)
       setMatch(data.match)
       setAdminToken(data.adminToken)
       Taro.setStorageSync(CURRENT_KEY, { id: data.match.id, token: data.adminToken })
@@ -324,7 +326,7 @@ export default function Index() {
       onLogin={() => setScreen('auth')}
       onProfile={() => setScreen('profile')}
     />}
-    {screen === 'create' && <Create onBack={() => setScreen('home')} onCreate={createMatch} loading={loading} />}
+    {screen === 'create' && <Create user={user} onBack={() => setScreen('home')} onCreate={createMatch} loading={loading} />}
     {screen === 'join' && <Join onBack={() => setScreen('home')} onOpen={code => openMatch(code)} loading={loading} />}
     {screen === 'auth' && <Auth onBack={() => setScreen('home')} onWechatLogin={wechatLogin} onSubmit={login} loading={loading} />}
     {screen === 'history' && user && <HistoryScreen
@@ -536,15 +538,62 @@ function DailyStatsScreen({ stats, onBack }: { stats: DailyStats; onBack: () => 
   </View>
 }
 
-function Create({ onBack, onCreate, loading }: { onBack: () => void; onCreate: (names: string[]) => void; loading: boolean }) {
-  const [names, setNames] = useState(['', '', '', ''])
-  const valid = names.every(value => value.trim()) && new Set(names.map(value => value.trim())).size === 4
-  return <View className='page' style={{ paddingTop: `${getPageTopInset()}px` }}><Header title='谁来上桌？' onBack={onBack} />
-    {names.map((name, index) => <View className='field player-field' key={String(index)}>
+function Create({ user, onBack, onCreate, loading }: {
+  user: AuthUser | null
+  onBack: () => void
+  onCreate: (players: MatchPlayerInput[]) => void
+  loading: boolean
+}) {
+  const [players, setPlayers] = useState<MatchPlayerInput[]>(Array.from({ length: 4 }, () => ({ name: '' })))
+  const [friends, setFriends] = useState<Friend[]>([])
+  const [pickerSeat, setPickerSeat] = useState<number | null>(null)
+  const [friendsLoading, setFriendsLoading] = useState(false)
+  const names = players.map(player => player.name.trim())
+  const valid = names.every(Boolean) && new Set(names.map(name => name.toLocaleLowerCase())).size === 4
+
+  useEffect(() => {
+    if (!user) return
+    setFriendsLoading(true)
+    api.friends().then(result => setFriends(result.friends)).catch(error => {
+      console.error('Load friends failed:', error)
+    }).finally(() => setFriendsLoading(false))
+  }, [user?.id])
+
+  function updateName(index: number, name: string) {
+    setPlayers(current => current.map((player, seat) => seat === index ? { name } : player))
+  }
+
+  function chooseFriend(friend: Friend) {
+    if (pickerSeat === null) return
+    if (players.some((player, seat) => seat !== pickerSeat && player.friendId === friend.id)) {
+      void Taro.showToast({ title: '这位牌友已经上桌', icon: 'none' })
+      return
+    }
+    setPlayers(current => current.map((player, seat) => seat === pickerSeat
+      ? { name: friend.name, friendId: friend.id }
+      : player))
+    setPickerSeat(null)
+  }
+
+  return <View className='page create-page' style={{ paddingTop: `${getPageTopInset()}px` }}><Header title='谁来上桌？' onBack={onBack} />
+    <Text className='create-hint'>{user ? '手动输入的新玩家会自动保存为牌友，下次可直接选择。' : '登录后可保存常用牌友并查看同桌统计。'}</Text>
+    {players.map((player, index) => <View className='field player-field friend-player-field' key={String(index)}>
       <Text>{['东', '南', '西', '北'][index]}家</Text>
-      <Input value={name} maxlength={12} placeholder={`玩家 ${index + 1}`} onInput={event => setNames(names.map((value, currentIndex) => currentIndex === index ? event.detail.value : value))} />
+      <Input value={player.name} maxlength={12} placeholder={`玩家 ${index + 1}`} onInput={event => updateName(index, event.detail.value)} />
+      {user && <Button className={player.friendId ? 'friend-select selected' : 'friend-select'} onClick={() => setPickerSeat(index)}>{player.friendId ? '已选择' : '选牌友'}</Button>}
     </View>)}
-    <Button className='primary' disabled={!valid || loading} onClick={() => onCreate(names.map(value => value.trim()))}>{loading ? '创建中…' : '开始计分'}</Button>
+    <Button className='primary' disabled={!valid || loading} onClick={() => onCreate(players.map(player => ({ ...player, name: player.name.trim() })))}>{loading ? '创建中…' : '开始计分'}</Button>
+
+    {pickerSeat !== null && <View className='modal-backdrop friend-picker-backdrop' onClick={() => setPickerSeat(null)}><View className='friend-picker' onClick={event => event.stopPropagation()}>
+      <View className='detail-header'><View><Text className='eyebrow'>常用牌友</Text><Text className='title-small'>选择{['东', '南', '西', '北'][pickerSeat]}家</Text></View><Button className='close-button' onClick={() => setPickerSeat(null)}>×</Button></View>
+      {friendsLoading && <Text className='friend-empty'>正在加载牌友…</Text>}
+      {!friendsLoading && !friends.length && <View className='friend-empty'><Text className='card-title'>还没有牌友</Text><Text>先手动输入名字并创建牌局，完成后会自动保存。</Text></View>}
+      <ScrollView scrollY className='friend-list'>{friends.map(friend => <View className='friend-card' key={friend.id} onClick={() => chooseFriend(friend)}>
+        <View className={`avatar avatar-${friend.avatar_seed % 6}`}>{animals[friend.avatar_seed % animals.length]}</View>
+        <View className='grow'><Text className='card-title'>{friend.name}</Text><Text>共同 {friend.jointMatches} 将 · 杠开 {friend.gangKaiWins} 次 · 被杠开 {friend.gangKaiAgainst} 次</Text></View>
+        <Text className='card-arrow'>›</Text>
+      </View>)}</ScrollView>
+    </View></View>}
   </View>
 }
 

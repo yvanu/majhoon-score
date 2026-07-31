@@ -3,9 +3,11 @@ import type {
   AuthResult,
   AuthUser,
   DailyStats,
+  Friend,
   HandInput,
   HandType,
   Match,
+  MatchPlayerInput,
   MatchSummary,
   Player,
   PlayerStat,
@@ -134,11 +136,23 @@ function nextPosition(wind: Wind, hand: number) {
     : { wind: 'north' as Wind, hand: 4 }
 }
 
-function validatePlayers(value: unknown) {
+function avatarSeed(name: string) {
+  return Math.abs([...name].reduce((value, character) => value * 31 + (character.codePointAt(0) ?? 0), 7))
+}
+
+function validatePlayers(value: unknown): MatchPlayerInput[] | null {
   if (!isRecord(value) || !Array.isArray(value.players) || value.players.length !== 4) return null
-  const players = value.players.map(player => typeof player === 'string' ? player.trim() : '')
-  if (players.some(player => !player || player.length > 12) || new Set(players).size !== 4) return null
-  return players
+  const players = value.players.map(player => {
+    if (typeof player === 'string') return { name: player.trim() }
+    if (!isRecord(player) || typeof player.name !== 'string') return null
+    const name = player.name.trim()
+    const friendId = typeof player.friendId === 'string' ? player.friendId.trim() : undefined
+    return { name, ...(friendId ? { friendId } : {}) }
+  })
+  if (players.some(player => !player || !player.name || player.name.length > 12)) return null
+  const valid = players as MatchPlayerInput[]
+  if (new Set(valid.map(player => player.name.toLocaleLowerCase())).size !== 4) return null
+  return valid
 }
 
 function validateHand(value: unknown): HandInput | null {
@@ -171,7 +185,7 @@ async function getMatch(db: D1Database, idOrCode: string): Promise<Match | null>
   if (!match) return null
 
   const players = await db.prepare(`
-    SELECT p.id, p.name, p.avatar_seed, p.seat, COALESCE(SUM(hs.score_change), 0) score
+    SELECT p.id, p.name, p.avatar_seed, p.friend_id, p.seat, COALESCE(SUM(hs.score_change), 0) score
     FROM players p
     LEFT JOIN hand_scores hs ON hs.player_id = p.id
     WHERE p.match_id = ?
@@ -375,6 +389,34 @@ app.delete('/api/me/matches/:id', async c => {
   return c.json({ ok: true })
 })
 
+app.get('/api/me/friends', async c => {
+  const user = await currentUser(c)
+  if (!user) return jsonError(c, '请先登录', 401)
+  const result = await c.env.DB.prepare(`
+    SELECT f.id, f.name, f.avatar_seed, f.last_played_at,
+      COUNT(DISTINCT p.match_id) joint_matches,
+      SUM(CASE WHEN h.winner_player_id = p.id AND INSTR(COALESCE(h.note, ''), '杠开') > 0 THEN 1 ELSE 0 END) gang_kai_wins,
+      SUM(CASE WHEN h.result_type = 'ron' AND h.loser_player_id = p.id AND INSTR(COALESCE(h.note, ''), '杠开') > 0 THEN 1 ELSE 0 END) gang_kai_against
+    FROM friends f
+    LEFT JOIN players p ON p.friend_id = f.id
+    LEFT JOIN hands h ON h.match_id = p.match_id
+    WHERE f.user_id = ?
+    GROUP BY f.id
+    ORDER BY f.last_played_at DESC, f.updated_at DESC, f.name ASC
+    LIMIT 100
+  `).bind(user.id).all<Record<string, unknown>>()
+  const friends: Friend[] = result.results.map(row => ({
+    id: String(row.id),
+    name: String(row.name),
+    avatar_seed: Number(row.avatar_seed),
+    jointMatches: Number(row.joint_matches ?? 0),
+    gangKaiWins: Number(row.gang_kai_wins ?? 0),
+    gangKaiAgainst: Number(row.gang_kai_against ?? 0),
+    lastPlayedAt: row.last_played_at ? String(row.last_played_at) : null,
+  }))
+  return c.json({ friends })
+})
+
 app.get('/api/me/daily-statistics', async c => {
   const user = await currentUser(c)
   if (!user) return jsonError(c, '请先登录', 401)
@@ -419,8 +461,8 @@ app.get('/api/me/daily-statistics', async c => {
 })
 
 app.post('/api/matches', async c => {
-  const players = validatePlayers(await c.req.json().catch(() => null))
-  if (!players) return jsonError(c, '请输入四个不重复的玩家姓名')
+  const inputs = validatePlayers(await c.req.json().catch(() => null))
+  if (!inputs) return jsonError(c, '请输入四个不重复的玩家姓名')
   const matchId = uid()
   const adminToken = randomHex(24)
   const createdAt = now()
@@ -431,22 +473,42 @@ app.post('/api/matches', async c => {
     code = shareCode()
   }
 
+  const resolved: Array<{ name: string; avatarSeed: number; friendId: string | null }> = []
+  for (const input of inputs) {
+    if (!user) {
+      resolved.push({ name: input.name, avatarSeed: avatarSeed(input.name), friendId: null })
+      continue
+    }
+
+    let friend = input.friendId
+      ? await c.env.DB.prepare('SELECT id, name, avatar_seed FROM friends WHERE id = ? AND user_id = ?')
+        .bind(input.friendId, user.id).first<{ id: string; name: string; avatar_seed: number }>()
+      : null
+    if (!friend) {
+      const friendId = uid()
+      await c.env.DB.prepare(`
+        INSERT OR IGNORE INTO friends(id, user_id, name, avatar_seed, created_at, updated_at, last_played_at)
+        VALUES(?, ?, ?, ?, ?, ?, ?)
+      `).bind(friendId, user.id, input.name, avatarSeed(input.name), createdAt, createdAt, createdAt).run()
+      friend = await c.env.DB.prepare(`
+        SELECT id, name, avatar_seed FROM friends WHERE user_id = ? AND name = ? COLLATE NOCASE
+      `).bind(user.id, input.name).first<{ id: string; name: string; avatar_seed: number }>()
+    }
+    if (!friend) return jsonError(c, '保存牌友失败，请重试', 500)
+    await c.env.DB.prepare('UPDATE friends SET last_played_at = ?, updated_at = ? WHERE id = ?')
+      .bind(createdAt, createdAt, friend.id).run()
+    resolved.push({ name: friend.name, avatarSeed: friend.avatar_seed, friendId: friend.id })
+  }
+
   await c.env.DB.batch([
     c.env.DB.prepare(`
       INSERT INTO matches(id, share_code, admin_token_hash, owner_user_id, created_at, updated_at)
       VALUES(?, ?, ?, ?, ?, ?)
     `).bind(matchId, code, await sha256(adminToken), user?.id ?? null, createdAt, createdAt),
-    ...players.map((name, seat) => c.env.DB.prepare(`
-      INSERT INTO players(id, match_id, name, avatar_seed, seat, created_at)
-      VALUES(?, ?, ?, ?, ?, ?)
-    `).bind(
-      uid(),
-      matchId,
-      name,
-      Math.abs([...name].reduce((value, character) => value * 31 + (character.codePointAt(0) ?? 0), 7)),
-      seat,
-      createdAt,
-    )),
+    ...resolved.map((player, seat) => c.env.DB.prepare(`
+      INSERT INTO players(id, match_id, name, avatar_seed, friend_id, seat, created_at)
+      VALUES(?, ?, ?, ?, ?, ?, ?)
+    `).bind(uid(), matchId, player.name, player.avatarSeed, player.friendId, seat, createdAt)),
   ])
   return c.json({ match: await getMatch(c.env.DB, matchId), adminToken }, 201)
 })

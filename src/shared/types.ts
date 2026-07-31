@@ -6,8 +6,24 @@ export interface Player {
   id: string
   name: string
   avatar_seed: number
+  friend_id?: string | null
   seat: number
   score: number
+}
+
+export interface Friend {
+  id: string
+  name: string
+  avatar_seed: number
+  jointMatches: number
+  gangKaiWins: number
+  gangKaiAgainst: number
+  lastPlayedAt: string | null
+}
+
+export interface MatchPlayerInput {
+  name: string
+  friendId?: string
 }
 
 export interface Hand {

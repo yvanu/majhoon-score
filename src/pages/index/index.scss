@@ -223,6 +223,20 @@
 
 button::after { border: 0; }
 
+/* 牌友选择 */
+.create-hint { display: block; margin: -8px 4px 24px; color: #8f8b82; font-size: 21px; line-height: 1.55; }
+.friend-player-field { padding-right: 16px; }
+.friend-player-field input { min-width: 0; }
+.friend-select { width: 112px; height: 58px; line-height: 58px; margin: 0; padding: 0; flex: 0 0 auto; border: 1px solid #eadfca; border-radius: 17px; background: #fff8e6; color: #9a6d00; font-size: 21px; }
+.friend-select.selected { border-color: #f0b229; background: #fff0bd; color: #805a00; }
+.friend-picker-backdrop { z-index: 70; }
+.friend-picker { width: 100%; max-height: 78vh; overflow: hidden; padding: 30px; box-sizing: border-box; border: 1px solid #eee6d8; border-radius: 32px; background: #fffdf9; box-shadow: 0 30px 90px rgba(67,50,23,.22); }
+.friend-list { max-height: 58vh; }
+.friend-card { min-height: 104px; margin-bottom: 14px; padding: 20px; display: flex; align-items: center; gap: 18px; box-sizing: border-box; border: 1px solid #eee8de; border-radius: 24px; background: #fff; box-shadow: 0 10px 28px rgba(72,56,29,.05); }
+.friend-card .grow text { display: block; }
+.friend-card .grow > text:last-child { margin-top: 7px; color: #8f8b82; font-size: 19px; line-height: 1.45; }
+.friend-empty { display: block; padding: 42px 20px; color: #99958e; text-align: center; line-height: 1.6; }
+
 /* 2026 浅色黄白主题：保留现有业务结构，只统一视觉系统 */
 :root {
   --page-bg: #fbfaf7;
