@@ -122,6 +122,50 @@ async function canWrite(c: Context<Env>, matchId: string) {
   return Boolean(user && user.id === row.owner_user_id)
 }
 
+async function ensureFriendSchema(db: D1Database) {
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS friends (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      name TEXT NOT NULL COLLATE NOCASE,
+      avatar_seed INTEGER NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      last_played_at TEXT,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      UNIQUE (user_id, name)
+    )
+  `).run()
+  await db.prepare(`
+    CREATE INDEX IF NOT EXISTS idx_friends_user_last_played
+    ON friends(user_id, last_played_at DESC, updated_at DESC)
+  `).run()
+
+  const columns = await db.prepare('PRAGMA table_info(players)').all<{ name: string }>()
+  if (!columns.results.some(column => column.name === 'friend_id')) {
+    try {
+      await db.prepare(`
+        ALTER TABLE players
+        ADD COLUMN friend_id TEXT REFERENCES friends(id) ON DELETE SET NULL
+      `).run()
+    } catch (error) {
+      const refreshed = await db.prepare('PRAGMA table_info(players)').all<{ name: string }>()
+      if (!refreshed.results.some(column => column.name === 'friend_id')) throw error
+    }
+  }
+  await db.prepare('CREATE INDEX IF NOT EXISTS idx_players_friend_id ON players(friend_id)').run()
+
+  const migrationTable = await db.prepare(`
+    SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'd1_migrations'
+  `).first<{ name: string }>()
+  if (migrationTable) {
+    await db.prepare(`
+      INSERT INTO d1_migrations(name)
+      SELECT ? WHERE NOT EXISTS (SELECT 1 FROM d1_migrations WHERE name = ?)
+    `).bind('0002_friends.sql', '0002_friends.sql').run()
+  }
+}
+
 function shareCode() {
   const characters = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
   const bytes = crypto.getRandomValues(new Uint8Array(6))
@@ -393,6 +437,7 @@ app.delete('/api/me/matches/:id', async c => {
 app.get('/api/me/friends', async c => {
   const user = await currentUser(c)
   if (!user) return jsonError(c, '请先登录', 401)
+  await ensureFriendSchema(c.env.DB)
   const result = await c.env.DB.prepare(`
     SELECT f.id, f.name, f.avatar_seed, f.last_played_at,
       COUNT(DISTINCT p.match_id) joint_matches,
@@ -464,6 +509,7 @@ app.get('/api/me/daily-statistics', async c => {
 app.post('/api/matches', async c => {
   const inputs = validatePlayers(await c.req.json().catch(() => null))
   if (!inputs) return jsonError(c, '请输入四个不重复的玩家姓名')
+  await ensureFriendSchema(c.env.DB)
   const matchId = uid()
   const adminToken = randomHex(24)
   const createdAt = now()
