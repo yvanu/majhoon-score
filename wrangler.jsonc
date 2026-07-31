@@ -18,7 +18,7 @@
     {
       "binding": "DB",
       "database_name": "mahjong-score-wechat-db",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "de3b2e15-b208-4288-880c-ef7b687851b9",
       "migrations_dir": "migrations"
     }
   ]
