@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Taro from '@tarojs/taro'
 import { Button, Input, ScrollView, Text, View } from '@tarojs/components'
 import type {
@@ -18,7 +18,21 @@ const animals = ['🐼', '🐯', '🦊', '🐸', '🐧', '🐵', '🦁', '🐨',
 const windName: Record<string, string> = { east: '东', south: '南', west: '西', north: '北' }
 const typeName: Record<string, string> = { tsumo: '自摸', ron: '点炮', draw: '流局', custom: '自定义' }
 const noteOptions = ['无花果', '对对胡', '混一色', '清一色', '七对', '全球独钓', '龙七', '花开', '杠开', '外包']
-type Screen = 'home' | 'create' | 'join' | 'auth' | 'history' | 'daily' | 'match' | 'score' | 'stats'
+type Screen = 'home' | 'create' | 'join' | 'auth' | 'history' | 'daily' | 'profile' | 'match' | 'score' | 'stats'
+type SyncStatus = 'idle' | 'syncing' | 'synced' | 'offline'
+type DialogVariant = 'default' | 'danger' | 'info' | 'error'
+
+type DialogOptions = {
+  title: string
+  content: string
+  confirmText?: string
+  cancelText?: string
+  showCancel?: boolean
+  variant?: DialogVariant
+}
+
+type DialogState = DialogOptions & { closing: boolean }
+type ShowDialog = (options: DialogOptions) => Promise<boolean>
 
 function Avatar({ player, large = false }: { player: Player; large?: boolean }) {
   const seed = Number(player.avatar_seed || 0)
@@ -34,22 +48,84 @@ export default function Index() {
   const [history, setHistory] = useState<MatchSummary[]>([])
   const [adminToken, setAdminToken] = useState('')
   const [loading, setLoading] = useState(false)
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle')
+  const [dialog, setDialog] = useState<DialogState | null>(null)
+  const dialogResolver = useRef<((confirmed: boolean) => void) | null>(null)
 
   useEffect(() => {
-    const token = Taro.getStorageSync<string>(AUTH_KEY)
-    if (token) api.me().then(value => setUser(value.user)).catch(() => Taro.removeStorageSync(AUTH_KEY))
-    const saved = Taro.getStorageSync<{ id: string; token: string }>(CURRENT_KEY)
-    if (saved?.id) {
-      setAdminToken(saved.token || '')
-      void openMatch(saved.id, false)
-    }
+    void restoreSession()
   }, [])
+
+  async function restoreSession() {
+    setSyncStatus('syncing')
+    const token = Taro.getStorageSync<string>(AUTH_KEY)
+    const saved = Taro.getStorageSync<{ id: string; token: string }>(CURRENT_KEY)
+    let syncFailed = false
+
+    if (token) {
+      try {
+        const currentUser = await api.me()
+        setUser(currentUser.user)
+        const [historyData, today] = await Promise.all([api.history(), api.dailyStatistics()])
+        setHistory(historyData.matches)
+        setDailyStats(today)
+      } catch (error) {
+        syncFailed = true
+        console.error('Restore account failed:', error)
+      }
+    }
+
+    if (saved?.id) {
+      try {
+        const data = await api.getMatch(saved.id)
+        if (data.match.status === 'active') {
+          setMatch(data.match)
+          setAdminToken(saved.token || '')
+        } else {
+          Taro.removeStorageSync(CURRENT_KEY)
+        }
+      } catch (error) {
+        syncFailed = true
+        console.error('Restore current match failed:', error)
+      }
+    }
+
+    setSyncStatus(syncFailed ? 'offline' : 'synced')
+  }
+
+  function showDialog(options: DialogOptions): Promise<boolean> {
+    if (dialogResolver.current) dialogResolver.current(false)
+    return new Promise(resolve => {
+      dialogResolver.current = resolve
+      setDialog({
+        confirmText: '确定',
+        cancelText: '取消',
+        showCancel: true,
+        variant: 'default',
+        ...options,
+        closing: false,
+      })
+    })
+  }
+
+  function closeDialog(confirmed: boolean) {
+    setDialog(current => current ? { ...current, closing: true } : current)
+    setTimeout(() => {
+      setDialog(null)
+      const resolve = dialogResolver.current
+      dialogResolver.current = null
+      resolve?.(confirmed)
+    }, 180)
+  }
 
   async function run(action: () => Promise<void>) {
     setLoading(true)
+    setSyncStatus('syncing')
     try {
       await action()
+      setSyncStatus('synced')
     } catch (error) {
+      setSyncStatus('offline')
       const detail = error as { message?: string; errMsg?: string }
       const rawMessage = detail.message || detail.errMsg || '操作失败，请稍后重试'
       const message = /url not in domain list|request 合法域名/i.test(rawMessage)
@@ -58,7 +134,13 @@ export default function Index() {
           ? '请求超时，请检查网络后重试'
           : rawMessage.replace(/^request:fail\s*/i, '')
       console.error('Request failed:', error)
-      await Taro.showModal({ title: '操作失败', content: message, showCancel: false })
+      await showDialog({
+        title: '操作失败',
+        content: message,
+        showCancel: false,
+        confirmText: '知道了',
+        variant: 'error',
+      })
     } finally {
       setLoading(false)
     }
@@ -76,6 +158,13 @@ export default function Index() {
         setScreen('match')
       }
     })
+  }
+
+  async function refreshDashboard() {
+    if (!Taro.getStorageSync<string>(AUTH_KEY)) return
+    const [historyData, today] = await Promise.all([api.history(), api.dailyStatistics()])
+    setHistory(historyData.matches)
+    setDailyStats(today)
   }
 
   async function refreshHistory() {
@@ -112,7 +201,8 @@ export default function Index() {
       setAdminToken(data.adminToken)
       Taro.setStorageSync(CURRENT_KEY, { id: data.match.id, token: data.adminToken })
       setScreen('match')
-      if (user) await refreshHistory()
+      await Taro.showToast({ title: '牌局已创建', icon: 'success' })
+      if (user) await refreshDashboard()
     })
   }
 
@@ -121,8 +211,9 @@ export default function Index() {
     setUser(data.user)
     const saved = Taro.getStorageSync<{ id: string; token: string }>(CURRENT_KEY)
     if (saved?.id && saved?.token) await api.claim(saved.id, saved.token).catch(() => undefined)
-    await refreshHistory()
-    setScreen('history')
+    await refreshDashboard()
+    setScreen('home')
+    await Taro.showToast({ title: '登录成功', icon: 'success' })
   }
 
   async function wechatLogin() {
@@ -144,21 +235,23 @@ export default function Index() {
     setHistory([])
     setDailyStats(null)
     setScreen('home')
+    await Taro.showToast({ title: '已退出登录', icon: 'none' })
   }
 
   async function deleteHistoryMatch(id: string) {
-    const result = await Taro.showModal({
+    const confirmed = await showDialog({
       title: '删除历史牌局',
-      content: '删除后无法恢复，确定删除这条历史牌局？',
-      confirmText: '删除',
-      confirmColor: '#e45d5d',
+      content: '删除后无法恢复，这条牌局及全部计分记录都会永久删除。',
+      confirmText: '确认删除',
+      variant: 'danger',
     })
-    if (!result.confirm) return
+    if (!confirmed) return
     await run(async () => {
       await api.deleteHistoryMatch(id)
       setHistory(current => current.filter(item => item.id !== id))
       const saved = Taro.getStorageSync<{ id: string; token: string }>(CURRENT_KEY)
       if (saved?.id === id) Taro.removeStorageSync(CURRENT_KEY)
+      await Taro.showToast({ title: '已删除', icon: 'success' })
     })
   }
 
@@ -168,29 +261,39 @@ export default function Index() {
       const data = await api.addHand(match.id, input, adminToken)
       setMatch(data.match)
       setScreen('match')
+      await Taro.showToast({ title: '计分已保存', icon: 'success' })
     })
   }
 
   async function undo() {
     if (!match) return
-    const result = await Taro.showModal({ title: '撤销上一局', content: '确定撤销上一局计分？' })
-    if (!result.confirm) return
-    await run(async () => setMatch((await api.undo(match.id, adminToken)).match))
+    const confirmed = await showDialog({
+      title: '撤销上一局',
+      content: '上一局的分数和战绩记录会被移除，之后仍可重新录入。',
+      confirmText: '确认撤销',
+    })
+    if (!confirmed) return
+    await run(async () => {
+      setMatch((await api.undo(match.id, adminToken)).match)
+      await Taro.showToast({ title: '已撤销上一局', icon: 'success' })
+    })
   }
 
   async function finish() {
     if (!match) return
-    const result = await Taro.showModal({
+    const confirmed = await showDialog({
       title: '结束本将',
-      content: '结束后将不能继续录分，确定结束本将？',
-      confirmText: '结束',
-      confirmColor: '#e45d5d',
+      content: '结束后将生成最终战绩，本将不能再继续录分。',
+      confirmText: '确认结束',
+      variant: 'danger',
     })
-    if (!result.confirm) return
+    if (!confirmed) return
     await run(async () => {
       const data = await api.finish(match.id, adminToken)
       setMatch(data.match)
       setStats(await api.statistics(match.id))
+      Taro.removeStorageSync(CURRENT_KEY)
+      if (user) await refreshDashboard()
       setScreen('stats')
     })
   }
@@ -201,30 +304,49 @@ export default function Index() {
     setStats(null)
     setAdminToken('')
     setScreen('home')
+    if (user) void run(refreshDashboard)
   }
 
   return <View className='app'>
+    <View key={screen} className='screen-transition'>
     {screen === 'home' && <Home
       user={user}
+      currentMatch={match?.status === 'active' ? match : null}
+      recentMatch={history[0] || null}
+      dailyStats={dailyStats}
+      syncStatus={syncStatus}
+      onContinue={() => setScreen('match')}
       onStart={() => setScreen('create')}
       onJoin={() => setScreen('join')}
+      onOpen={code => openMatch(code, code !== match?.id)}
       onHistory={showHistory}
       onDaily={showDailyStats}
-      onLogout={logout}
+      onLogin={() => setScreen('auth')}
+      onProfile={() => setScreen('profile')}
     />}
     {screen === 'create' && <Create onBack={() => setScreen('home')} onCreate={createMatch} loading={loading} />}
     {screen === 'join' && <Join onBack={() => setScreen('home')} onOpen={code => openMatch(code)} loading={loading} />}
     {screen === 'auth' && <Auth onBack={() => setScreen('home')} onWechatLogin={wechatLogin} onSubmit={login} loading={loading} />}
     {screen === 'history' && user && <HistoryScreen
-      user={user}
       matches={history}
       loading={loading}
-      onBack={() => setScreen('home')}
-      onOpen={current => openMatch(current.id)}
+      onHome={() => setScreen('home')}
+      onOpen={current => openMatch(current.id, current.id !== match?.id)}
       onDelete={deleteHistoryMatch}
-      onLogout={logout}
+      onProfile={() => setScreen('profile')}
     />}
     {screen === 'daily' && dailyStats && <DailyStatsScreen stats={dailyStats} onBack={() => setScreen('home')} />}
+    {screen === 'profile' && <ProfileScreen
+      user={user}
+      matches={history}
+      dailyStats={dailyStats}
+      syncStatus={syncStatus}
+      onHome={() => setScreen('home')}
+      onHistory={showHistory}
+      onLogin={() => setScreen('auth')}
+      onLogout={logout}
+      showDialog={showDialog}
+    />}
     {screen === 'match' && match && <MatchScreen
       match={match}
       canEdit={Boolean(adminToken)}
@@ -240,37 +362,166 @@ export default function Index() {
       onSubmit={submitHand}
     />}
     {screen === 'stats' && match && stats && <StatsScreen match={match} stats={stats} onReset={reset} />}
+    </View>
+    {dialog && <ConfirmDialog
+      dialog={dialog}
+      onCancel={() => closeDialog(false)}
+      onConfirm={() => closeDialog(true)}
+    />}
   </View>
 }
 
 function Header({ title, onBack }: { title: string; onBack: () => void }) {
-  return <View className='header'><Button className='icon-button' onClick={onBack}>‹</Button><Text>{title}</Text></View>
+  return <View className='header'><Button className='icon-button' hoverClass='none' onClick={onBack}>‹</Button><Text>{title}</Text></View>
 }
 
-function Home({ user, onStart, onJoin, onHistory, onDaily, onLogout }: {
-  user: AuthUser | null
-  onStart: () => void
-  onJoin: () => void
-  onHistory: () => void
-  onDaily: () => void
-  onLogout: () => void
+function ConfirmDialog({ dialog, onConfirm, onCancel }: {
+  dialog: DialogState
+  onConfirm: () => void
+  onCancel: () => void
 }) {
-  return <View className='page home'>
-    <View className='brand'><View className='brand-mark'>雀</View><View><Text className='title'>雀记</Text><Text className='subtitle'>四人麻将，轻松记分。</Text></View></View>
-    <Text className='tiles'>🀀　🀄　🀅　🀆</Text>
-    <Button className='primary' onClick={onStart}>＋ 开启一将</Button>
-    <Button className='secondary' onClick={onHistory}>{user ? `${user.username} 的历史牌局` : '微信登录 / 账号登录'}</Button>
-    <Button className='secondary' onClick={onJoin}>输入分享码</Button>
-    {user && <Button className='link' onClick={onLogout}>退出登录</Button>}
-    <View className='daily-entry' onClick={onDaily}>
-      <Text className='daily-icon'>▥</Text>
-      <View><Text className='daily-title'>每日战绩统计</Text><Text className='daily-subtitle'>查看今天所有牌局汇总</Text></View>
+  const icon = dialog.variant === 'danger' ? '!' : dialog.variant === 'error' ? '×' : dialog.variant === 'info' ? 'i' : '✓'
+  const showCancel = dialog.showCancel !== false
+
+  return <View
+    className={`confirm-backdrop${dialog.closing ? ' closing' : ''}`}
+    onClick={() => { if (showCancel) onCancel() }}
+  >
+    <View className={`confirm-sheet confirm-${dialog.variant || 'default'}`} onClick={event => event.stopPropagation()}>
+      <View className='confirm-icon'><Text>{icon}</Text></View>
+      <Text className='confirm-title'>{dialog.title}</Text>
+      <Text className='confirm-content'>{dialog.content}</Text>
+      <View className={`confirm-actions${showCancel ? '' : ' single'}`}>
+        {showCancel && <Button className='confirm-button confirm-cancel' hoverClass='none' onClick={onCancel}>{dialog.cancelText || '取消'}</Button>}
+        <Button className={`confirm-button confirm-submit${dialog.variant === 'danger' || dialog.variant === 'error' ? ' danger' : ''}`} hoverClass='none' onClick={onConfirm}>{dialog.confirmText || '确定'}</Button>
+      </View>
     </View>
   </View>
 }
 
+let cachedPageTopInset: number | null = null
+
+function getPageTopInset() {
+  if (cachedPageTopInset !== null) return cachedPageTopInset
+  try {
+    const rect = Taro.getMenuButtonBoundingClientRect()
+    if (rect?.bottom) {
+      cachedPageTopInset = rect.bottom + 22
+      return cachedPageTopInset
+    }
+  } catch (error) {
+    console.warn('Unable to read menu button position:', error)
+  }
+  cachedPageTopInset = 132
+  return cachedPageTopInset
+}
+
+function displayUserName(user: AuthUser | null) {
+  if (!user) return '未登录'
+  return /^微信用户[0-9a-f]+$/i.test(user.username) ? '微信用户' : user.username
+}
+
+function formatMatchTime(value: string) {
+  const date = new Date(value)
+  const now = new Date()
+  const sameDay = date.toDateString() === now.toDateString()
+  const time = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+  return sameDay ? `今天 ${time}` : `${date.getMonth() + 1}月${date.getDate()}日 ${time}`
+}
+
+function normalizeJoinCode(value: string) {
+  const input = value.trim()
+  if (!input) return ''
+  const queryMatch = input.match(/[?&](?:code|share_code)=([^&#]+)/i)
+  const pathMatch = input.match(/\/([^/?#]+)(?:[?#]|$)/)
+  const result = queryMatch?.[1] || (input.includes('://') ? pathMatch?.[1] : input) || ''
+  try {
+    return decodeURIComponent(result).trim().toUpperCase()
+  } catch {
+    return result.trim().toUpperCase()
+  }
+}
+
+function Home({ user, currentMatch, recentMatch, dailyStats, syncStatus, onContinue, onStart, onJoin, onOpen, onHistory, onDaily, onLogin, onProfile }: {
+  user: AuthUser | null
+  currentMatch: Match | null
+  recentMatch: MatchSummary | null
+  dailyStats: DailyStats | null
+  syncStatus: SyncStatus
+  onContinue: () => void
+  onStart: () => void
+  onJoin: () => void
+  onOpen: (code: string) => void
+  onHistory: () => void
+  onDaily: () => void
+  onLogin: () => void
+  onProfile: () => void
+}) {
+  const syncText = syncStatus === 'syncing' ? '同步中' : syncStatus === 'offline' ? '网络异常' : '已同步'
+  const topPlayer = dailyStats?.players[0]
+
+  async function scanAndOpen() {
+    try {
+      const result = await Taro.scanCode({ onlyFromCamera: false })
+      const code = normalizeJoinCode(result.result)
+      if (!code) throw new Error('未识别到有效分享码')
+      onOpen(code)
+    } catch (error) {
+      const detail = error as { errMsg?: string; message?: string }
+      if (/cancel/i.test(detail.errMsg || '')) return
+      await Taro.showToast({ title: detail.message || '未识别到有效分享码', icon: 'none' })
+    }
+  }
+
+  return <View className='page home-page' style={{ paddingTop: `${getPageTopInset()}px` }}>
+    <View className='home-top'>
+      <View className='brand compact'><View className='brand-mark'>雀</View><View><Text className='title'>雀记</Text><Text className='subtitle'>四人麻将，轻松记分</Text></View></View>
+      <View className={`sync-pill ${syncStatus}`}><View className='sync-dot' /><Text>{syncText}</Text></View>
+    </View>
+
+    <View className='mahjong-strip'>
+      <View className='mahjong-tile black'>東</View>
+      <View className='mahjong-tile red featured'>中</View>
+      <View className='mahjong-tile green'>發</View>
+      <View className='mahjong-tile back'><View /></View>
+    </View>
+
+    {currentMatch && <View className='continue-card' onClick={onContinue}>
+      <View className='continue-copy'><Text className='eyebrow'>正在进行</Text><Text className='continue-title'>继续上一将</Text><Text>{windName[currentMatch.current_wind]}风 · 第 {currentMatch.current_hand} 局 · 已记 {currentMatch.hands.length} 局</Text></View>
+      <Text className='card-arrow'>›</Text>
+    </View>}
+
+    <Button className='primary home-primary' onClick={onStart}>＋ 开启一将</Button>
+
+    <View className='quick-actions'>
+      <View className='quick-card' onClick={scanAndOpen}><Text className='quick-icon'>⌗</Text><View><Text className='quick-title'>扫码加入</Text><Text className='quick-subtitle'>扫描牌局二维码</Text></View></View>
+      <View className='quick-card' onClick={onJoin}><Text className='quick-icon'>#</Text><View><Text className='quick-title'>输入分享码</Text><Text className='quick-subtitle'>粘贴六位分享码</Text></View></View>
+    </View>
+
+    {user ? <>
+      <View className='section-head'><Text>最近牌局</Text><Text className='section-more' onClick={onHistory}>全部 ›</Text></View>
+      {recentMatch ? <View className='dashboard-card recent-card' onClick={() => onOpen(recentMatch.id)}>
+        <View className='dashboard-icon'>局</View>
+        <View className='grow'><Text className='card-title'>{recentMatch.player_names.join(' · ') || '四人牌局'}</Text><Text>{formatMatchTime(recentMatch.created_at)} · {recentMatch.hand_count} 局</Text><Text>{recentMatch.status === 'finished' ? '已结束' : '进行中'} · 分享码 {recentMatch.share_code}</Text></View>
+        <Text className='card-arrow'>›</Text>
+      </View> : <View className='mini-empty' onClick={onStart}><Text>还没有牌局，开启第一将吧</Text><Text>去创建 ›</Text></View>}
+
+      <View className='section-head'><Text>今日战绩</Text><Text className='section-more' onClick={onDaily}>详情 ›</Text></View>
+      <View className='dashboard-card daily-card' onClick={onDaily}>
+        <View className='dashboard-icon'>统</View>
+        <View className='grow'><Text className='card-title'>{dailyStats?.matchCount || 0} 将 · {dailyStats?.handCount || 0} 局</Text><Text>{topPlayer ? `今日领先：${topPlayer.name} ${topPlayer.score > 0 ? '+' : ''}${topPlayer.score}` : '完成牌局后生成今日汇总'}</Text></View>
+        <Text className='card-arrow'>›</Text>
+      </View>
+    </> : <View className='login-card' onClick={onLogin}>
+      <View><Text className='card-title'>登录后同步牌局</Text><Text>保存历史记录、查看每日统计</Text></View><Text className='card-arrow'>›</Text>
+    </View>}
+
+    <BottomNav active='home' onHome={() => undefined} onMatches={onHistory} onProfile={onProfile} />
+  </View>
+}
+
 function DailyStatsScreen({ stats, onBack }: { stats: DailyStats; onBack: () => void }) {
-  return <View className='page'><Header title='每日战绩统计' onBack={onBack} />
+  return <View className='page' style={{ paddingTop: `${getPageTopInset()}px` }}><Header title='每日战绩统计' onBack={onBack} />
     <View className='daily-overview'>
       <View><Text>日期</Text><Text className='daily-overview-value'>{stats.date}</Text></View>
       <View><Text>牌局</Text><Text className='daily-overview-value'>{stats.matchCount} 将</Text></View>
@@ -288,7 +539,7 @@ function DailyStatsScreen({ stats, onBack }: { stats: DailyStats; onBack: () => 
 function Create({ onBack, onCreate, loading }: { onBack: () => void; onCreate: (names: string[]) => void; loading: boolean }) {
   const [names, setNames] = useState(['', '', '', ''])
   const valid = names.every(value => value.trim()) && new Set(names.map(value => value.trim())).size === 4
-  return <View className='page'><Header title='谁来上桌？' onBack={onBack} />
+  return <View className='page' style={{ paddingTop: `${getPageTopInset()}px` }}><Header title='谁来上桌？' onBack={onBack} />
     {names.map((name, index) => <View className='field player-field' key={String(index)}>
       <Text>{['东', '南', '西', '北'][index]}家</Text>
       <Input value={name} maxlength={12} placeholder={`玩家 ${index + 1}`} onInput={event => setNames(names.map((value, currentIndex) => currentIndex === index ? event.detail.value : value))} />
@@ -299,9 +550,35 @@ function Create({ onBack, onCreate, loading }: { onBack: () => void; onCreate: (
 
 function Join({ onBack, onOpen, loading }: { onBack: () => void; onOpen: (code: string) => void; loading: boolean }) {
   const [code, setCode] = useState('')
-  return <View className='page'><Header title='查看牌局' onBack={onBack} />
-    <View className='field'><Text>分享码或牌局 ID</Text><Input value={code} placeholder='例如 AB12CD' onInput={event => setCode(event.detail.value.toUpperCase())} /></View>
-    <Button className='primary' disabled={!code.trim() || loading} onClick={() => onOpen(code.trim())}>打开牌局</Button>
+
+  async function scan() {
+    try {
+      const result = await Taro.scanCode({ onlyFromCamera: false })
+      const value = normalizeJoinCode(result.result)
+      if (!value) throw new Error('未识别到有效分享码')
+      setCode(value)
+    } catch (error) {
+      const detail = error as { errMsg?: string; message?: string }
+      if (/cancel/i.test(detail.errMsg || '')) return
+      await Taro.showToast({ title: detail.message || '扫码失败，请重试', icon: 'none' })
+    }
+  }
+
+  async function paste() {
+    const result = await Taro.getClipboardData()
+    const value = normalizeJoinCode(result.data || '')
+    if (!value) {
+      await Taro.showToast({ title: '剪贴板中没有分享码', icon: 'none' })
+      return
+    }
+    setCode(value)
+  }
+
+  return <View className='page' style={{ paddingTop: `${getPageTopInset()}px` }}><Header title='加入牌局' onBack={onBack} />
+    <View className='join-hero'><Text className='join-symbol'>#</Text><Text className='card-title'>输入或扫描分享码</Text><Text>加入后可实时查看当前比分</Text></View>
+    <View className='field join-field'><Text>分享码或牌局 ID</Text><Input value={code} maxlength={64} placeholder='例如 AB12CD' onInput={event => setCode(normalizeJoinCode(event.detail.value))} /></View>
+    <View className='join-tools'><Button className='secondary half' onClick={scan}>扫码识别</Button><Button className='secondary half' onClick={paste}>从剪贴板粘贴</Button></View>
+    <Button className='primary' disabled={!code.trim() || loading} onClick={() => onOpen(code.trim())}>{loading ? '正在加入…' : '加入牌局'}</Button>
   </View>
 }
 
@@ -333,7 +610,7 @@ function Auth({ onBack, onWechatLogin, onSubmit, loading }: {
     onSubmit(normalizedUsername, password, register)
   }
 
-  return <View className='page'><Header title={register ? '注册账号' : '登录雀记'} onBack={onBack} />
+  return <View className='page' style={{ paddingTop: `${getPageTopInset()}px` }}><Header title={register ? '注册账号' : '登录雀记'} onBack={onBack} />
     <Button className='wechat-button' disabled={loading} onClick={onWechatLogin}>{loading ? '登录中…' : '微信快捷登录'}</Button>
     <View className='auth-divider'><View /><Text>或使用账号密码</Text><View /></View>
     <View className='field'><Text>用户名</Text><Input value={username} maxlength={24} placeholder='3–24 位' onInput={event => setUsername(event.detail.value)} /></View>
@@ -345,23 +622,98 @@ function Auth({ onBack, onWechatLogin, onSubmit, loading }: {
   </View>
 }
 
-function HistoryScreen({ user, matches, loading, onBack, onOpen, onDelete, onLogout }: {
-  user: AuthUser
+function HistoryScreen({ matches, loading, onHome, onOpen, onDelete, onProfile }: {
   matches: MatchSummary[]
   loading: boolean
-  onBack: () => void
+  onHome: () => void
   onOpen: (match: MatchSummary) => void
   onDelete: (id: string) => void
-  onLogout: () => void
+  onProfile: () => void
 }) {
-  return <View className='page'><Header title={`${user.username} 的牌局`} onBack={onBack} />
-    <Button className='link' onClick={onLogout}>退出登录</Button>
+  return <View className='page tab-page' style={{ paddingTop: `${getPageTopInset()}px` }}><View className='page-title-row'><View><Text className='eyebrow'>MATCH HISTORY</Text><Text className='title-small'>我的牌局</Text></View><Text className='count-badge'>{matches.length}</Text></View>
     {!matches.length && <View className='empty'><Text className='empty-icon'>🀫</Text><Text className='card-title'>暂无历史牌局</Text><Text>登录后创建的牌局会显示在这里</Text></View>}
     <ScrollView scrollY className='history-list'>{matches.map(current => <View className='card history-card' key={current.id} onClick={() => onOpen(current)}>
-      <View className='grow'><Text className='card-title'>{current.player_names.join(' · ') || '四人牌局'}</Text><Text>{new Date(current.created_at).toLocaleString()}</Text><Text>{current.hand_count} 局 · {current.status === 'finished' ? '已结束' : '进行中'} · {current.share_code}</Text></View>
+      <View className='history-status'><Text>{current.status === 'finished' ? '已结束' : '进行中'}</Text></View>
+      <View className='grow'><Text className='card-title'>{current.player_names.join(' · ') || '四人牌局'}</Text><Text>{formatMatchTime(current.created_at)} · {current.hand_count} 局</Text><Text>分享码 {current.share_code}</Text></View>
       <Button className='delete-button' disabled={loading} onClick={event => { event.stopPropagation(); onDelete(current.id) }}>删除</Button>
     </View>)}</ScrollView>
+    <BottomNav active='matches' onHome={onHome} onMatches={() => undefined} onProfile={onProfile} />
   </View>
+}
+
+function ProfileScreen({ user, matches, dailyStats, syncStatus, onHome, onHistory, onLogin, onLogout, showDialog }: {
+  user: AuthUser | null
+  matches: MatchSummary[]
+  dailyStats: DailyStats | null
+  syncStatus: SyncStatus
+  onHome: () => void
+  onHistory: () => void
+  onLogin: () => void
+  onLogout: () => void
+  showDialog: ShowDialog
+}) {
+  const syncText = syncStatus === 'syncing' ? '正在同步' : syncStatus === 'offline' ? '同步失败，请检查网络' : '数据已同步'
+
+  async function showPrivacy() {
+    await showDialog({
+      title: '隐私说明',
+      content: '雀记仅保存账号标识、牌局及计分数据。微信快捷登录只使用当前小程序的用户标识，不读取通讯录、定位、相册、头像或微信昵称。扫码功能仅在你主动操作时调用。',
+      showCancel: false,
+      confirmText: '我知道了',
+      variant: 'info',
+    })
+  }
+
+  async function showAgreement() {
+    await showDialog({
+      title: '用户协议',
+      content: '雀记用于好友间麻将计分。请妥善保管分享码，不要录入敏感个人信息。删除牌局后数据无法恢复；网络异常时请确认同步完成后再退出。',
+      showCancel: false,
+      confirmText: '我知道了',
+      variant: 'info',
+    })
+  }
+
+  async function confirmLogout() {
+    const confirmed = await showDialog({
+      title: '退出登录',
+      content: '退出后本机仍可继续未完成的牌局，历史记录需要重新登录后查看。',
+      confirmText: '退出登录',
+      variant: 'danger',
+    })
+    if (confirmed) await onLogout()
+  }
+
+  return <View className='page tab-page profile-page' style={{ paddingTop: `${getPageTopInset()}px` }}>
+    <View className='profile-head'><View className='profile-avatar'>雀</View><View className='grow'><Text className='title-small'>{displayUserName(user)}</Text><Text>{user ? '牌局数据已绑定当前账号' : '登录后同步历史牌局'}</Text></View><Button className='profile-action' onClick={user ? onHistory : onLogin}>{user ? '牌局' : '登录'}</Button></View>
+    <View className='profile-stats'>
+      <View><Text className='profile-number'>{matches.length}</Text><Text>全部牌局</Text></View>
+      <View><Text className='profile-number'>{dailyStats?.matchCount || 0}</Text><Text>今日牌局</Text></View>
+      <View><Text className='profile-number'>{dailyStats?.handCount || 0}</Text><Text>今日局数</Text></View>
+    </View>
+    <View className='settings-card'>
+      <View className='setting-row'><View><Text className='setting-title'>数据同步</Text><Text className={`setting-note ${syncStatus}`}>{syncText}</Text></View><Text className='card-arrow'>›</Text></View>
+      <View className='setting-row' onClick={showPrivacy}><Text className='setting-title'>隐私说明</Text><Text className='card-arrow'>›</Text></View>
+      <View className='setting-row' onClick={showAgreement}><Text className='setting-title'>用户协议</Text><Text className='card-arrow'>›</Text></View>
+    </View>
+    {user && <Button className='danger-link' onClick={confirmLogout}>退出登录</Button>}
+    <Text className='version-text'>雀记 · 微信小程序</Text>
+    <BottomNav active='profile' onHome={onHome} onMatches={onHistory} onProfile={() => undefined} />
+  </View>
+}
+
+function BottomNav({ active, onHome, onMatches, onProfile }: {
+  active: 'home' | 'matches' | 'profile'
+  onHome: () => void
+  onMatches: () => void
+  onProfile: () => void
+}) {
+  const items = [
+    { key: 'home' as const, icon: '雀', label: '首页', action: onHome },
+    { key: 'matches' as const, icon: '局', label: '牌局', action: onMatches },
+    { key: 'profile' as const, icon: '我', label: '我的', action: onProfile },
+  ]
+  return <View className='bottom-nav'>{items.map(item => <View key={item.key} className={active === item.key ? 'nav-item active' : 'nav-item'} onClick={item.action}><Text className='nav-icon'>{item.icon}</Text><Text>{item.label}</Text></View>)}</View>
 }
 
 function MatchScreen({ match, canEdit, loading, onAdd, onUndo, onFinish }: {
@@ -380,7 +732,7 @@ function MatchScreen({ match, canEdit, loading, onAdd, onUndo, onFinish }: {
     await Taro.setClipboardData({ data: match.share_code })
   }
 
-  return <View className='page'><View className='match-head'><View><Text className='eyebrow'>{windName[match.current_wind]}风 · 第 {match.current_hand} 局</Text><Text className='title-small'>雀局进行中</Text></View><Button className='code' onClick={share}>{match.share_code}</Button></View>
+  return <View className='page' style={{ paddingTop: `${getPageTopInset()}px` }}><View className='match-head'><View><Text className='eyebrow'>{windName[match.current_wind]}风 · 第 {match.current_hand} 局</Text><Text className='title-small'>雀局进行中</Text></View><Button className='code' onClick={share}>{match.share_code}</Button></View>
     {ranked.map((player, index) => <View className='score-card' key={player.id} onClick={() => setSelectedPlayerId(player.id)}>
       <Text className='rank'>{index + 1}</Text><Avatar player={player} /><View className='grow'><Text className='card-title'>{player.name}</Text><Text>{['东', '南', '西', '北'][player.seat]}家</Text></View><Text className={player.score >= 0 ? 'positive' : 'negative'}>{player.score > 0 ? '+' : ''}{player.score}</Text>
     </View>)}
@@ -468,7 +820,7 @@ function ScoreScreen({ players, loading, onBack, onSubmit }: {
     })
   }
 
-  return <View className='page'><Header title='记一局' onBack={onBack} />
+  return <View className='page' style={{ paddingTop: `${getPageTopInset()}px` }}><Header title='记一局' onBack={onBack} />
     <View className='tabs'>{(['ron', 'tsumo', 'draw', 'custom'] as const).map(value => <Button key={value} className={type === value ? 'tab active' : 'tab'} onClick={() => setType(value)}>{typeName[value]}</Button>)}</View>
     {(type === 'ron' || type === 'tsumo') && <PlayerPicker title='胡牌者' players={players} selected={winner} onSelect={id => { setWinner(id); if (id === loser) setLoser(players.find(player => player.id !== id)!.id) }} />}
     {type === 'ron' && <><PlayerPicker title='放炮者' players={players.filter(player => player.id !== winner)} selected={loser} onSelect={setLoser} /><View className='field'><Text>分数</Text><Input type='number' value={amount} onInput={event => setAmount(event.detail.value)} /></View></>}
@@ -486,7 +838,7 @@ function PlayerPicker({ title, players, selected, onSelect }: { title: string; p
 function StatsScreen({ match, stats, onReset }: { match: Match; stats: Stats; onReset: () => void }) {
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null)
   const selectedPlayer = match.players.find(player => player.id === selectedPlayerId) || null
-  return <View className='page'><View className='stats-head'><Text className='eyebrow'>FINAL RESULT</Text><Text className='title'>本将结束</Text><Text>共完成 {stats.totalHands} 局</Text></View>
+  return <View className='page' style={{ paddingTop: `${getPageTopInset()}px` }}><View className='stats-head'><Text className='eyebrow'>FINAL RESULT</Text><Text className='title'>本将结束</Text><Text>共完成 {stats.totalHands} 局</Text></View>
     {stats.players.map(player => <View className='score-card stats-card' key={player.id} onClick={() => setSelectedPlayerId(player.id)}>
       <Text className='rank'>#{player.rank}</Text><Avatar player={player} large /><View className='grow'><Text className='card-title'>{player.name}</Text><Text>胜率 {(player.winRate * 100).toFixed(0)}% · 放炮 {(player.dealInRate * 100).toFixed(0)}%</Text><Text>自摸占比 {(player.tsumoShare * 100).toFixed(0)}%</Text></View><Text className={player.score >= 0 ? 'positive' : 'negative'}>{player.score > 0 ? '+' : ''}{player.score}</Text>
     </View>)}
