@@ -149,23 +149,9 @@ git commit -m "描述本次修改"
 git push
 ```
 
-`.github/workflows/deploy-worker.yml` 会监听 `wechat-taro-worker` 分支。每次 push 后，GitHub Actions 会自动：
+本项目只使用 Cloudflare 侧配置的 Git CI 自动部署，不再使用 GitHub Actions。推送 `wechat-taro-worker` 分支后，由 Cloudflare 拉取代码并完成构建、迁移和 Worker 部署。
 
-1. 安装锁文件中的依赖
-2. 执行 Worker TypeScript 检查
-3. 应用远程 D1 migration
-4. 执行 `wrangler deploy`
-
-在 GitHub 仓库的 `Settings → Secrets and variables → Actions` 中添加两个 Repository Secret：
-
-```text
-CLOUDFLARE_API_TOKEN
-CLOUDFLARE_ACCOUNT_ID
-```
-
-Cloudflare Token 至少需要 Worker 脚本和 D1 的编辑权限。由于 `wrangler.jsonc` 同时声明了 `wx.score.majhoon.site` 自定义域名，该 Token 还需要对应 Zone 的 Workers Routes 编辑权限。
-
-`WECHAT_APP_ID` 和 `WECHAT_APP_SECRET` 继续保存在 Cloudflare Worker Secrets 中，不需要放进 GitHub Actions，也不能提交到 Git。
+`WECHAT_APP_ID` 和 `WECHAT_APP_SECRET` 保存在 Cloudflare Worker Secrets 中，不能提交到 Git。
 
 仍然可以在需要时手动执行 `npm run deploy`。Git 提交可用于查看历史、对比修改和回滚。
 

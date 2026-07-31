@@ -12,3 +12,4 @@ private.*.key
 *.pem
 *.log
 .DS_Store
+.github/workflows/deploy-worker.yml
