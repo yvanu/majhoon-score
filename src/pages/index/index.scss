@@ -253,6 +253,8 @@ page { background: var(--page-bg); color: var(--text); }
 
 .primary { background: linear-gradient(135deg,#ffd35c,#ffb91f); color: #32240c; box-shadow: 0 16px 34px rgba(239,169,0,.2); }
 .secondary { background: #fff; color: #4c4a50; border: 1px solid var(--line); box-shadow: 0 8px 24px rgba(73,59,34,.05); }
+.secondary[disabled] { opacity: 1; background: #f6f4ef; border-color: #eee9df; color: #b8b5ae; box-shadow: none; }
+.secondary[disabled] text { color: #b8b5ae; }
 .link { color: #9b7c37; }
 .wechat-button { box-shadow: 0 14px 32px rgba(7,193,96,.14); }
 .auth-divider { color: var(--text-muted); }
