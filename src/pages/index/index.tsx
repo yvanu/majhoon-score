@@ -475,7 +475,7 @@ function Home({ user, currentMatch, recentMatch, dailyStats, syncStatus, onConti
 
   return <View className='page home-page' style={{ paddingTop: `${getPageTopInset()}px` }}>
     <View className='home-top'>
-      <View className='brand compact'><View className='brand-mark'>雀</View><View><Text className='title'>雀记</Text><Text className='subtitle'>四人麻将，轻松记分</Text></View></View>
+      <View className='brand compact'><View><Text className='title'>雀记</Text><Text className='subtitle'>四人南麻记分小助手</Text><Text className='home-greeting'>记录每一局的快乐时光</Text></View></View>
       <View className={`sync-pill ${syncStatus}`}><View className='sync-dot' /><Text>{syncText}</Text></View>
     </View>
 
@@ -508,9 +508,9 @@ function Home({ user, currentMatch, recentMatch, dailyStats, syncStatus, onConti
 
       <View className='section-head'><Text>今日战绩</Text><Text className='section-more' onClick={onDaily}>详情 ›</Text></View>
       <View className='dashboard-card daily-card' onClick={onDaily}>
-        <View className='dashboard-icon'>统</View>
-        <View className='grow'><Text className='card-title'>{dailyStats?.matchCount || 0} 将 · {dailyStats?.handCount || 0} 局</Text><Text>{topPlayer ? `今日领先：${topPlayer.name} ${topPlayer.score > 0 ? '+' : ''}${topPlayer.score}` : '完成牌局后生成今日汇总'}</Text></View>
-        <Text className='card-arrow'>›</Text>
+        <View className='daily-metric'><Text className='daily-metric-value'>{dailyStats?.matchCount || 0}</Text><Text>今日牌局</Text></View>
+        <View className='daily-metric'><Text className='daily-metric-value'>{dailyStats?.handCount || 0}</Text><Text>今日局数</Text></View>
+        <View className='daily-metric'><Text className='daily-metric-value'>{topPlayer ? `${topPlayer.score > 0 ? '+' : ''}${topPlayer.score}` : '0'}</Text><Text>领先分数</Text></View>
       </View>
     </> : <View className='login-card' onClick={onLogin}>
       <View><Text className='card-title'>登录后同步牌局</Text><Text>保存历史记录、查看每日统计</Text></View><Text className='card-arrow'>›</Text>
