@@ -1,13 +1,14 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022", "WebWorker"],
-    "strict": true,
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "skipLibCheck": true,
+    "lib": ["ES2022", "WebWorker"],
     "types": [],
-    "noEmit": true
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "verbatimModuleSyntax": true
   },
-  "include": ["worker", "shared"]
+  "include": ["worker/**/*.ts", "src/shared/**/*.ts"]
 }

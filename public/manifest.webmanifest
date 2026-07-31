@@ -1,9 +1,0 @@
-{
-  "name": "雀记 · 麻将计分",
-  "short_name": "雀记",
-  "start_url": "/",
-  "display": "standalone",
-  "background_color": "#08140e",
-  "theme_color": "#10251b",
-  "description": "四人麻将手机计分与统计"
-}

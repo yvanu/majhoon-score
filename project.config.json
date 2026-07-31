@@ -1,0 +1,14 @@
+{
+  "miniprogramRoot": "dist/",
+  "projectname": "mahjong-score-taro",
+  "description": "雀记 Taro React 微信小程序",
+  "appid": "wx20c3e07df7656e03",
+  "setting": {
+    "urlCheck": true,
+    "es6": false,
+    "enhance": true,
+    "postcss": false,
+    "minified": false
+  },
+  "compileType": "miniprogram"
+}

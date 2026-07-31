@@ -1,20 +1,24 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "mahjong-score",
+  "name": "mahjong-score-wechat",
   "main": "worker/index.ts",
-  "compatibility_date": "2026-07-30",
-  "observability": { "enabled": true },
-  "assets": {
-    "directory": "./dist",
-    "binding": "ASSETS",
-    "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*"]
+  "compatibility_date": "2026-07-31",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "observability": {
+    "enabled": true
   },
+  "routes": [
+    {
+      "pattern": "wx.score.majhoon.site",
+      "custom_domain": true
+    }
+  ],
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "mahjong-score-db",
-      "database_id": "3b7fbaf8-f0a9-4b92-b1b7-b6e945c5d754",
+      "database_name": "mahjong-score-wechat-db",
+      "database_id": "00000000-0000-0000-0000-000000000000",
       "migrations_dir": "migrations"
     }
   ]

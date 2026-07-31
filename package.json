@@ -1,28 +1,48 @@
 {
-  
-  "name": "mahjong-score-v2",
+  "name": "mahjong-score-taro",
   "private": true,
-  "version": "2.0.0",
-  "type": "module",
+  "version": "1.1.0",
   "scripts": {
-    "dev": "npm run build && wrangler dev --local",
-    "typecheck": "tsc -b",
-    "build": "npm run typecheck && vite build",
-    "deploy": "npm run build && wrangler deploy"
+    "dev:weapp": "taro build --type weapp --watch",
+    "build:weapp": "taro build --type weapp",
+    "typecheck:weapp": "tsc -p tsconfig.json --noEmit",
+    "dev:worker": "wrangler dev",
+    "typecheck:worker": "tsc -p tsconfig.worker.json --noEmit",
+    "typecheck": "npm run typecheck:weapp && npm run typecheck:worker",
+    "build": "npm run typecheck && npm run build:weapp",
+    "worker:types": "wrangler types worker-configuration.d.ts",
+    "db:create": "wrangler d1 create mahjong-score-wechat-db",
+    "db:migrate:local": "wrangler d1 migrations apply mahjong-score-wechat-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply mahjong-score-wechat-db --remote",
+    "deploy:worker": "npm run typecheck:worker && wrangler deploy",
+    "deploy": "npm run db:migrate:remote && npm run deploy:worker",
+    "upload:weapp": "node scripts/upload-weapp.cjs"
   },
   "dependencies": {
+    "@tarojs/components": "4.1.5",
+    "@tarojs/helper": "4.1.5",
+    "@tarojs/plugin-framework-react": "4.1.5",
+    "@tarojs/plugin-platform-h5": "4.1.5",
+    "@tarojs/plugin-platform-weapp": "4.1.5",
+    "@tarojs/react": "4.1.5",
+    "@tarojs/runtime": "4.1.5",
+    "@tarojs/taro": "4.1.5",
     "hono": "^4.9.2",
-    "lucide-react": "^0.468.0",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
-    "@types/react": "^19.1.9",
-    "@types/react-dom": "^19.1.7",
-    "@vitejs/plugin-react": "^4.7.0",
+    "@babel/preset-react": "^7.27.1",
+    "@cloudflare/workers-types": "^5.20260731.1",
+    "@tarojs/cli": "4.1.5",
+    "@tarojs/webpack5-runner": "4.1.5",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "babel-preset-taro": "4.1.5",
+    "miniprogram-ci": "^2.1.42",
+    "sass": "^1.80.6",
     "typescript": "^5.9.2",
-    "vite": "^7.1.3",
-    "wrangler": "^4.27.0"
+    "wrangler": "^4.115.0"
   },
   "engines": {
     "node": ">=20"

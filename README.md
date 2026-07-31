@@ -1,68 +1,98 @@
-# 雀记 · Cloudflare Workers v1.1
+# 雀记 · 微信小程序独立版
 
-手机优先的四人麻将计分应用：React + Vite 前端，Hono Worker API，Cloudflare D1 数据库。
+这是 `mahjong-score` 仓库中面向微信小程序的独立版本，前端和后端都维护在同一个分支中。
 
-## v1.1 升级内容
+- 前端：Taro 4 + React 18 微信小程序
+- 后端：Cloudflare Worker + Hono
+- 数据库：独立 Cloudflare D1
+- 微信小程序 AppID：`wx20c3e07df7656e03`
+- Worker 域名：`https://wx.score.majhoon.site`
+- Worker 名称：`mahjong-score-wechat`
+- D1 名称：`mahjong-score-wechat-db`
 
-- 修复 Worker Context / D1 泛型导致的 TS2347
-- Worker、D1 查询和前端领域模型均使用严格 TypeScript 类型
-- 导出 `AppType`，前端通过 `hono/client` RPC 调用全部 API
-- Wrangler JSONC：Workers Static Assets、SPA fallback、API worker-first、observability
-- React/Vite 严格构建配置
-- 新增增量 D1 migration、事件审计表与查询索引
-- 手机底部固定“记一局”入口
-- 长按撤销（650ms）与普通点击撤销
-- 深色/浅色模式并记忆偏好
-- 计分弹窗自动保存草稿
-- 统计页入场动画与战报图片分享
-- 历史记录保留并展示最近计分
-- Web App Manifest，可添加到手机桌面
+该版本不读取原网页端的 Worker 或 D1 数据，账号、会话、牌局和统计全部独立。
 
-## 环境
+## 功能
+
+- 微信快捷登录，首次登录自动创建独立账号
+- 用户名密码注册和登录作为备用方式
+- 创建四人牌局、分享码查看、计分、撤销和结束本将
+- 历史牌局、删除历史记录、每日战绩统计
+- 玩家战绩明细与大牌备注统计
+- 独立会话 Token 和牌局管理员 Token
+
+## 目录
+
+```text
+src/                         Taro 小程序前端
+src/services/api.ts          小程序 API 客户端
+src/shared/types.ts          前后端共享类型
+worker/index.ts              Cloudflare Worker API
+worker/cloudflare.d.ts       本地 Cloudflare 运行时类型
+migrations/0001_initial.sql  独立 D1 初始结构
+config/index.ts              Taro 构建配置
+scripts/upload-weapp.cjs     微信小程序 CI 上传脚本
+wrangler.jsonc               Worker、D1 和自定义域名配置
+project.config.json          微信开发者工具项目配置
+```
+
+## 环境要求
 
 - Node.js 20+
-- Cloudflare 账号
-- 已创建的 D1 数据库
+- npm
+- Cloudflare 账号，且 `majhoon.site` 已接入该账号
+- 微信小程序管理员或开发者权限
 
-## 本地运行
-
-```bash
-npm install
-npm run db:migrate:local
-npm run dev
-```
-
-`npm run dev` 会先执行 TypeScript 检查和 Vite 构建，然后由 Wrangler 在本地启动 Worker，默认访问 `http://localhost:8787`。
-
-前端单独热更新：
+## 安装与检查
 
 ```bash
-npm run dev:ui
-```
-
-注意：单独运行 Vite 时，API 仍需另开终端运行 Wrangler，或配置本地代理。
-
-## 验证
-
-```bash
+npm ci
 npm run typecheck
-npm run build
+npm run build:weapp
 ```
 
-## D1
+生产构建默认读取：
 
-首次新建数据库：
+```text
+TARO_APP_ID=wx20c3e07df7656e03
+TARO_APP_API_BASE=https://wx.score.majhoon.site
+```
+
+配置位于 `.env.production`。
+
+### 低配置服务器
+
+在内存较小的服务器上可以限制 Node 内存和 CPU：
+
+```bash
+NODE_OPTIONS="--max-old-space-size=768" nice -n 10 taskset -c 0 npm run build:weapp
+```
+
+`config/index.ts` 还支持可选的 `TARO_DEPENDENCY_NODE_MODULES`，用于在本机复用一套已经安装完成的依赖。正常开发、CI 和正式部署不需要设置。
+
+## 创建独立 D1
+
+先登录 Cloudflare：
+
+```bash
+npx wrangler login
+```
+
+创建数据库：
 
 ```bash
 npm run db:create
 ```
 
-将命令返回的数据库 ID 写入 `wrangler.jsonc` 的 `database_id`。
+Wrangler 会返回新的 `database_id`。将它写入 `wrangler.jsonc`：
 
-应用本地迁移：
-
-```bash
-npm run db:migrate:local
+```jsonc
+{
+  "binding": "DB",
+  "database_name": "mahjong-score-wechat-db",
+  "database_id": "这里替换成新数据库 ID",
+  "migrations_dir": "migrations"
+}
 ```
 
 应用线上迁移：
@@ -71,39 +101,115 @@ npm run db:migrate:local
 npm run db:migrate:remote
 ```
 
-已有 v1 数据库会按顺序执行 `0002_worker_v11.sql`，不会重建现有表。
-
-## 一键部署
+本地验证迁移：
 
 ```bash
-npx wrangler login
+npm run db:migrate:local
+```
+
+## 配置微信登录
+
+为避免代码托管平台把微信 AppID 误判为凭据，Worker 端的 AppID 和 AppSecret 都通过 Cloudflare Secret 注入：
+
+```bash
+npx wrangler secret put WECHAT_APP_ID
+npx wrangler secret put WECHAT_APP_SECRET
+```
+
+分别按提示输入小程序 AppID 和 AppSecret。不要把 AppSecret 写入源码、`.env.production`、`wrangler.jsonc` 或 Git。
+
+微信登录流程：
+
+```text
+小程序调用 Taro.login / wx.login
+→ POST /api/auth/wechat
+→ Worker 调用微信 jscode2session
+→ 根据 OpenID 查找或创建用户
+→ Worker 返回业务 Token
+```
+
+## 部署 Worker
+
+确认以下项目已完成：
+
+1. `wrangler.jsonc` 已替换为真实的独立 D1 `database_id`
+2. 已设置 `WECHAT_APP_ID` 和 `WECHAT_APP_SECRET`
+3. `wx.score.majhoon.site` 所在域名已接入当前 Cloudflare 账号
+
+部署数据库迁移和 Worker：
+
+```bash
 npm run deploy
 ```
 
-`npm run deploy` 会依次：
-
-1. TypeScript 类型检查
-2. Vite 前端构建
-3. 线上 D1 migration
-4. Wrangler 部署 Worker 与静态资源
-
-只部署代码、不执行 migration：
+只部署 Worker：
 
 ```bash
 npm run deploy:worker
 ```
 
-## 目录
+部署后检查：
 
 ```text
-shared/types.ts          前后端共享领域类型
-src/main.tsx             React UI 与 Hono RPC 客户端
-worker/index.ts          Hono Worker 与 AppType
-migrations/              D1 migrations
-wrangler.jsonc           Cloudflare 配置
-public/manifest.webmanifest
+https://wx.score.majhoon.site/api/health
 ```
+
+预期返回包含：
+
+```json
+{
+  "ok": true,
+  "service": "mahjong-score-wechat"
+}
+```
+
+## 配置微信请求域名
+
+登录微信公众平台，在小程序的服务器域名中添加 request 合法域名：
+
+```text
+https://wx.score.majhoon.site
+```
+
+域名必须可通过 HTTPS 访问，且证书有效。
+
+## 构建并上传小程序
+
+代码上传密钥文件默认放在项目根目录：
+
+```text
+private.wx20c3e07df7656e03.key
+```
+
+该文件已经被 `.gitignore` 排除，不能提交到仓库。
+
+构建：
+
+```bash
+npm run build:weapp
+```
+
+上传开发版本：
+
+```bash
+npm run upload:weapp
+```
+
+自定义上传版本和说明：
+
+```bash
+WEAPP_VERSION=1.1.0 \
+WEAPP_DESC="微信登录与独立 Worker 后端" \
+npm run upload:weapp
+```
+
+上传后仍需在微信公众平台手动选择体验版、提交审核和发布。
 
 ## 安全说明
 
-创建牌局时生成的管理员令牌仅保存在创建者浏览器的 localStorage；D1 中只保存 SHA-256 摘要。分享码只能读取牌局与统计，无法修改计分。
+- 微信 AppSecret 只保存在 Cloudflare Secret
+- 微信 OpenID 只保存在独立 D1
+- 登录 Token 和牌局管理员 Token 在 D1 中只保存 SHA-256 摘要
+- 密码使用 PBKDF2-SHA-256 加盐派生
+- 分享码只提供读取能力，不能直接修改牌局
+- 小程序代码上传私钥不会进入 Git

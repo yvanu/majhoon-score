@@ -9,6 +9,7 @@ export interface Player {
   seat: number
   score: number
 }
+
 export interface Hand {
   id: string
   sequence: number
@@ -20,6 +21,7 @@ export interface Hand {
   note: string | null
   created_at: string
 }
+
 export interface Match {
   id: string
   share_code: string
@@ -31,7 +33,12 @@ export interface Match {
   players: Player[]
   hands: Hand[]
 }
-export interface ScoreChange { playerId: string; change: number }
+
+export interface ScoreChange {
+  playerId: string
+  change: number
+}
+
 export interface HandInput {
   type: HandType
   winnerPlayerId?: string
@@ -39,6 +46,7 @@ export interface HandInput {
   scores: ScoreChange[]
   note?: string
 }
+
 export interface PlayerStat extends Player {
   rank: number
   wins: number
@@ -50,7 +58,12 @@ export interface PlayerStat extends Player {
   dealInRate: number
   tsumoShare: number
 }
-export interface Stats { totalHands: number; players: PlayerStat[] }
+
+export interface Stats {
+  totalHands: number
+  players: PlayerStat[]
+}
+
 export interface DailyPlayerStat {
   name: string
   score: number
@@ -58,6 +71,7 @@ export interface DailyPlayerStat {
   tsumo: number
   deal_in: number
 }
+
 export interface DailyStats {
   date: string
   matchCount: number
@@ -70,6 +84,13 @@ export interface AuthUser {
   username: string
   created_at: string
 }
+
+export interface AuthResult {
+  user: AuthUser
+  token: string
+  expiresAt: string
+}
+
 export interface MatchSummary {
   id: string
   share_code: string
