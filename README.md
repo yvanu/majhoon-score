@@ -128,6 +128,30 @@ npx wrangler secret put WECHAT_APP_SECRET
 → Worker 返回业务 Token
 ```
 
+## Git 与部署方式
+
+本项目的源码唯一来源是 GitHub 分支：
+
+```text
+https://github.com/yvanu/mahjong-score/tree/wechat-taro-worker
+```
+
+Cloudflare 控制台显示 `Source: Upload` 是正常的，因为 Worker 由 Wrangler 从 Git 工作区上传。不要在 Cloudflare 在线编辑器中直接改代码，否则修改不会进入 Git。
+
+后续修改流程：
+
+```bash
+git checkout wechat-taro-worker
+git pull
+# 修改并验证代码
+git add .
+git commit -m "描述本次修改"
+git push
+npm run deploy
+```
+
+`npm run deploy` 会先执行远程 D1 migration，再部署 Worker。Git 提交可用于查看历史、对比修改和回滚。需要推送即自动部署时，可以另外接入 Cloudflare Git 构建或 GitHub Actions；这不影响当前 Git 源码管理。
+
 ## 部署 Worker
 
 确认以下项目已完成：
