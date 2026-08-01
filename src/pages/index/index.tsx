@@ -161,6 +161,9 @@ export default function Index() {
         const [historyData, today] = await Promise.all([api.history(), api.dailyStatistics()])
         setHistory(historyData.matches)
         setDailyStats(today)
+        void api.friends(true).then(result => setFriends(result.friends)).catch(error => {
+          console.error('Prefetch friends failed:', error)
+        })
         if (needsNickname(currentUser.user)) {
           setNicknameReturn('home')
           setScreen('nickname')
@@ -295,11 +298,11 @@ export default function Index() {
       setScreen('auth')
       return
     }
+    setFriendStats(null)
+    setScreen('friends')
     await run(async () => {
-      const result = await api.friends()
+      const result = await api.friends(true)
       setFriends(result.friends)
-      setFriendStats(null)
-      setScreen('friends')
     })
   }
 
@@ -342,6 +345,9 @@ export default function Index() {
     const saved = Taro.getStorageSync<{ id: string; token: string }>(CURRENT_KEY)
     if (saved?.id && saved?.token) await api.claim(saved.id, saved.token).catch(() => undefined)
     await refreshDashboard()
+    void api.friends(true).then(result => setFriends(result.friends)).catch(error => {
+      console.error('Prefetch friends failed:', error)
+    })
     if (needsNickname(data.user)) {
       setNicknameReturn('home')
       setScreen('nickname')
@@ -940,7 +946,7 @@ function FriendsScreen({ friends, loading, onHome, onHistory, onOpen, onProfile 
       <View><Text className='eyebrow'>MAHJONG FRIENDS</Text><Text className='title-small'>我的牌友</Text></View>
       <Text className='count-badge'>{friends.length}</Text>
     </View>
-    {loading && <View className='empty'><Text className='empty-icon'>友</Text><Text className='card-title'>正在加载牌友</Text></View>}
+    {loading && !friends.length && <View className='empty'><Text className='empty-icon'>友</Text><Text className='card-title'>正在加载牌友</Text></View>}
     {!loading && !friends.length && <View className='empty'>
       <Text className='empty-icon'>友</Text>
       <Text className='card-title'>还没有牌友</Text>

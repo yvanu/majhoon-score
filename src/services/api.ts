@@ -43,7 +43,7 @@ export const api = {
   dailyStatistics: () => request<DailyStats>('/api/me/daily-statistics'),
   personalStatistics: (dimension: StatisticsDimension, value: string, timezoneOffset: number) =>
     request<PersonalStatistics>(`/api/me/statistics?dimension=${dimension}&value=${encodeURIComponent(value)}&timezoneOffset=${timezoneOffset}`),
-  friends: () => request<{ friends: Friend[] }>('/api/me/friends'),
+  friends: (summary = false) => request<{ friends: Friend[] }>(`/api/me/friends${summary ? '?summary=1' : ''}`),
   friendStatistics: (friendId: string) => request<FriendStatistics>(`/api/me/friends/${encodeURIComponent(friendId)}/statistics`),
   deleteHistoryMatch: (matchId: string) => request(`/api/me/matches/${matchId}`, 'DELETE'),
   createMatch: (players: MatchPlayerInput[]) => request<{ match: Match; adminToken: string }>('/api/matches', 'POST', { players }),

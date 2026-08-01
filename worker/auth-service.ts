@@ -12,7 +12,6 @@ export function bearer(c: Context<Env>) {
 export async function currentUser(c: Context<Env>): Promise<AuthUser | null> {
   const token = bearer(c)
   if (!token) return null
-  await ensureUserProfileSchema(c.env.DB)
   return await c.env.DB.prepare(`
     SELECT u.id, u.username, u.display_name, u.created_at
     FROM sessions s

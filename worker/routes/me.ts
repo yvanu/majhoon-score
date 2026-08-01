@@ -63,22 +63,39 @@ export function registerMeRoutes(app: Hono<Env>) {
   })
 
   app.get('/api/me/friends', async c => {
+    const startedAt = performance.now()
     const user = await currentUser(c)
+    const authenticatedAt = performance.now()
     if (!user) return jsonError(c, '请先登录', 401)
-    await ensureFriendSchema(c.env.DB)
-    const result = await c.env.DB.prepare(`
-      SELECT f.id, f.name, f.avatar_seed, f.last_played_at,
-        COUNT(DISTINCT p.match_id) joint_matches,
-        SUM(CASE WHEN h.winner_player_id = p.id AND INSTR(COALESCE(h.note, ''), '杠开') > 0 THEN 1 ELSE 0 END) gang_kai_wins,
-        SUM(CASE WHEN h.result_type = 'ron' AND h.loser_player_id = p.id AND INSTR(COALESCE(h.note, ''), '杠开') > 0 THEN 1 ELSE 0 END) gang_kai_against
-      FROM friends f
-      LEFT JOIN players p ON p.friend_id = f.id
-      LEFT JOIN hands h ON h.match_id = p.match_id
-      WHERE f.user_id = ?
-      GROUP BY f.id
-      ORDER BY f.last_played_at DESC, f.updated_at DESC, f.name ASC
-      LIMIT 100
-    `).bind(user.id).all<Record<string, unknown>>()
+
+    const summaryOnly = c.req.query('summary') === '1'
+    const result = summaryOnly
+      ? await c.env.DB.prepare(`
+          SELECT f.id, f.name, f.avatar_seed, f.last_played_at,
+            COUNT(DISTINCT p.match_id) joint_matches,
+            0 gang_kai_wins,
+            0 gang_kai_against
+          FROM friends f
+          LEFT JOIN players p ON p.friend_id = f.id
+          WHERE f.user_id = ?
+          GROUP BY f.id
+          ORDER BY f.last_played_at DESC, f.updated_at DESC, f.name ASC
+          LIMIT 100
+        `).bind(user.id).all<Record<string, unknown>>()
+      : await c.env.DB.prepare(`
+          SELECT f.id, f.name, f.avatar_seed, f.last_played_at,
+            COUNT(DISTINCT p.match_id) joint_matches,
+            SUM(CASE WHEN h.winner_player_id = p.id AND INSTR(COALESCE(h.note, ''), '杠开') > 0 THEN 1 ELSE 0 END) gang_kai_wins,
+            SUM(CASE WHEN h.result_type = 'ron' AND h.loser_player_id = p.id AND INSTR(COALESCE(h.note, ''), '杠开') > 0 THEN 1 ELSE 0 END) gang_kai_against
+          FROM friends f
+          LEFT JOIN players p ON p.friend_id = f.id
+          LEFT JOIN hands h ON h.match_id = p.match_id
+          WHERE f.user_id = ?
+          GROUP BY f.id
+          ORDER BY f.last_played_at DESC, f.updated_at DESC, f.name ASC
+          LIMIT 100
+        `).bind(user.id).all<Record<string, unknown>>()
+    const queriedAt = performance.now()
     const friends: Friend[] = result.results.map(row => ({
       id: String(row.id),
       name: String(row.name),
@@ -88,13 +105,18 @@ export function registerMeRoutes(app: Hono<Env>) {
       gangKaiAgainst: Number(row.gang_kai_against ?? 0),
       lastPlayedAt: row.last_played_at ? String(row.last_played_at) : null,
     }))
+    const mappedAt = performance.now()
+    c.header('Server-Timing', [
+      `auth;dur=${(authenticatedAt - startedAt).toFixed(1)}`,
+      `query;dur=${(queriedAt - authenticatedAt).toFixed(1)}`,
+      `map;dur=${(mappedAt - queriedAt).toFixed(1)}`,
+    ].join(', '))
     return c.json({ friends })
   })
 
   app.get('/api/me/friends/:id/statistics', async c => {
     const user = await currentUser(c)
     if (!user) return jsonError(c, '请先登录', 401)
-    await ensureFriendSchema(c.env.DB)
 
     const friend = await c.env.DB.prepare(`
       SELECT id, name, avatar_seed, last_played_at
