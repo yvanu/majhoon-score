@@ -179,7 +179,7 @@
 .login-card { margin-top: 34px; border-style: solid; }
 .login-card text { display: block; color: #91a0b8; font-size: 22px; }
 
-.bottom-nav { position: fixed; z-index: 20; left: 24px; right: 24px; bottom: calc(18px + env(safe-area-inset-bottom)); height: 108px; padding: 10px 14px; display: grid; grid-template-columns: repeat(3,1fr); box-sizing: border-box; border: 1px solid #2d3a51; border-radius: 32px; background: rgba(15,24,39,.96); box-shadow: 0 20px 60px rgba(0,0,0,.42); }
+.bottom-nav { position: fixed; z-index: 20; left: 24px; right: 24px; bottom: calc(18px + env(safe-area-inset-bottom)); height: 108px; padding: 10px 14px; display: grid; grid-template-columns: repeat(4,1fr); box-sizing: border-box; border: 1px solid #2d3a51; border-radius: 32px; background: rgba(15,24,39,.96); box-shadow: 0 20px 60px rgba(0,0,0,.42); }
 .nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border-radius: 23px; color: #7f8da4; font-size: 19px; }
 .nav-icon { width: 46px; height: 40px; line-height: 40px; border-radius: 14px; color: inherit; font-size: 22px; font-weight: 800; text-align: center; }
 .nav-item.active { background: #202c42; color: #f3c16d; }
@@ -379,6 +379,35 @@ page { background: var(--page-bg); color: var(--text); }
 .setting-note.syncing { color: #bd8500; }
 .danger-link { background: #fff3f0; border-color: #ffd5ce; color: var(--red); }
 .version-text { color: #aaa7ad; }
+
+/* 牌友目录与对战统计 */
+.friend-directory-list { max-height: calc(100vh - 270px); }
+.friend-directory-card { min-height: 122px; margin-bottom: 16px; padding: 22px; display: flex; align-items: center; gap: 18px; box-sizing: border-box; border: 1px solid var(--line); border-radius: 26px; background: #fff; box-shadow: var(--shadow); }
+.friend-directory-card .grow text { display: block; }
+.friend-directory-card .grow > text:nth-child(2) { margin-top: 7px; color: var(--text-secondary); font-size: 20px; }
+.friend-last-played { margin-top: 6px; color: var(--text-muted) !important; font-size: 18px !important; }
+.friend-statistics-page { padding-bottom: calc(48px + env(safe-area-inset-bottom)); }
+.friend-statistics-hero { margin: 10px 0 20px; padding: 26px; display: flex; align-items: center; gap: 20px; border: 1px solid #f1dfb2; border-radius: 30px; background: linear-gradient(135deg,#fffdfa,#fff6db); box-shadow: var(--shadow); }
+.friend-statistics-hero .grow text { display: block; }
+.friend-statistics-hero .grow > text:last-child { margin-top: 8px; color: var(--text-secondary); font-size: 21px; }
+.friend-statistics-overview { margin-bottom: 20px; display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
+.friend-statistics-overview > view { padding: 22px 6px; border: 1px solid var(--line); border-radius: 22px; background: #fff; text-align: center; box-shadow: 0 8px 24px rgba(72,56,29,.05); }
+.friend-statistics-overview text { display: block; color: var(--text-secondary); font-size: 18px; }
+.friend-statistics-overview .friend-statistics-number { margin-bottom: 7px; color: var(--text); font-size: 32px; font-weight: 900; }
+.friend-rate-card, .friend-chart-card { margin-bottom: 20px; padding: 26px; border: 1px solid var(--line); border-radius: 28px; background: #fff; box-shadow: var(--shadow); }
+.friend-rate-row + .friend-rate-row { margin-top: 22px; }
+.friend-rate-label, .friend-chart-label, .friend-chart-title { display: flex; align-items: center; justify-content: space-between; }
+.friend-rate-label { margin-bottom: 10px; color: var(--text-secondary); font-size: 20px; }
+.friend-rate-track, .friend-chart-track { overflow: hidden; height: 14px; border-radius: 999px; background: #f2eee6; }
+.friend-rate-bar, .friend-chart-bar { min-width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg,#ffd35c,#ffb91f); }
+.friend-rate-bar.lose { background: linear-gradient(90deg,#ffb2a8,#e85f53); }
+.friend-chart-title { margin-bottom: 22px; color: var(--text); font-size: 25px; font-weight: 800; }
+.friend-chart-title > text:last-child { color: #a27b1f; font-size: 20px; }
+.friend-chart-row + .friend-chart-row { margin-top: 18px; }
+.friend-chart-label { margin-bottom: 9px; color: var(--text-secondary); font-size: 20px; }
+.friend-chart-label > text:last-child { color: var(--text); font-weight: 800; }
+.friend-chart-empty { display: block; padding: 16px 0 6px; color: var(--text-muted); font-size: 20px; text-align: center; }
+.friend-statistics-note { display: block; padding: 0 10px; color: var(--text-muted); font-size: 18px; line-height: 1.55; text-align: center; }
 
 /* 加入、详情与确认弹窗 */
 .join-hero { background: linear-gradient(135deg,#fffdfa,#fff5d7); }

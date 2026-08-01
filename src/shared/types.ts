@@ -21,6 +21,22 @@ export interface Friend {
   lastPlayedAt: string | null
 }
 
+export interface FriendPatternStat {
+  name: string
+  count: number
+}
+
+export interface FriendStatistics {
+  friend: Friend
+  totalHands: number
+  wins: number
+  ronWins: number
+  tsumoWins: number
+  dealIns: number
+  winPatterns: FriendPatternStat[]
+  dealInPatterns: FriendPatternStat[]
+}
+
 export interface MatchPlayerInput {
   name: string
   friendId?: string

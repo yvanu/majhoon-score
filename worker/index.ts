@@ -4,6 +4,8 @@ import type {
   AuthUser,
   DailyStats,
   Friend,
+  FriendPatternStat,
+  FriendStatistics,
   HandInput,
   HandType,
   Match,
@@ -34,6 +36,7 @@ type WechatSessionResponse = {
 const app = new Hono<Env>()
 const winds: Wind[] = ['east', 'south', 'west', 'north']
 const handTypes: HandType[] = ['tsumo', 'ron', 'draw', 'custom']
+const recordedPatterns = new Set(['对对胡', '混一色', '清一色', '七对', '全球独钓', '龙七', '花开', '杠开', '外包'])
 const encoder = new TextEncoder()
 
 const jsonError = (c: Context<Env>, message: string, status: ErrorStatus = 400) =>
@@ -488,6 +491,92 @@ app.get('/api/me/friends', async c => {
     lastPlayedAt: row.last_played_at ? String(row.last_played_at) : null,
   }))
   return c.json({ friends })
+})
+
+app.get('/api/me/friends/:id/statistics', async c => {
+  const user = await currentUser(c)
+  if (!user) return jsonError(c, '请先登录', 401)
+  await ensureFriendSchema(c.env.DB)
+
+  const friend = await c.env.DB.prepare(`
+    SELECT id, name, avatar_seed, last_played_at
+    FROM friends WHERE id = ? AND user_id = ?
+  `).bind(c.req.param('id'), user.id).first<Record<string, unknown>>()
+  if (!friend) return jsonError(c, '牌友不存在', 404)
+
+  const rows = await c.env.DB.prepare(`
+    SELECT p.id player_id, p.match_id, h.id hand_id, h.result_type,
+      h.winner_player_id, h.loser_player_id, h.note
+    FROM players p
+    JOIN matches m ON m.id = p.match_id AND m.owner_user_id = ?
+    LEFT JOIN hands h ON h.match_id = p.match_id
+    WHERE p.friend_id = ?
+    ORDER BY h.created_at ASC
+  `).bind(user.id, c.req.param('id')).all<Record<string, unknown>>()
+
+  const matchIds = new Set<string>()
+  const handIds = new Set<string>()
+  const winPatterns = new Map<string, number>()
+  const dealInPatterns = new Map<string, number>()
+  let wins = 0
+  let ronWins = 0
+  let tsumoWins = 0
+  let dealIns = 0
+  let gangKaiWins = 0
+  let gangKaiAgainst = 0
+
+  const addPatterns = (target: Map<string, number>, note: unknown) => {
+    if (typeof note !== 'string') return
+    note.split('、').map(item => item.trim()).filter(item => recordedPatterns.has(item)).forEach(item => {
+      target.set(item, (target.get(item) ?? 0) + 1)
+    })
+  }
+
+  for (const row of rows.results) {
+    matchIds.add(String(row.match_id))
+    if (!row.hand_id) continue
+    handIds.add(String(row.hand_id))
+    const playerId = String(row.player_id)
+    const isWin = row.winner_player_id === playerId
+    const isDealIn = row.result_type === 'ron' && row.loser_player_id === playerId
+    if (isWin) {
+      wins += 1
+      if (row.result_type === 'ron') ronWins += 1
+      if (row.result_type === 'tsumo') tsumoWins += 1
+      if (typeof row.note === 'string' && row.note.split('、').includes('杠开')) gangKaiWins += 1
+      addPatterns(winPatterns, row.note)
+    }
+    if (isDealIn) {
+      dealIns += 1
+      if (typeof row.note === 'string' && row.note.split('、').includes('杠开')) gangKaiAgainst += 1
+      addPatterns(dealInPatterns, row.note)
+    }
+  }
+
+  const sortPatterns = (patterns: Map<string, number>): FriendPatternStat[] =>
+    [...patterns.entries()]
+      .map(([name, count]) => ({ name, count }))
+      .sort((first, second) => second.count - first.count || first.name.localeCompare(second.name, 'zh-CN'))
+
+  const response: FriendStatistics = {
+    friend: {
+      id: String(friend.id),
+      name: String(friend.name),
+      avatar_seed: Number(friend.avatar_seed),
+      jointMatches: matchIds.size,
+      gangKaiWins,
+      gangKaiAgainst,
+      lastPlayedAt: friend.last_played_at ? String(friend.last_played_at) : null,
+    },
+    totalHands: handIds.size,
+    wins,
+    ronWins,
+    tsumoWins,
+    dealIns,
+    winPatterns: sortPatterns(winPatterns),
+    dealInPatterns: sortPatterns(dealInPatterns),
+  }
+  return c.json(response)
 })
 
 app.get('/api/me/daily-statistics', async c => {

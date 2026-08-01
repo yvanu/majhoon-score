@@ -1,5 +1,5 @@
 import Taro from '@tarojs/taro'
-import type { AuthResult, AuthUser, DailyStats, Friend, HandInput, Match, MatchPlayerInput, MatchSummary, Stats } from '@shared/types'
+import type { AuthResult, AuthUser, DailyStats, Friend, FriendStatistics, HandInput, Match, MatchPlayerInput, MatchSummary, Stats } from '@shared/types'
 
 export const AUTH_KEY = 'mahjong-auth-token'
 export const CURRENT_KEY = 'mahjong-current'
@@ -42,6 +42,7 @@ export const api = {
   history: () => request<{ matches: MatchSummary[] }>('/api/me/matches'),
   dailyStatistics: () => request<DailyStats>('/api/me/daily-statistics'),
   friends: () => request<{ friends: Friend[] }>('/api/me/friends'),
+  friendStatistics: (friendId: string) => request<FriendStatistics>(`/api/me/friends/${encodeURIComponent(friendId)}/statistics`),
   deleteHistoryMatch: (matchId: string) => request(`/api/me/matches/${matchId}`, 'DELETE'),
   createMatch: (players: MatchPlayerInput[]) => request<{ match: Match; adminToken: string }>('/api/matches', 'POST', { players }),
   getMatch: (idOrCode: string) => request<{ match: Match }>(`/api/matches/${encodeURIComponent(idOrCode)}`),

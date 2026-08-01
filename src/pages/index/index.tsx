@@ -6,6 +6,8 @@ import type {
   AuthUser,
   DailyStats,
   Friend,
+  FriendPatternStat,
+  FriendStatistics,
   HandInput,
   Match,
   MatchPlayerInput,
@@ -20,7 +22,7 @@ const animals = ['🐼', '🐯', '🦊', '🐸', '🐧', '🐵', '🦁', '🐨',
 const windName: Record<string, string> = { east: '东', south: '南', west: '西', north: '北' }
 const typeName: Record<string, string> = { tsumo: '自摸', ron: '点炮', draw: '流局', custom: '自定义' }
 const noteOptions = ['无花果', '对对胡', '混一色', '清一色', '七对', '全球独钓', '龙七', '花开', '杠开', '外包']
-type Screen = 'home' | 'create' | 'join' | 'auth' | 'nickname' | 'history' | 'daily' | 'profile' | 'match' | 'score' | 'stats'
+type Screen = 'home' | 'create' | 'join' | 'auth' | 'nickname' | 'history' | 'daily' | 'friends' | 'friend' | 'profile' | 'match' | 'score' | 'stats'
 type SyncStatus = 'idle' | 'syncing' | 'synced' | 'offline'
 type DialogVariant = 'default' | 'danger' | 'info' | 'error'
 
@@ -51,6 +53,8 @@ export default function Index() {
   const [dailyStats, setDailyStats] = useState<DailyStats | null>(null)
   const [user, setUser] = useState<AuthUser | null>(null)
   const [history, setHistory] = useState<MatchSummary[]>([])
+  const [friends, setFriends] = useState<Friend[]>([])
+  const [friendStats, setFriendStats] = useState<FriendStatistics | null>(null)
   const [adminToken, setAdminToken] = useState('')
   const [loading, setLoading] = useState(false)
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle')
@@ -237,6 +241,26 @@ export default function Index() {
     })
   }
 
+  async function showFriends() {
+    if (!user) {
+      setScreen('auth')
+      return
+    }
+    await run(async () => {
+      const result = await api.friends()
+      setFriends(result.friends)
+      setFriendStats(null)
+      setScreen('friends')
+    })
+  }
+
+  async function openFriend(friend: Friend) {
+    await run(async () => {
+      setFriendStats(await api.friendStatistics(friend.id))
+      setScreen('friend')
+    })
+  }
+
   async function createMatch(players: MatchPlayerInput[]) {
     await run(async () => {
       const data = await api.createMatch(players)
@@ -290,6 +314,8 @@ export default function Index() {
     Taro.removeStorageSync(AUTH_KEY)
     setUser(null)
     setHistory([])
+    setFriends([])
+    setFriendStats(null)
     setDailyStats(null)
     setScreen('home')
     await Taro.showToast({ title: '已退出登录', icon: 'none' })
@@ -378,6 +404,7 @@ export default function Index() {
       onOpen={code => openMatch(code, code !== match?.id)}
       onHistory={showHistory}
       onDaily={showDailyStats}
+      onFriends={showFriends}
       onLogin={() => setScreen('auth')}
       onProfile={() => setScreen('profile')}
     />}
@@ -397,9 +424,19 @@ export default function Index() {
       onHome={() => setScreen('home')}
       onOpen={current => openMatch(current.id, current.id !== match?.id)}
       onDelete={deleteHistoryMatch}
+      onFriends={showFriends}
       onProfile={() => setScreen('profile')}
     />}
     {screen === 'daily' && dailyStats && <DailyStatsScreen stats={dailyStats} onBack={() => setScreen('home')} />}
+    {screen === 'friends' && user && <FriendsScreen
+      friends={friends}
+      loading={loading}
+      onHome={() => setScreen('home')}
+      onHistory={showHistory}
+      onOpen={openFriend}
+      onProfile={() => setScreen('profile')}
+    />}
+    {screen === 'friend' && friendStats && <FriendStatisticsScreen statistics={friendStats} onBack={() => setScreen('friends')} />}
     {screen === 'profile' && <ProfileScreen
       user={user}
       matches={history}
@@ -407,6 +444,7 @@ export default function Index() {
       syncStatus={syncStatus}
       onHome={() => setScreen('home')}
       onHistory={showHistory}
+      onFriends={showFriends}
       onLogin={() => setScreen('auth')}
       onLogout={logout}
       onEditNickname={() => { setNicknameReturn('profile'); setScreen('nickname') }}
@@ -522,7 +560,7 @@ function normalizeJoinCode(value: string) {
   }
 }
 
-function Home({ user, currentMatch, recentMatch, dailyStats, syncStatus, onContinue, onStart, onJoin, onOpen, onHistory, onDaily, onLogin, onProfile }: {
+function Home({ user, currentMatch, recentMatch, dailyStats, syncStatus, onContinue, onStart, onJoin, onOpen, onHistory, onDaily, onFriends, onLogin, onProfile }: {
   user: AuthUser | null
   currentMatch: Match | null
   recentMatch: MatchSummary | null
@@ -534,6 +572,7 @@ function Home({ user, currentMatch, recentMatch, dailyStats, syncStatus, onConti
   onOpen: (code: string) => void
   onHistory: () => void
   onDaily: () => void
+  onFriends: () => void
   onLogin: () => void
   onProfile: () => void
 }) {
@@ -596,7 +635,7 @@ function Home({ user, currentMatch, recentMatch, dailyStats, syncStatus, onConti
       <View><Text className='card-title'>登录后同步牌局</Text><Text>保存历史记录、查看每日统计</Text></View><Text className='card-arrow'>›</Text>
     </View>}
 
-    <BottomNav active='home' onHome={() => undefined} onMatches={onHistory} onProfile={onProfile} />
+    <BottomNav active='home' onHome={() => undefined} onMatches={onHistory} onFriends={onFriends} onProfile={onProfile} />
   </View>
 }
 
@@ -798,12 +837,13 @@ function NicknameScreen({ user, required, loading, onBack, onSave }: {
   </View>
 }
 
-function HistoryScreen({ matches, loading, onHome, onOpen, onDelete, onProfile }: {
+function HistoryScreen({ matches, loading, onHome, onOpen, onDelete, onFriends, onProfile }: {
   matches: MatchSummary[]
   loading: boolean
   onHome: () => void
   onOpen: (match: MatchSummary) => void
   onDelete: (id: string) => void
+  onFriends: () => void
   onProfile: () => void
 }) {
   return <View className='page tab-page' style={{ paddingTop: `${getPageTopInset()}px` }}><View className='page-title-row'><View><Text className='eyebrow'>MATCH HISTORY</Text><Text className='title-small'>我的牌局</Text></View><Text className='count-badge'>{matches.length}</Text></View>
@@ -813,17 +853,96 @@ function HistoryScreen({ matches, loading, onHome, onOpen, onDelete, onProfile }
       <View className='grow'><Text className='card-title'>{current.player_names.join(' · ') || '四人牌局'}</Text><Text>{formatMatchTime(current.created_at)} · {current.hand_count} 局</Text><Text>分享码 {current.share_code}</Text></View>
       <Button className='delete-button' disabled={loading} onClick={event => { event.stopPropagation(); onDelete(current.id) }}>删除</Button>
     </View>)}</ScrollView>
-    <BottomNav active='matches' onHome={onHome} onMatches={() => undefined} onProfile={onProfile} />
+    <BottomNav active='matches' onHome={onHome} onMatches={() => undefined} onFriends={onFriends} onProfile={onProfile} />
   </View>
 }
 
-function ProfileScreen({ user, matches, dailyStats, syncStatus, onHome, onHistory, onLogin, onLogout, onEditNickname, showDialog }: {
+function FriendsScreen({ friends, loading, onHome, onHistory, onOpen, onProfile }: {
+  friends: Friend[]
+  loading: boolean
+  onHome: () => void
+  onHistory: () => void
+  onOpen: (friend: Friend) => void
+  onProfile: () => void
+}) {
+  return <View className='page tab-page friends-page' style={{ paddingTop: `${getPageTopInset()}px` }}>
+    <View className='page-title-row'>
+      <View><Text className='eyebrow'>MAHJONG FRIENDS</Text><Text className='title-small'>我的牌友</Text></View>
+      <Text className='count-badge'>{friends.length}</Text>
+    </View>
+    {loading && <View className='empty'><Text className='empty-icon'>友</Text><Text className='card-title'>正在加载牌友</Text></View>}
+    {!loading && !friends.length && <View className='empty'>
+      <Text className='empty-icon'>友</Text>
+      <Text className='card-title'>还没有牌友</Text>
+      <Text>创建牌局时手动输入玩家，之后会自动出现在这里</Text>
+    </View>}
+    <ScrollView scrollY className='friend-directory-list'>
+      {friends.map(friend => <View className='friend-directory-card' key={friend.id} onClick={() => onOpen(friend)}>
+        <View className={`avatar avatar-${friend.avatar_seed % 6}`}>{animals[friend.avatar_seed % animals.length]}</View>
+        <View className='grow'>
+          <Text className='card-title'>{friend.name}</Text>
+          <Text>共同 {friend.jointMatches} 将 · 杠开 {friend.gangKaiWins} · 被杠开 {friend.gangKaiAgainst}</Text>
+          <Text className='friend-last-played'>{friend.lastPlayedAt ? `最近 ${formatMatchTime(friend.lastPlayedAt)}` : '尚无共同牌局'}</Text>
+        </View>
+        <Text className='card-arrow'>›</Text>
+      </View>)}
+    </ScrollView>
+    <BottomNav active='friends' onHome={onHome} onMatches={onHistory} onFriends={() => undefined} onProfile={onProfile} />
+  </View>
+}
+
+function PatternChart({ title, total, patterns, emptyText }: {
+  title: string
+  total: number
+  patterns: FriendPatternStat[]
+  emptyText: string
+}) {
+  const maxCount = Math.max(1, ...patterns.map(pattern => pattern.count))
+  return <View className='friend-chart-card'>
+    <View className='friend-chart-title'><Text>{title}</Text><Text>{total} 局</Text></View>
+    {!patterns.length && <Text className='friend-chart-empty'>{emptyText}</Text>}
+    {patterns.map(pattern => <View className='friend-chart-row' key={pattern.name}>
+      <View className='friend-chart-label'><Text>{pattern.name}</Text><Text>{pattern.count}</Text></View>
+      <View className='friend-chart-track'><View className='friend-chart-bar' style={{ width: `${Math.max(10, pattern.count / maxCount * 100)}%` }} /></View>
+    </View>)}
+  </View>
+}
+
+function FriendStatisticsScreen({ statistics, onBack }: { statistics: FriendStatistics; onBack: () => void }) {
+  const { friend } = statistics
+  const winRate = statistics.totalHands ? Math.round(statistics.wins / statistics.totalHands * 100) : 0
+  const dealInRate = statistics.totalHands ? Math.round(statistics.dealIns / statistics.totalHands * 100) : 0
+
+  return <View className='page friend-statistics-page' style={{ paddingTop: `${getPageTopInset()}px` }}>
+    <Header title='牌友战绩' onBack={onBack} />
+    <View className='friend-statistics-hero'>
+      <View className={`avatar avatar-large avatar-${friend.avatar_seed % 6}`}>{animals[friend.avatar_seed % animals.length]}</View>
+      <View className='grow'><Text className='title-small'>{friend.name}</Text><Text>共同 {friend.jointMatches} 将 · 共 {statistics.totalHands} 局</Text></View>
+    </View>
+    <View className='friend-statistics-overview'>
+      <View><Text className='friend-statistics-number'>{statistics.wins}</Text><Text>胡牌</Text></View>
+      <View><Text className='friend-statistics-number'>{statistics.ronWins}</Text><Text>点炮胡</Text></View>
+      <View><Text className='friend-statistics-number'>{statistics.tsumoWins}</Text><Text>自摸</Text></View>
+      <View><Text className='friend-statistics-number'>{statistics.dealIns}</Text><Text>点炮</Text></View>
+    </View>
+    <View className='friend-rate-card'>
+      <View className='friend-rate-row'><View className='friend-rate-label'><Text>胡牌占比</Text><Text>{winRate}%</Text></View><View className='friend-rate-track'><View className='friend-rate-bar win' style={{ width: `${winRate}%` }} /></View></View>
+      <View className='friend-rate-row'><View className='friend-rate-label'><Text>点炮占比</Text><Text>{dealInRate}%</Text></View><View className='friend-rate-track'><View className='friend-rate-bar lose' style={{ width: `${dealInRate}%` }} /></View></View>
+    </View>
+    <PatternChart title='胡牌大胡记录' total={statistics.wins} patterns={statistics.winPatterns} emptyText='胡牌记录中暂时没有大胡标签' />
+    <PatternChart title='点炮大胡记录' total={statistics.dealIns} patterns={statistics.dealInPatterns} emptyText='点炮记录中暂时没有大胡标签' />
+    <Text className='friend-statistics-note'>图表按每局备注中的牌型标签统计；一局包含多个标签时会分别计数。</Text>
+  </View>
+}
+
+function ProfileScreen({ user, matches, dailyStats, syncStatus, onHome, onHistory, onFriends, onLogin, onLogout, onEditNickname, showDialog }: {
   user: AuthUser | null
   matches: MatchSummary[]
   dailyStats: DailyStats | null
   syncStatus: SyncStatus
   onHome: () => void
   onHistory: () => void
+  onFriends: () => void
   onLogin: () => void
   onLogout: () => void
   onEditNickname: () => void
@@ -876,19 +995,21 @@ function ProfileScreen({ user, matches, dailyStats, syncStatus, onHome, onHistor
     </View>
     {user && <Button className='danger-link' onClick={confirmLogout}>退出登录</Button>}
     <Text className='version-text'>雀记 · 微信小程序</Text>
-    <BottomNav active='profile' onHome={onHome} onMatches={onHistory} onProfile={() => undefined} />
+    <BottomNav active='profile' onHome={onHome} onMatches={onHistory} onFriends={onFriends} onProfile={() => undefined} />
   </View>
 }
 
-function BottomNav({ active, onHome, onMatches, onProfile }: {
-  active: 'home' | 'matches' | 'profile'
+function BottomNav({ active, onHome, onMatches, onFriends, onProfile }: {
+  active: 'home' | 'matches' | 'friends' | 'profile'
   onHome: () => void
   onMatches: () => void
+  onFriends: () => void
   onProfile: () => void
 }) {
   const items = [
     { key: 'home' as const, icon: '雀', label: '首页', action: onHome },
     { key: 'matches' as const, icon: '局', label: '牌局', action: onMatches },
+    { key: 'friends' as const, icon: '友', label: '牌友', action: onFriends },
     { key: 'profile' as const, icon: '我', label: '我的', action: onProfile },
   ]
   return <View className='bottom-nav'>{items.map(item => <View key={item.key} className={active === item.key ? 'nav-item active' : 'nav-item'} onClick={item.action}><Text className='nav-icon'>{item.icon}</Text><Text>{item.label}</Text></View>)}</View>
