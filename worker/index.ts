@@ -527,9 +527,12 @@ app.get('/api/me/friends/:id/statistics', async c => {
 
   const addPatterns = (target: Map<string, number>, note: unknown) => {
     if (typeof note !== 'string') return
-    note.split('、').map(item => item.trim()).filter(item => recordedPatterns.has(item)).forEach(item => {
-      target.set(item, (target.get(item) ?? 0) + 1)
-    })
+    const patterns = [...new Set(
+      note.split('、').map(item => item.trim()).filter(item => recordedPatterns.has(item)),
+    )]
+    if (!patterns.length) return
+    const label = patterns.join(' · ')
+    target.set(label, (target.get(label) ?? 0) + 1)
   }
 
   for (const row of rows.results) {

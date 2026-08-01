@@ -929,9 +929,9 @@ function FriendStatisticsScreen({ statistics, onBack }: { statistics: FriendStat
       <View className='friend-rate-row'><View className='friend-rate-label'><Text>胡牌占比</Text><Text>{winRate}%</Text></View><View className='friend-rate-track'><View className='friend-rate-bar win' style={{ width: `${winRate}%` }} /></View></View>
       <View className='friend-rate-row'><View className='friend-rate-label'><Text>点炮占比</Text><Text>{dealInRate}%</Text></View><View className='friend-rate-track'><View className='friend-rate-bar lose' style={{ width: `${dealInRate}%` }} /></View></View>
     </View>
-    <PatternChart title='胡牌大胡记录' total={statistics.wins} patterns={statistics.winPatterns} emptyText='胡牌记录中暂时没有大胡标签' />
-    <PatternChart title='点炮大胡记录' total={statistics.dealIns} patterns={statistics.dealInPatterns} emptyText='点炮记录中暂时没有大胡标签' />
-    <Text className='friend-statistics-note'>图表按每局备注中的牌型标签统计；一局包含多个标签时会分别计数。</Text>
+    <PatternChart title='胡牌大胡记录' total={statistics.wins} patterns={statistics.winPatterns} emptyText='胡牌记录中暂时没有大胡牌型' />
+    <PatternChart title='点炮大胡记录' total={statistics.dealIns} patterns={statistics.dealInPatterns} emptyText='点炮记录中暂时没有大胡牌型' />
+    <Text className='friend-statistics-note'>图表按每局的大胡牌型组合统计；一局包含多个牌型时会合并为一行。</Text>
   </View>
 }
 
