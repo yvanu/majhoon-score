@@ -881,7 +881,7 @@ function FriendsScreen({ friends, loading, onHome, onHistory, onOpen, onProfile 
         <View className={`avatar avatar-${friend.avatar_seed % 6}`}>{animals[friend.avatar_seed % animals.length]}</View>
         <View className='grow'>
           <Text className='card-title'>{friend.name}</Text>
-          <Text>共同 {friend.jointMatches} 将 · 杠开 {friend.gangKaiWins} · 被杠开 {friend.gangKaiAgainst}</Text>
+          <Text>共同 {friend.jointMatches} 将</Text>
           <Text className='friend-last-played'>{friend.lastPlayedAt ? `最近 ${formatMatchTime(friend.lastPlayedAt)}` : '尚无共同牌局'}</Text>
         </View>
         <Text className='card-arrow'>›</Text>
