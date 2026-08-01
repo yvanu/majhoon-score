@@ -47,7 +47,9 @@ export const api = {
   friendStatistics: (friendId: string) => request<FriendStatistics>(`/api/me/friends/${encodeURIComponent(friendId)}/statistics`),
   deleteHistoryMatch: (matchId: string) => request(`/api/me/matches/${matchId}`, 'DELETE'),
   createMatch: (players: MatchPlayerInput[]) => request<{ match: Match; adminToken: string }>('/api/matches', 'POST', { players }),
-  getMatch: (idOrCode: string) => request<{ match: Match }>(`/api/matches/${encodeURIComponent(idOrCode)}`),
+  getMatch: (idOrCode: string, includeStatistics = false) => request<{ match: Match; stats?: Stats }>(
+    `/api/matches/${encodeURIComponent(idOrCode)}${includeStatistics ? '?includeStatistics=1' : ''}`,
+  ),
   addHand: (matchId: string, input: HandInput, token: string) =>
     request<{ match: Match }>(`/api/matches/${matchId}/hands`, 'POST', input, token),
   undo: (matchId: string, token: string) => request<{ match: Match }>(`/api/matches/${matchId}/hands/last`, 'DELETE', undefined, token),

@@ -11,7 +11,6 @@ import type {
 import { currentUser } from '../auth-service'
 import { jsonError, now } from '../core'
 import type { Env } from '../env'
-import { ensureFriendSchema, ensurePersonalStatisticsSchema } from '../schema'
 import {
   bigHandPatterns,
   parseStoredTileRecord,
@@ -246,10 +245,10 @@ export function registerMeRoutes(app: Hono<Env>) {
   })
 
   app.get('/api/me/statistics', async c => {
+    const startedAt = performance.now()
     const user = await currentUser(c)
+    const authenticatedAt = performance.now()
     if (!user) return jsonError(c, '请先登录', 401)
-    await ensureFriendSchema(c.env.DB)
-    await ensurePersonalStatisticsSchema(c.env.DB)
 
     const period = resolveStatisticsPeriod(
       c.req.query('dimension'),
@@ -264,17 +263,23 @@ export function registerMeRoutes(app: Hono<Env>) {
         p.id player_id, COALESCE(hs.score_change, 0) score_change
       FROM hands h
       JOIN matches m ON m.id = h.match_id AND m.owner_user_id = ?
-      JOIN users u ON u.id = ?
       JOIN players p ON p.match_id = m.id AND (
-        p.user_id = u.id OR (
+        p.user_id = ? OR (
           p.user_id IS NULL AND p.friend_id IS NULL AND
-          p.name = COALESCE(NULLIF(u.display_name, ''), u.username) COLLATE NOCASE
+          p.name = ? COLLATE NOCASE
         )
       )
       LEFT JOIN hand_scores hs ON hs.hand_id = h.id AND hs.player_id = p.id
       WHERE h.created_at >= ? AND h.created_at < ?
       ORDER BY h.created_at DESC
-    `).bind(user.id, user.id, period.startAt, period.endAt).all<Record<string, unknown>>()
+    `).bind(
+      user.id,
+      user.id,
+      user.display_name?.trim() || user.username,
+      period.startAt,
+      period.endAt,
+    ).all<Record<string, unknown>>()
+    const queriedAt = performance.now()
 
     let wins = 0
     let dealIns = 0
@@ -331,6 +336,12 @@ export function registerMeRoutes(app: Hono<Env>) {
         .sort((first, second) => second.count - first.count || first.name.localeCompare(second.name, 'zh-CN')),
       featuredBigHand,
     }
+    const aggregatedAt = performance.now()
+    c.header('Server-Timing', [
+      `auth;dur=${(authenticatedAt - startedAt).toFixed(1)}`,
+      `query;dur=${(queriedAt - authenticatedAt).toFixed(1)}`,
+      `aggregate;dur=${(aggregatedAt - queriedAt).toFixed(1)}`,
+    ].join(', '))
     return c.json(response)
   })
 }

@@ -1,5 +1,5 @@
 import type { Hono } from 'hono'
-import type { PlayerStat, Stats, Wind } from '../../src/shared/types'
+import type { Wind } from '../../src/shared/types'
 import { canWrite, currentUser } from '../auth-service'
 import {
   avatarSeed,
@@ -13,7 +13,7 @@ import {
   uid,
 } from '../core'
 import type { Env } from '../env'
-import { getMatch } from '../match-service'
+import { getMatch, getMatchBundle, getMatchStatistics } from '../match-service'
 import { ensureFriendSchema, ensurePersonalStatisticsSchema } from '../schema'
 import { bigHandPatterns, validateHand, validatePlayers } from '../validation'
 
@@ -78,8 +78,11 @@ export function registerMatchRoutes(app: Hono<Env>) {
   })
 
   app.get('/api/matches/:id', async c => {
-    const match = await getMatch(c.env.DB, c.req.param('id'))
-    return match ? c.json({ match }) : jsonError(c, '牌局不存在', 404)
+    const startedAt = performance.now()
+    const includeStatistics = c.req.query('includeStatistics') === '1'
+    const result = await getMatchBundle(c.env.DB, c.req.param('id'), includeStatistics)
+    c.header('Server-Timing', `match;dur=${(performance.now() - startedAt).toFixed(1)}`)
+    return result ? c.json(result) : jsonError(c, '牌局不存在', 404)
   })
 
   app.post('/api/matches/:id/claim', async c => {
@@ -195,46 +198,9 @@ export function registerMatchRoutes(app: Hono<Env>) {
   })
 
   app.get('/api/matches/:id/statistics', async c => {
-    const key = c.req.param('id')
-    const match = await c.env.DB.prepare(
-      'SELECT id FROM matches WHERE id = ? OR share_code = ?',
-    ).bind(key, key.toUpperCase()).first<{ id: string }>()
-    if (!match) return jsonError(c, '牌局不存在', 404)
-    const total = await c.env.DB.prepare(
-      'SELECT COUNT(*) count FROM hands WHERE match_id = ?',
-    ).bind(match.id).first<{ count: number }>()
-    const result = await c.env.DB.prepare(`
-      SELECT p.id, p.name, p.avatar_seed, p.seat, COALESCE(SUM(hs.score_change), 0) score,
-        SUM(CASE WHEN h.winner_player_id = p.id THEN 1 ELSE 0 END) wins,
-        SUM(CASE WHEN h.result_type = 'tsumo' AND h.winner_player_id = p.id THEN 1 ELSE 0 END) tsumo,
-        SUM(CASE WHEN h.result_type = 'ron' AND h.loser_player_id = p.id THEN 1 ELSE 0 END) deal_in,
-        COALESCE(MAX(CASE WHEN hs.score_change > 0 THEN hs.score_change END), 0) max_gain,
-        COALESCE(MIN(CASE WHEN hs.score_change < 0 THEN hs.score_change END), 0) max_loss
-      FROM players p
-      LEFT JOIN hand_scores hs ON hs.player_id = p.id
-      LEFT JOIN hands h ON h.id = hs.hand_id
-      WHERE p.match_id = ?
-      GROUP BY p.id
-      ORDER BY score DESC, wins DESC, seat ASC
-    `).bind(match.id).all<PlayerStat & Record<string, number | string>>()
-
-    const count = Number(total?.count ?? 0)
-    const stats: Stats = {
-      totalHands: count,
-      players: result.results.map((player, index) => ({
-        ...player,
-        score: Number(player.score),
-        wins: Number(player.wins),
-        tsumo: Number(player.tsumo),
-        deal_in: Number(player.deal_in),
-        max_gain: Number(player.max_gain),
-        max_loss: Number(player.max_loss),
-        rank: index + 1,
-        winRate: count ? Number(player.wins) / count : 0,
-        dealInRate: count ? Number(player.deal_in) / count : 0,
-        tsumoShare: Number(player.wins) ? Number(player.tsumo) / Number(player.wins) : 0,
-      })),
-    }
-    return c.json(stats)
+    const startedAt = performance.now()
+    const stats = await getMatchStatistics(c.env.DB, c.req.param('id'))
+    c.header('Server-Timing', `statistics;dur=${(performance.now() - startedAt).toFixed(1)}`)
+    return stats ? c.json(stats) : jsonError(c, '牌局不存在', 404)
   })
 }

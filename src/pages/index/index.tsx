@@ -110,6 +110,7 @@ export default function Index() {
   const [dialog, setDialog] = useState<DialogState | null>(null)
   const [nicknameReturn, setNicknameReturn] = useState<'home' | 'profile'>('home')
   const dialogResolver = useRef<((confirmed: boolean) => void) | null>(null)
+  const personalStatsRequest = useRef<{ key: string; promise: Promise<PersonalStatistics> } | null>(null)
 
   useEffect(() => {
     void restoreSession()
@@ -119,6 +120,16 @@ export default function Index() {
     const history = screenHistory.current
     const existingIndex = history.lastIndexOf(next)
     if (existingIndex >= 0) history.splice(existingIndex + 1)
+    else history.push(next)
+    screenRef.current = next
+    setScreenState(next)
+    setBackTrapOpen(next !== 'home')
+  }
+
+  function replaceScreen(next: Screen) {
+    const history = screenHistory.current
+    if (history.length > 1 && history[history.length - 2] === next) history.pop()
+    else if (history.length) history[history.length - 1] = next
     else history.push(next)
     screenRef.current = next
     setScreenState(next)
@@ -217,12 +228,13 @@ export default function Index() {
     }, 180)
   }
 
-  async function run(action: () => Promise<void>) {
+  async function run(action: () => Promise<void>): Promise<boolean> {
     setLoading(true)
     setSyncStatus('syncing')
     try {
       await action()
       setSyncStatus('synced')
+      return true
     } catch (error) {
       setSyncStatus('offline')
       const detail = error as { message?: string; errMsg?: string }
@@ -240,23 +252,38 @@ export default function Index() {
         confirmText: '知道了',
         variant: 'error',
       })
+      return false
     } finally {
       setLoading(false)
     }
   }
 
-  async function openMatch(idOrCode: string, clearToken = true) {
-    await run(async () => {
-      const data = await api.getMatch(idOrCode)
+  async function openMatch(idOrCode: string, clearToken = true, statusHint?: MatchSummary['status']) {
+    const previousScreen = screenRef.current
+    const previousMatch = match
+    const previousStats = stats
+    const isCachedMatch = match?.id === idOrCode
+    if (!isCachedMatch) {
+      setMatch(null)
+      setStats(null)
+    }
+    setScreen('match')
+
+    const succeeded = await run(async () => {
+      const data = await api.getMatch(idOrCode, statusHint === 'finished')
       setMatch(data.match)
       if (clearToken) setAdminToken('')
       if (data.match.status === 'finished') {
-        setStats(await api.statistics(data.match.id))
-        setScreen('stats')
-      } else {
-        setScreen('match')
+        setStats(data.stats ?? await api.statistics(data.match.id))
+        if (screenRef.current === 'match') replaceScreen('stats')
       }
     })
+
+    if (!succeeded) {
+      setMatch(previousMatch)
+      setStats(previousStats)
+      if (screenRef.current === 'match') replaceScreen(previousScreen)
+    }
   }
 
   async function refreshDashboard() {
@@ -313,6 +340,28 @@ export default function Index() {
     })
   }
 
+  function loadPersonalStatistics(dimension: StatisticsDimension, value: string) {
+    const timezoneOffset = new Date().getTimezoneOffset()
+    const key = `${dimension}:${value}:${timezoneOffset}`
+    if (personalStatsRequest.current?.key === key) return personalStatsRequest.current.promise
+    const promise = api.personalStatistics(dimension, value, timezoneOffset).finally(() => {
+      if (personalStatsRequest.current?.key === key) personalStatsRequest.current = null
+    })
+    personalStatsRequest.current = { key, promise }
+    return promise
+  }
+
+  function showProfile() {
+    setScreen('profile')
+    if (!user) return
+    const dimension: StatisticsDimension = 'month'
+    const value = statisticsValue(dimension)
+    if (personalStats?.dimension === dimension && personalStats.value === value) return
+    void loadPersonalStatistics(dimension, value).then(setPersonalStats).catch(error => {
+      console.error('Prefetch personal statistics failed:', error)
+    })
+  }
+
   async function showPersonalStatistics(
     dimension: StatisticsDimension = 'month',
     value: string = statisticsValue('month'),
@@ -321,10 +370,13 @@ export default function Index() {
       setScreen('auth')
       return
     }
-    await run(async () => {
-      setPersonalStats(await api.personalStatistics(dimension, value, new Date().getTimezoneOffset()))
-      setScreen('personal')
+    const previousScreen = screenRef.current
+    const hadStatistics = Boolean(personalStats)
+    if (screenRef.current !== 'personal') setScreen('personal')
+    const succeeded = await run(async () => {
+      setPersonalStats(await loadPersonalStatistics(dimension, value))
     })
+    if (!succeeded && !hadStatistics && screenRef.current === 'personal') replaceScreen(previousScreen)
   }
 
   async function createMatch(players: MatchPlayerInput[]) {
@@ -373,6 +425,7 @@ export default function Index() {
     await run(async () => {
       const result = await api.updateProfile(displayName)
       setUser(result.user)
+      setPersonalStats(null)
       setScreen(nicknameReturn)
       await Taro.showToast({ title: '牌桌昵称已保存', icon: 'success' })
     })
@@ -385,6 +438,7 @@ export default function Index() {
     setHistory([])
     setFriends([])
     setFriendStats(null)
+    setPersonalStats(null)
     setDailyStats(null)
     setScreen('home')
     await Taro.showToast({ title: '已退出登录', icon: 'none' })
@@ -401,6 +455,7 @@ export default function Index() {
     await run(async () => {
       await api.deleteHistoryMatch(id)
       setHistory(current => current.filter(item => item.id !== id))
+      setPersonalStats(null)
       const saved = Taro.getStorageSync<{ id: string; token: string }>(CURRENT_KEY)
       if (saved?.id === id) Taro.removeStorageSync(CURRENT_KEY)
       await Taro.showToast({ title: '已删除', icon: 'success' })
@@ -412,6 +467,7 @@ export default function Index() {
     await run(async () => {
       const data = await api.addHand(match.id, input, adminToken)
       setMatch(data.match)
+      setPersonalStats(null)
       setScreen('match')
       await Taro.showToast({ title: '计分已保存', icon: 'success' })
     })
@@ -427,6 +483,7 @@ export default function Index() {
     if (!confirmed) return
     await run(async () => {
       setMatch((await api.undo(match.id, adminToken)).match)
+      setPersonalStats(null)
       await Taro.showToast({ title: '已撤销上一局', icon: 'success' })
     })
   }
@@ -443,6 +500,7 @@ export default function Index() {
     await run(async () => {
       const data = await api.finish(match.id, adminToken)
       setMatch(data.match)
+      setPersonalStats(null)
       setStats(await api.statistics(match.id))
       Taro.removeStorageSync(CURRENT_KEY)
       if (user) await refreshDashboard()
@@ -470,12 +528,12 @@ export default function Index() {
       onContinue={() => setScreen('match')}
       onStart={() => setScreen('create')}
       onJoin={() => setScreen('join')}
-      onOpen={code => openMatch(code, code !== match?.id)}
+      onOpen={(code, statusHint) => openMatch(code, code !== match?.id, statusHint)}
       onHistory={showHistory}
       onDaily={showDailyStats}
       onFriends={showFriends}
       onLogin={() => setScreen('auth')}
-      onProfile={() => setScreen('profile')}
+      onProfile={showProfile}
     />}
     {screen === 'create' && <Create user={user} onBack={() => setScreen('home')} onCreate={createMatch} loading={loading} />}
     {screen === 'join' && <Join onBack={() => setScreen('home')} onOpen={code => openMatch(code)} loading={loading} />}
@@ -491,10 +549,10 @@ export default function Index() {
       matches={history}
       loading={loading}
       onHome={() => setScreen('home')}
-      onOpen={current => openMatch(current.id, current.id !== match?.id)}
+      onOpen={current => openMatch(current.id, current.id !== match?.id, current.status)}
       onDelete={deleteHistoryMatch}
       onFriends={showFriends}
-      onProfile={() => setScreen('profile')}
+      onProfile={showProfile}
     />}
     {screen === 'daily' && dailyStats && <DailyStatsScreen stats={dailyStats} onBack={() => setScreen('home')} />}
     {screen === 'friends' && user && <FriendsScreen
@@ -503,15 +561,15 @@ export default function Index() {
       onHome={() => setScreen('home')}
       onHistory={showHistory}
       onOpen={openFriend}
-      onProfile={() => setScreen('profile')}
+      onProfile={showProfile}
     />}
     {screen === 'friend' && friendStats && <FriendStatisticsScreen statistics={friendStats} onBack={() => setScreen('friends')} />}
-    {screen === 'personal' && personalStats && <PersonalStatisticsScreen
+    {screen === 'personal' && (personalStats ? <PersonalStatisticsScreen
       statistics={personalStats}
       loading={loading}
       onBack={() => setScreen('profile')}
       onChange={showPersonalStatistics}
-    />}
+    /> : <LoadingScreen title='我的战绩' message='正在汇总牌局与大胡记录…' onBack={goBack} />)}
     {screen === 'profile' && <ProfileScreen
       user={user}
       matches={history}
@@ -526,14 +584,14 @@ export default function Index() {
       onEditNickname={() => { setNicknameReturn('profile'); setScreen('nickname') }}
       showDialog={showDialog}
     />}
-    {screen === 'match' && match && <MatchScreen
+    {screen === 'match' && (match ? <MatchScreen
       match={match}
       canEdit={Boolean(adminToken)}
       loading={loading}
       onAdd={() => setScreen('score')}
       onUndo={undo}
       onFinish={finish}
-    />}
+    /> : <LoadingScreen title='牌局详情' message='正在加载玩家、计分和牌局记录…' onBack={goBack} />)}
     {screen === 'score' && match && <ScoreScreen
       players={match.players}
       loading={loading}
@@ -562,6 +620,17 @@ export default function Index() {
 
 function Header({ title, onBack }: { title: string; onBack: () => void }) {
   return <View className='header'><Button className='icon-button' hoverClass='none' onClick={onBack}>‹</Button><Text>{title}</Text></View>
+}
+
+function LoadingScreen({ title, message, onBack }: { title: string; message: string; onBack: () => void }) {
+  return <View className='page detail-loading-page' style={{ paddingTop: `${getPageTopInset()}px` }}>
+    <Header title={title} onBack={onBack} />
+    <View className='detail-loading-card'>
+      <View className='detail-loading-spinner' />
+      <Text className='card-title'>正在加载</Text>
+      <Text>{message}</Text>
+    </View>
+  </View>
 }
 
 function ConfirmDialog({ dialog, onConfirm, onCancel }: {
@@ -645,7 +714,7 @@ function Home({ user, currentMatch, recentMatch, dailyStats, syncStatus, onConti
   onContinue: () => void
   onStart: () => void
   onJoin: () => void
-  onOpen: (code: string) => void
+  onOpen: (code: string, statusHint?: MatchSummary['status']) => void
   onHistory: () => void
   onDaily: () => void
   onFriends: () => void
@@ -695,7 +764,7 @@ function Home({ user, currentMatch, recentMatch, dailyStats, syncStatus, onConti
 
     {user ? <>
       <View className='section-head'><Text>最近牌局</Text><Text className='section-more' onClick={onHistory}>全部 ›</Text></View>
-      {recentMatch ? <View className='dashboard-card recent-card' onClick={() => onOpen(recentMatch.id)}>
+      {recentMatch ? <View className='dashboard-card recent-card' onClick={() => onOpen(recentMatch.id, recentMatch.status)}>
         <View className='dashboard-icon'>局</View>
         <View className='grow'><Text className='card-title'>{recentMatch.player_names.join(' · ') || '四人牌局'}</Text><Text>{formatMatchTime(recentMatch.created_at)} · {recentMatch.hand_count} 局</Text><Text>{recentMatch.status === 'finished' ? '已结束' : '进行中'} · 分享码 {recentMatch.share_code}</Text></View>
         <Text className='card-arrow'>›</Text>
