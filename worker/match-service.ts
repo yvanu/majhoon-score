@@ -4,8 +4,13 @@ import { parseStoredTileRecord } from './validation'
 type StoredHand = Omit<Hand, 'tile_record'> & { tile_record: string | null }
 type StoredPlayer = Player & { score: number | string }
 type StoredPlayerStat = PlayerStat & Record<string, number | string>
-
 type MatchBase = Omit<Match, 'players' | 'hands'>
+
+const matchIdSelector = '(SELECT id FROM matches WHERE id = ? OR share_code = ? LIMIT 1)'
+
+function selectorValues(idOrCode: string) {
+  return [idOrCode, idOrCode.toUpperCase()] as const
+}
 
 function buildStats(total: D1Result<{ count: number }>, result: D1Result<StoredPlayerStat>): Stats {
   const count = Number(total.results[0]?.count ?? 0)
@@ -27,9 +32,10 @@ function buildStats(total: D1Result<{ count: number }>, result: D1Result<StoredP
   }
 }
 
-function statisticsStatements(db: D1Database, matchId: string) {
+function statisticsStatements(db: D1Database, idOrCode: string) {
+  const [key, code] = selectorValues(idOrCode)
   return [
-    db.prepare('SELECT COUNT(*) count FROM hands WHERE match_id = ?').bind(matchId),
+    db.prepare(`SELECT COUNT(*) count FROM hands WHERE match_id = ${matchIdSelector}`).bind(key, code),
     db.prepare(`
       SELECT p.id, p.name, p.avatar_seed, p.friend_id, p.user_id, p.seat,
         COALESCE(SUM(hs.score_change), 0) score,
@@ -41,10 +47,10 @@ function statisticsStatements(db: D1Database, matchId: string) {
       FROM players p
       LEFT JOIN hand_scores hs ON hs.player_id = p.id
       LEFT JOIN hands h ON h.id = hs.hand_id
-      WHERE p.match_id = ?
+      WHERE p.match_id = ${matchIdSelector}
       GROUP BY p.id
       ORDER BY score DESC, wins DESC, seat ASC
-    `).bind(matchId),
+    `).bind(key, code),
   ]
 }
 
@@ -53,33 +59,36 @@ export async function getMatchBundle(
   idOrCode: string,
   includeStatistics = false,
 ): Promise<{ match: Match; stats?: Stats } | null> {
-  const match = await db.prepare(`
-    SELECT id, share_code, status, current_wind, current_hand, created_at, finished_at
-    FROM matches WHERE id = ? OR share_code = ?
-  `).bind(idOrCode, idOrCode.toUpperCase()).first<MatchBase>()
-  if (!match) return null
-
+  const [key, code] = selectorValues(idOrCode)
   const statements: D1PreparedStatement[] = [
+    db.prepare(`
+      SELECT id, share_code, status, current_wind, current_hand, created_at, finished_at
+      FROM matches WHERE id = ? OR share_code = ? LIMIT 1
+    `).bind(key, code),
     db.prepare(`
       SELECT p.id, p.name, p.avatar_seed, p.friend_id, p.user_id, p.seat,
         COALESCE(SUM(hs.score_change), 0) score
       FROM players p
       LEFT JOIN hand_scores hs ON hs.player_id = p.id
-      WHERE p.match_id = ?
+      WHERE p.match_id = ${matchIdSelector}
       GROUP BY p.id
       ORDER BY p.seat
-    `).bind(match.id),
+    `).bind(key, code),
     db.prepare(`
       SELECT id, sequence, wind, hand_number, result_type, winner_player_id,
              loser_player_id, note, tile_record, created_at
-      FROM hands WHERE match_id = ? ORDER BY sequence DESC
-    `).bind(match.id),
+      FROM hands
+      WHERE match_id = ${matchIdSelector}
+      ORDER BY sequence DESC
+    `).bind(key, code),
   ]
-  if (includeStatistics) statements.push(...statisticsStatements(db, match.id))
+  if (includeStatistics) statements.push(...statisticsStatements(db, idOrCode))
 
   const results = await db.batch(statements)
-  const players = results[0] as D1Result<StoredPlayer>
-  const hands = results[1] as D1Result<StoredHand>
+  const match = (results[0] as D1Result<MatchBase>).results[0]
+  if (!match) return null
+  const players = results[1] as D1Result<StoredPlayer>
+  const hands = results[2] as D1Result<StoredHand>
   const response: { match: Match; stats?: Stats } = {
     match: {
       ...match,
@@ -89,8 +98,8 @@ export async function getMatchBundle(
   }
   if (includeStatistics) {
     response.stats = buildStats(
-      results[2] as D1Result<{ count: number }>,
-      results[3] as D1Result<StoredPlayerStat>,
+      results[3] as D1Result<{ count: number }>,
+      results[4] as D1Result<StoredPlayerStat>,
     )
   }
   return response
@@ -101,11 +110,12 @@ export async function getMatch(db: D1Database, idOrCode: string): Promise<Match 
 }
 
 export async function getMatchStatistics(db: D1Database, idOrCode: string): Promise<Stats | null> {
-  const match = await db.prepare(
-    'SELECT id FROM matches WHERE id = ? OR share_code = ?',
-  ).bind(idOrCode, idOrCode.toUpperCase()).first<{ id: string }>()
-  if (!match) return null
-  const [total, result] = await db.batch(statisticsStatements(db, match.id))
+  const [key, code] = selectorValues(idOrCode)
+  const [match, total, result] = await db.batch([
+    db.prepare('SELECT id FROM matches WHERE id = ? OR share_code = ? LIMIT 1').bind(key, code),
+    ...statisticsStatements(db, idOrCode),
+  ])
+  if (!(match as D1Result<{ id: string }>).results.length) return null
   return buildStats(
     total as D1Result<{ count: number }>,
     result as D1Result<StoredPlayerStat>,
