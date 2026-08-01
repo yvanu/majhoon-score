@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Taro from '@tarojs/taro'
-import { Button, Input, ScrollView, Text, View } from '@tarojs/components'
+import { Button, Input, PageContainer, ScrollView, Text, View } from '@tarojs/components'
 import type {
   AuthResult,
   AuthUser,
@@ -42,7 +42,10 @@ function Avatar({ player, large = false }: { player: Player; large?: boolean }) 
 }
 
 export default function Index() {
-  const [screen, setScreen] = useState<Screen>('home')
+  const [screen, setScreenState] = useState<Screen>('home')
+  const screenRef = useRef<Screen>('home')
+  const screenHistory = useRef<Screen[]>(['home'])
+  const [backTrapOpen, setBackTrapOpen] = useState(false)
   const [match, setMatch] = useState<Match | null>(null)
   const [stats, setStats] = useState<Stats | null>(null)
   const [dailyStats, setDailyStats] = useState<DailyStats | null>(null)
@@ -58,6 +61,39 @@ export default function Index() {
   useEffect(() => {
     void restoreSession()
   }, [])
+
+  function setScreen(next: Screen) {
+    const history = screenHistory.current
+    const existingIndex = history.lastIndexOf(next)
+    if (existingIndex >= 0) history.splice(existingIndex + 1)
+    else history.push(next)
+    screenRef.current = next
+    setScreenState(next)
+    setBackTrapOpen(next !== 'home')
+  }
+
+  function goBack() {
+    if (dialog) {
+      closeDialog(false)
+      return
+    }
+    if (screenRef.current === 'nickname' && needsNickname(user)) return
+    const history = screenHistory.current
+    if (history.length <= 1) return
+    history.pop()
+    const previous = history[history.length - 1] || 'home'
+    screenRef.current = previous
+    setScreenState(previous)
+  }
+
+  function handleNativeBack() {
+    setBackTrapOpen(false)
+    goBack()
+  }
+
+  function rearmBackTrap() {
+    if (screenRef.current !== 'home') setBackTrapOpen(true)
+  }
 
   async function restoreSession() {
     setSyncStatus('syncing')
@@ -397,6 +433,16 @@ export default function Index() {
       onCancel={() => closeDialog(false)}
       onConfirm={() => closeDialog(true)}
     />}
+    <PageContainer
+      show={backTrapOpen || Boolean(dialog)}
+      duration={0}
+      zIndex={0}
+      overlay={false}
+      position='right'
+      customStyle='width:1px;height:1px;overflow:hidden;background:transparent;pointer-events:none;'
+      onBeforeLeave={handleNativeBack}
+      onAfterLeave={rearmBackTrap}
+    />
   </View>
 }
 
