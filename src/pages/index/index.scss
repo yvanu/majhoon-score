@@ -240,6 +240,17 @@ button::after { border: 0; }
 .friend-card .grow > text:last-child { margin-top: 7px; color: #8f8b82; font-size: 19px; line-height: 1.45; }
 .friend-empty { display: block; padding: 42px 20px; color: #99958e; text-align: center; line-height: 1.6; }
 
+/* 牌桌昵称 */
+.nickname-page { color: #222126; }
+.nickname-title-row { min-height: 76px; margin-bottom: 30px; display: flex; align-items: center; gap: 20px; }
+.nickname-card { padding: 34px 28px; border: 1px solid #eee4d4; border-radius: 30px; background: linear-gradient(135deg,#fffdfa,#fff8e6); box-shadow: 0 16px 42px rgba(91,72,37,.08); }
+.nickname-mark { width: 90px; height: 90px; margin: 0 auto 24px; display: flex; align-items: center; justify-content: center; border-radius: 28px; background: linear-gradient(135deg,#ffd55f,#ffbb22); color: #3b2a09; font-size: 48px; font-weight: 900; }
+.nickname-description { display: block; margin-bottom: 28px; color: #66636a; font-size: 24px; line-height: 1.65; text-align: center; }
+.nickname-field { margin-bottom: 18px; background: #fff; }
+.nickname-field input { font-size: 32px; font-weight: 700; }
+.nickname-tip { display: block; color: #a09b92; font-size: 20px; line-height: 1.55; text-align: center; }
+.setting-subnote { margin-top: 6px; color: #9b7c37; font-size: 19px; }
+
 /* 2026 浅色黄白主题：保留现有业务结构，只统一视觉系统 */
 :root {
   --page-bg: #fbfaf7;

@@ -99,6 +99,7 @@ export interface DailyStats {
 export interface AuthUser {
   id: string
   username: string
+  display_name: string | null
   created_at: string
 }
 

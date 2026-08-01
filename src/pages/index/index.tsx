@@ -20,7 +20,7 @@ const animals = ['🐼', '🐯', '🦊', '🐸', '🐧', '🐵', '🦁', '🐨',
 const windName: Record<string, string> = { east: '东', south: '南', west: '西', north: '北' }
 const typeName: Record<string, string> = { tsumo: '自摸', ron: '点炮', draw: '流局', custom: '自定义' }
 const noteOptions = ['无花果', '对对胡', '混一色', '清一色', '七对', '全球独钓', '龙七', '花开', '杠开', '外包']
-type Screen = 'home' | 'create' | 'join' | 'auth' | 'history' | 'daily' | 'profile' | 'match' | 'score' | 'stats'
+type Screen = 'home' | 'create' | 'join' | 'auth' | 'nickname' | 'history' | 'daily' | 'profile' | 'match' | 'score' | 'stats'
 type SyncStatus = 'idle' | 'syncing' | 'synced' | 'offline'
 type DialogVariant = 'default' | 'danger' | 'info' | 'error'
 
@@ -52,6 +52,7 @@ export default function Index() {
   const [loading, setLoading] = useState(false)
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle')
   const [dialog, setDialog] = useState<DialogState | null>(null)
+  const [nicknameReturn, setNicknameReturn] = useState<'home' | 'profile'>('home')
   const dialogResolver = useRef<((confirmed: boolean) => void) | null>(null)
 
   useEffect(() => {
@@ -71,6 +72,10 @@ export default function Index() {
         const [historyData, today] = await Promise.all([api.history(), api.dailyStatistics()])
         setHistory(historyData.matches)
         setDailyStats(today)
+        if (needsNickname(currentUser.user)) {
+          setNicknameReturn('home')
+          setScreen('nickname')
+        }
       } catch (error) {
         syncFailed = true
         console.error('Restore account failed:', error)
@@ -214,7 +219,12 @@ export default function Index() {
     const saved = Taro.getStorageSync<{ id: string; token: string }>(CURRENT_KEY)
     if (saved?.id && saved?.token) await api.claim(saved.id, saved.token).catch(() => undefined)
     await refreshDashboard()
-    setScreen('home')
+    if (needsNickname(data.user)) {
+      setNicknameReturn('home')
+      setScreen('nickname')
+    } else {
+      setScreen('home')
+    }
     await Taro.showToast({ title: '登录成功', icon: 'success' })
   }
 
@@ -228,6 +238,15 @@ export default function Index() {
 
   async function login(username: string, password: string, register: boolean) {
     await run(async () => finishLogin(await api.login(username, password, register)))
+  }
+
+  async function saveDisplayName(displayName: string) {
+    await run(async () => {
+      const result = await api.updateProfile(displayName)
+      setUser(result.user)
+      setScreen(nicknameReturn)
+      await Taro.showToast({ title: '牌桌昵称已保存', icon: 'success' })
+    })
   }
 
   async function logout() {
@@ -329,6 +348,13 @@ export default function Index() {
     {screen === 'create' && <Create user={user} onBack={() => setScreen('home')} onCreate={createMatch} loading={loading} />}
     {screen === 'join' && <Join onBack={() => setScreen('home')} onOpen={code => openMatch(code)} loading={loading} />}
     {screen === 'auth' && <Auth onBack={() => setScreen('home')} onWechatLogin={wechatLogin} onSubmit={login} loading={loading} />}
+    {screen === 'nickname' && user && <NicknameScreen
+      user={user}
+      required={needsNickname(user)}
+      loading={loading}
+      onBack={() => setScreen(nicknameReturn)}
+      onSave={saveDisplayName}
+    />}
     {screen === 'history' && user && <HistoryScreen
       matches={history}
       loading={loading}
@@ -347,6 +373,7 @@ export default function Index() {
       onHistory={showHistory}
       onLogin={() => setScreen('auth')}
       onLogout={logout}
+      onEditNickname={() => { setNicknameReturn('profile'); setScreen('nickname') }}
       showDialog={showDialog}
     />}
     {screen === 'match' && match && <MatchScreen
@@ -418,8 +445,13 @@ function getPageTopInset() {
   return cachedPageTopInset
 }
 
+function needsNickname(user: AuthUser | null) {
+  return Boolean(user && !user.display_name?.trim() && /^微信用户[0-9a-f]+$/i.test(user.username))
+}
+
 function displayUserName(user: AuthUser | null) {
   if (!user) return '未登录'
+  if (user.display_name?.trim()) return user.display_name.trim()
   return /^微信用户[0-9a-f]+$/i.test(user.username) ? '微信用户' : user.username
 }
 
@@ -678,7 +710,45 @@ function Auth({ onBack, onWechatLogin, onSubmit, loading }: {
     {register && <View className='field'><Text>确认密码</Text><Input password value={confirm} onInput={event => setConfirm(event.detail.value)} /></View>}
     <Button className='primary' disabled={loading} onClick={submit}>{loading ? '处理中…' : register ? '注册并登录' : '登录'}</Button>
     <Button className='link' onClick={() => { setRegister(!register); setConfirm('') }}>{register ? '已有账号？登录' : '还没有账号？注册'}</Button>
-    <Text className='privacy-note'>微信登录仅获取当前小程序内的用户标识，不读取头像、昵称或通讯录。</Text>
+    <Text className='privacy-note'>微信登录仅用于识别当前账号；牌桌昵称由你主动选择或填写。</Text>
+  </View>
+}
+
+function NicknameScreen({ user, required, loading, onBack, onSave }: {
+  user: AuthUser
+  required: boolean
+  loading: boolean
+  onBack: () => void
+  onSave: (displayName: string) => void
+}) {
+  const generatedWechatName = /^微信用户[0-9a-f]+$/i.test(user.username)
+  const [displayName, setDisplayName] = useState(user.display_name || (generatedWechatName ? '' : user.username))
+  const normalized = displayName.trim()
+  const valid = Boolean(normalized) && normalized.length <= 12
+
+  return <View className='page nickname-page' style={{ paddingTop: `${getPageTopInset()}px` }}>
+    <View className='nickname-title-row'>
+      {!required && <Button className='icon-button' hoverClass='none' onClick={onBack}>‹</Button>}
+      <View><Text className='eyebrow'>PLAYER PROFILE</Text><Text className='title-small'>{required ? '确认牌桌昵称' : '修改牌桌昵称'}</Text></View>
+    </View>
+    <View className='nickname-card'>
+      <View className='nickname-mark'>雀</View>
+      <Text className='nickname-description'>点击下方输入框，微信会在键盘上方提供你的微信昵称。选中后仍可继续修改。</Text>
+      <View className='field nickname-field'>
+        <Text>牌桌昵称</Text>
+        <Input
+          type='nickname'
+          focus={required}
+          value={displayName}
+          maxlength={12}
+          placeholder='选择微信昵称或手动输入'
+          onInput={event => setDisplayName(event.detail.value)}
+        />
+      </View>
+      <Text className='nickname-tip'>该昵称会用于“选择自己”和牌局记录，不会修改你的微信昵称。</Text>
+    </View>
+    <Button className='primary' disabled={!valid || loading} onClick={() => onSave(normalized)}>{loading ? '保存中…' : '确认使用'}</Button>
+    {!required && <Button className='link' onClick={onBack}>取消修改</Button>}
   </View>
 }
 
@@ -701,7 +771,7 @@ function HistoryScreen({ matches, loading, onHome, onOpen, onDelete, onProfile }
   </View>
 }
 
-function ProfileScreen({ user, matches, dailyStats, syncStatus, onHome, onHistory, onLogin, onLogout, showDialog }: {
+function ProfileScreen({ user, matches, dailyStats, syncStatus, onHome, onHistory, onLogin, onLogout, onEditNickname, showDialog }: {
   user: AuthUser | null
   matches: MatchSummary[]
   dailyStats: DailyStats | null
@@ -710,6 +780,7 @@ function ProfileScreen({ user, matches, dailyStats, syncStatus, onHome, onHistor
   onHistory: () => void
   onLogin: () => void
   onLogout: () => void
+  onEditNickname: () => void
   showDialog: ShowDialog
 }) {
   const syncText = syncStatus === 'syncing' ? '正在同步' : syncStatus === 'offline' ? '同步失败，请检查网络' : '数据已同步'
@@ -717,7 +788,7 @@ function ProfileScreen({ user, matches, dailyStats, syncStatus, onHome, onHistor
   async function showPrivacy() {
     await showDialog({
       title: '隐私说明',
-      content: '雀记仅保存账号标识、牌局及计分数据。微信快捷登录只使用当前小程序的用户标识，不读取通讯录、定位、相册、头像或微信昵称。扫码功能仅在你主动操作时调用。',
+      content: '雀记仅保存账号标识、牌桌昵称、牌局及计分数据。微信快捷登录只使用当前小程序的用户标识，不会后台读取通讯录、定位、相册、头像或微信昵称；牌桌昵称仅在你主动选择或填写后保存。扫码功能仅在你主动操作时调用。',
       showCancel: false,
       confirmText: '我知道了',
       variant: 'info',
@@ -752,6 +823,7 @@ function ProfileScreen({ user, matches, dailyStats, syncStatus, onHome, onHistor
       <View><Text className='profile-number'>{dailyStats?.handCount || 0}</Text><Text>今日局数</Text></View>
     </View>
     <View className='settings-card'>
+      {user && <View className='setting-row' onClick={onEditNickname}><View><Text className='setting-title'>牌桌昵称</Text><Text className='setting-subnote'>{displayUserName(user)}</Text></View><Text className='card-arrow'>›</Text></View>}
       <View className='setting-row'><View><Text className='setting-title'>数据同步</Text><Text className={`setting-note ${syncStatus}`}>{syncText}</Text></View><Text className='card-arrow'>›</Text></View>
       <View className='setting-row' onClick={showPrivacy}><Text className='setting-title'>隐私说明</Text><Text className='card-arrow'>›</Text></View>
       <View className='setting-row' onClick={showAgreement}><Text className='setting-title'>用户协议</Text><Text className='card-arrow'>›</Text></View>

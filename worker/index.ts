@@ -87,8 +87,9 @@ function bearer(c: Context<Env>) {
 async function currentUser(c: Context<Env>): Promise<AuthUser | null> {
   const token = bearer(c)
   if (!token) return null
+  await ensureUserProfileSchema(c.env.DB)
   return await c.env.DB.prepare(`
-    SELECT u.id, u.username, u.created_at
+    SELECT u.id, u.username, u.display_name, u.created_at
     FROM sessions s
     JOIN users u ON u.id = s.user_id
     WHERE s.token_hash = ? AND s.expires_at > ?
@@ -120,6 +121,17 @@ async function canWrite(c: Context<Env>, matchId: string) {
   if (!row.owner_user_id) return false
   const user = await currentUser(c)
   return Boolean(user && user.id === row.owner_user_id)
+}
+
+async function ensureUserProfileSchema(db: D1Database) {
+  const columns = await db.prepare('PRAGMA table_info(users)').all<{ name: string }>()
+  if (columns.results.some(column => column.name === 'display_name')) return
+  try {
+    await db.prepare('ALTER TABLE users ADD COLUMN display_name TEXT').run()
+  } catch (error) {
+    const refreshed = await db.prepare('PRAGMA table_info(users)').all<{ name: string }>()
+    if (!refreshed.results.some(column => column.name === 'display_name')) throw error
+  }
 }
 
 async function ensureFriendSchema(db: D1Database) {
@@ -288,8 +300,9 @@ async function exchangeWechatCode(c: Context<Env>, code: string) {
 }
 
 async function findOrCreateWechatUser(c: Context<Env>, openid: string, unionid: string | null) {
+  await ensureUserProfileSchema(c.env.DB)
   const existing = await c.env.DB.prepare(`
-    SELECT id, username, created_at FROM users WHERE wechat_openid = ?
+    SELECT id, username, display_name, created_at FROM users WHERE wechat_openid = ?
   `).bind(openid).first<AuthUser>()
   if (existing) return existing
 
@@ -301,10 +314,10 @@ async function findOrCreateWechatUser(c: Context<Env>, openid: string, unionid: 
       INSERT INTO users(id, username, wechat_openid, wechat_unionid, created_at)
       VALUES(?, ?, ?, ?, ?)
     `).bind(id, username, openid, unionid, createdAt).run()
-    return { id, username, created_at: createdAt }
+    return { id, username, display_name: null, created_at: createdAt }
   } catch (error) {
     const raced = await c.env.DB.prepare(`
-      SELECT id, username, created_at FROM users WHERE wechat_openid = ?
+      SELECT id, username, display_name, created_at FROM users WHERE wechat_openid = ?
     `).bind(openid).first<AuthUser>()
     if (raced) return raced
     throw error
@@ -353,7 +366,7 @@ app.post('/api/auth/register', async c => {
       INSERT INTO users(id, username, password_hash, password_salt, created_at)
       VALUES(?, ?, ?, ?, ?)
     `).bind(id, username, passwordHash, salt, createdAt).run()
-    const user = { id, username, created_at: createdAt }
+    const user: AuthUser = { id, username, display_name: null, created_at: createdAt }
     return c.json({ user, ...await createSession(c, id) }, 201)
   } catch (error) {
     console.error(JSON.stringify({ event: 'register_failed', message: String(error) }))
@@ -362,11 +375,12 @@ app.post('/api/auth/register', async c => {
 })
 
 app.post('/api/auth/login', async c => {
+  await ensureUserProfileSchema(c.env.DB)
   const body = await c.req.json().catch(() => null) as { username?: unknown; password?: unknown } | null
   const username = typeof body?.username === 'string' ? body.username.trim() : ''
   const password = typeof body?.password === 'string' ? body.password : ''
   const user = await c.env.DB.prepare(`
-    SELECT id, username, password_hash, password_salt, created_at
+    SELECT id, username, display_name, password_hash, password_salt, created_at
     FROM users WHERE username = ? COLLATE NOCASE
   `).bind(username).first<AuthUser & { password_hash: string | null; password_salt: string | null }>()
   if (!user?.password_hash || !user.password_salt ||
@@ -374,7 +388,7 @@ app.post('/api/auth/login', async c => {
     return jsonError(c, '用户名或密码错误', 401)
   }
   return c.json({
-    user: { id: user.id, username: user.username, created_at: user.created_at },
+    user: { id: user.id, username: user.username, display_name: user.display_name, created_at: user.created_at },
     ...await createSession(c, user.id),
   })
 })
@@ -382,6 +396,19 @@ app.post('/api/auth/login', async c => {
 app.get('/api/auth/me', async c => {
   const user = await currentUser(c)
   return user ? c.json({ user }) : jsonError(c, '未登录', 401)
+})
+
+app.put('/api/me/profile', async c => {
+  const user = await currentUser(c)
+  if (!user) return jsonError(c, '请先登录', 401)
+  const body = await c.req.json().catch(() => null) as { displayName?: unknown } | null
+  const displayName = typeof body?.displayName === 'string' ? body.displayName.trim() : ''
+  if (!displayName || displayName.length > 12 || /[\u0000-\u001f\u007f]/.test(displayName)) {
+    return jsonError(c, '牌桌昵称需为 1–12 个字符')
+  }
+  await c.env.DB.prepare('UPDATE users SET display_name = ? WHERE id = ?')
+    .bind(displayName, user.id).run()
+  return c.json({ user: { ...user, display_name: displayName } })
 })
 
 app.post('/api/auth/logout', async c => {
