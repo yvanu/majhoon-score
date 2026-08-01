@@ -32,23 +32,6 @@ export function safeEqual(first: string, second: string) {
   return difference === 0
 }
 
-export async function derivePassword(password: string, saltHex: string) {
-  const key = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(password),
-    { name: 'PBKDF2' },
-    false,
-    ['deriveBits'],
-  )
-  const salt = Uint8Array.from(saltHex.match(/.{2}/g) ?? [], value => Number.parseInt(value, 16))
-  const bits = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', salt, iterations: 100_000, hash: 'SHA-256' },
-    key,
-    256,
-  )
-  return Array.from(new Uint8Array(bits), byte => byte.toString(16).padStart(2, '0')).join('')
-}
-
 export function shareCode() {
   const characters = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
   const bytes = crypto.getRandomValues(new Uint8Array(6))

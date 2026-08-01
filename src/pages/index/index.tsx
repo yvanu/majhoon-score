@@ -417,10 +417,6 @@ export default function Index() {
     })
   }
 
-  async function login(username: string, password: string, register: boolean) {
-    await run(async () => finishLogin(await api.login(username, password, register)))
-  }
-
   async function saveDisplayName(displayName: string) {
     await run(async () => {
       const result = await api.updateProfile(displayName)
@@ -537,7 +533,7 @@ export default function Index() {
     />}
     {screen === 'create' && <Create user={user} onBack={() => setScreen('home')} onCreate={createMatch} loading={loading} />}
     {screen === 'join' && <Join onBack={() => setScreen('home')} onOpen={code => openMatch(code)} loading={loading} />}
-    {screen === 'auth' && <Auth onBack={() => setScreen('home')} onWechatLogin={wechatLogin} onSubmit={login} loading={loading} />}
+    {screen === 'auth' && <Auth onBack={() => setScreen('home')} onWechatLogin={wechatLogin} loading={loading} />}
     {screen === 'nickname' && user && <NicknameScreen
       user={user}
       required={needsNickname(user)}
@@ -904,43 +900,19 @@ function Join({ onBack, onOpen, loading }: { onBack: () => void; onOpen: (code: 
   </View>
 }
 
-function Auth({ onBack, onWechatLogin, onSubmit, loading }: {
+function Auth({ onBack, onWechatLogin, loading }: {
   onBack: () => void
   onWechatLogin: () => void
-  onSubmit: (username: string, password: string, register: boolean) => void
   loading: boolean
 }) {
-  const [register, setRegister] = useState(false)
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirm, setConfirm] = useState('')
-
-  function submit() {
-    const normalizedUsername = username.trim()
-    if (normalizedUsername.length < 3) {
-      Taro.showToast({ title: '用户名至少 3 位', icon: 'none' })
-      return
-    }
-    if (password.length < 8) {
-      Taro.showToast({ title: '密码至少 8 位', icon: 'none' })
-      return
-    }
-    if (register && password !== confirm) {
-      Taro.showToast({ title: '两次密码不一致', icon: 'none' })
-      return
-    }
-    onSubmit(normalizedUsername, password, register)
-  }
-
-  return <View className='page' style={{ paddingTop: `${getPageTopInset()}px` }}><Header title={register ? '注册账号' : '登录雀记'} onBack={onBack} />
+  return <View className='page auth-page' style={{ paddingTop: `${getPageTopInset()}px` }}><Header title='微信登录' onBack={onBack} />
+    <View className='wechat-login-card'>
+      <View className='nickname-mark'>雀</View>
+      <Text className='title-small'>登录雀记</Text>
+      <Text className='wechat-login-description'>使用微信身份安全登录，同步牌局、牌友和个人战绩。</Text>
+    </View>
     <Button className='wechat-button' disabled={loading} onClick={onWechatLogin}>{loading ? '登录中…' : '微信快捷登录'}</Button>
-    <View className='auth-divider'><View /><Text>或使用账号密码</Text><View /></View>
-    <View className='field'><Text>用户名</Text><Input value={username} maxlength={24} placeholder='3–24 位' onInput={event => setUsername(event.detail.value)} /></View>
-    <View className='field'><Text>密码</Text><Input password value={password} placeholder='至少 8 位' onInput={event => setPassword(event.detail.value)} /></View>
-    {register && <View className='field'><Text>确认密码</Text><Input password value={confirm} onInput={event => setConfirm(event.detail.value)} /></View>}
-    <Button className='primary' disabled={loading} onClick={submit}>{loading ? '处理中…' : register ? '注册并登录' : '登录'}</Button>
-    <Button className='link' onClick={() => { setRegister(!register); setConfirm('') }}>{register ? '已有账号？登录' : '还没有账号？注册'}</Button>
-    <Text className='privacy-note'>微信登录仅用于识别当前账号；牌桌昵称由你主动选择或填写。</Text>
+    <Text className='privacy-note'>登录仅使用当前小程序的微信用户标识；牌桌昵称由你主动选择或填写。</Text>
   </View>
 }
 

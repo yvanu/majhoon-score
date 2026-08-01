@@ -35,8 +35,6 @@ async function request<T>(path: string, method: keyof Taro.request.Method = 'GET
 export const api = {
   me: () => request<{ user: AuthUser }>('/api/auth/me'),
   wechatLogin: (code: string) => request<AuthResult>('/api/auth/wechat', 'POST', { code }),
-  login: (username: string, password: string, register: boolean) =>
-    request<AuthResult>(register ? '/api/auth/register' : '/api/auth/login', 'POST', { username, password }),
   logout: () => request('/api/auth/logout', 'POST'),
   updateProfile: (displayName: string) => request<{ user: AuthUser }>('/api/me/profile', 'PUT', { displayName }),
   history: () => request<{ matches: MatchSummary[] }>('/api/me/matches'),

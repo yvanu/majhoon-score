@@ -1,5 +1,4 @@
 import type { Hono } from 'hono'
-import type { AuthUser } from '../../src/shared/types'
 import {
   bearer,
   createSession,
@@ -7,17 +6,8 @@ import {
   exchangeWechatCode,
   findOrCreateWechatUser,
 } from '../auth-service'
-import {
-  derivePassword,
-  jsonError,
-  now,
-  randomHex,
-  safeEqual,
-  sha256,
-  uid,
-} from '../core'
+import { jsonError, sha256 } from '../core'
 import type { Env } from '../env'
-import { ensureUserProfileSchema } from '../schema'
 
 export function registerAuthRoutes(app: Hono<Env>) {
   app.post('/api/auth/wechat', async c => {
@@ -37,54 +27,6 @@ export function registerAuthRoutes(app: Hono<Env>) {
       console.error(JSON.stringify({ event: 'wechat_login_failed', message }))
       return jsonError(c, '微信登录服务暂时不可用，请稍后重试', 502)
     }
-  })
-
-  app.post('/api/auth/register', async c => {
-    try {
-      const body = await c.req.json().catch(() => null) as { username?: unknown; password?: unknown } | null
-      const username = typeof body?.username === 'string' ? body.username.trim() : ''
-      const password = typeof body?.password === 'string' ? body.password : ''
-      if (!/^[\p{L}\p{N}_-]{3,24}$/u.test(username)) {
-        return jsonError(c, '用户名需为 3–24 位，可使用中文、字母、数字、下划线和短横线')
-      }
-      if (password.length < 8 || password.length > 72) return jsonError(c, '密码长度需为 8–72 位')
-      if (await c.env.DB.prepare('SELECT 1 FROM users WHERE username = ? COLLATE NOCASE').bind(username).first()) {
-        return jsonError(c, '用户名已存在', 409)
-      }
-
-      const id = uid()
-      const salt = randomHex(16)
-      const createdAt = now()
-      const passwordHash = await derivePassword(password, salt)
-      await c.env.DB.prepare(`
-        INSERT INTO users(id, username, password_hash, password_salt, created_at)
-        VALUES(?, ?, ?, ?, ?)
-      `).bind(id, username, passwordHash, salt, createdAt).run()
-      const user: AuthUser = { id, username, display_name: null, created_at: createdAt }
-      return c.json({ user, ...await createSession(c, id) }, 201)
-    } catch (error) {
-      console.error(JSON.stringify({ event: 'register_failed', message: String(error) }))
-      return jsonError(c, '注册失败，请稍后重试', 500)
-    }
-  })
-
-  app.post('/api/auth/login', async c => {
-    await ensureUserProfileSchema(c.env.DB)
-    const body = await c.req.json().catch(() => null) as { username?: unknown; password?: unknown } | null
-    const username = typeof body?.username === 'string' ? body.username.trim() : ''
-    const password = typeof body?.password === 'string' ? body.password : ''
-    const user = await c.env.DB.prepare(`
-      SELECT id, username, display_name, password_hash, password_salt, created_at
-      FROM users WHERE username = ? COLLATE NOCASE
-    `).bind(username).first<AuthUser & { password_hash: string | null; password_salt: string | null }>()
-    if (!user?.password_hash || !user.password_salt ||
-        !safeEqual(await derivePassword(password, user.password_salt), user.password_hash)) {
-      return jsonError(c, '用户名或密码错误', 401)
-    }
-    return c.json({
-      user: { id: user.id, username: user.username, display_name: user.display_name, created_at: user.created_at },
-      ...await createSession(c, user.id),
-    })
   })
 
   app.get('/api/auth/me', async c => {

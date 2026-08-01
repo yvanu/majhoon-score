@@ -14,9 +14,11 @@
 .primary[disabled], .wechat-button[disabled] { opacity: .45; }
 .secondary { margin-top: 20px; height: 88px; line-height: 88px; border-radius: 26px; background: #172033; color: #e9eef9; font-size: 28px; }
 .link { margin-top: 18px; background: transparent; color: #9fb0ca; font-size: 26px; }
-.wechat-button { margin: 0 0 32px; height: 100px; line-height: 100px; border-radius: 28px; background: #07c160; color: #fff; font-size: 31px; font-weight: 800; }
-.auth-divider { display: flex; align-items: center; gap: 18px; margin: 0 0 32px; color: #74839a; font-size: 22px; }
-.auth-divider view { flex: 1; height: 1px; background: #29364b; }
+.wechat-button { margin: 28px 0 32px; height: 100px; line-height: 100px; border-radius: 28px; background: #07c160; color: #fff; font-size: 31px; font-weight: 800; }
+.wechat-login-card { padding: 42px 30px; border: 1px solid #eee4d4; border-radius: 30px; background: linear-gradient(135deg,#fffdfa,#fff8e6); text-align: center; box-shadow: 0 16px 42px rgba(91,72,37,.08); }
+.wechat-login-card .nickname-mark { margin-bottom: 22px; }
+.wechat-login-card .title-small { display: block; }
+.wechat-login-description { display: block; margin-top: 14px; color: #777169; font-size: 23px; line-height: 1.65; }
 .privacy-note { display: block; margin-top: 28px; color: #74839a; font-size: 21px; line-height: 1.6; text-align: center; }
 .field { margin-bottom: 24px; padding: 24px 28px; border: 1px solid #28354b; border-radius: 24px; background: #121b2c; }
 .field text { display: block; margin-bottom: 12px; color: #9eacc1; font-size: 24px; }
@@ -290,8 +292,6 @@ page { background: var(--page-bg); color: var(--text); }
 .secondary[disabled] text { color: #b8b5ae; }
 .link { color: #9b7c37; }
 .wechat-button { box-shadow: 0 14px 32px rgba(7,193,96,.14); }
-.auth-divider { color: var(--text-muted); }
-.auth-divider view { background: var(--line); }
 .privacy-note { color: var(--text-muted); }
 
 .field, .card, .score-card, .daily-entry, .daily-overview > view, .daily-player, .join-hero, .dashboard-card, .quick-card, .profile-stats > view, .settings-card, .detail-modal {
