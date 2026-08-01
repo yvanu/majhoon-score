@@ -9,10 +9,14 @@ import type {
   FriendPatternStat,
   FriendStatistics,
   HandInput,
+  HandTileRecord,
+  MahjongTile,
   Match,
   MatchPlayerInput,
   MatchSummary,
+  PersonalStatistics,
   Player,
+  StatisticsDimension,
   Stats,
 } from '@shared/types'
 import { api, AUTH_KEY, CURRENT_KEY } from '../../services/api'
@@ -22,7 +26,44 @@ const animals = ['🐼', '🐯', '🦊', '🐸', '🐧', '🐵', '🦁', '🐨',
 const windName: Record<string, string> = { east: '东', south: '南', west: '西', north: '北' }
 const typeName: Record<string, string> = { tsumo: '自摸', ron: '点炮', draw: '流局', custom: '自定义' }
 const noteOptions = ['无花果', '对对胡', '混一色', '清一色', '七对', '全球独钓', '龙七', '花开', '杠开', '外包']
-type Screen = 'home' | 'create' | 'join' | 'auth' | 'nickname' | 'history' | 'daily' | 'friends' | 'friend' | 'profile' | 'match' | 'score' | 'stats'
+const bigHandOptions = new Set(noteOptions.filter(option => option !== '无花果'))
+const tileGroups: Array<{ name: string; tiles: MahjongTile[] }> = [
+  { name: '万', tiles: ['1m', '2m', '3m', '4m', '5m', '6m', '7m', '8m', '9m'] },
+  { name: '筒', tiles: ['1p', '2p', '3p', '4p', '5p', '6p', '7p', '8p', '9p'] },
+  { name: '条', tiles: ['1s', '2s', '3s', '4s', '5s', '6s', '7s', '8s', '9s'] },
+  { name: '字', tiles: ['east', 'south', 'west', 'north', 'red', 'green', 'white'] },
+]
+const tileLabel: Record<MahjongTile, string> = {
+  '1m': '一万', '2m': '二万', '3m': '三万', '4m': '四万', '5m': '五万', '6m': '六万', '7m': '七万', '8m': '八万', '9m': '九万',
+  '1p': '一筒', '2p': '二筒', '3p': '三筒', '4p': '四筒', '5p': '五筒', '6p': '六筒', '7p': '七筒', '8p': '八筒', '9p': '九筒',
+  '1s': '一条', '2s': '二条', '3s': '三条', '4s': '四条', '5s': '五条', '6s': '六条', '7s': '七条', '8s': '八条', '9s': '九条',
+  east: '东', south: '南', west: '西', north: '北', red: '中', green: '发', white: '白',
+}
+const emptyTileRecord = (): HandTileRecord => ({ pongs: [], exposedKongs: [], concealedKongs: [], hand: [], winningTile: null })
+
+function statisticsValue(dimension: StatisticsDimension, date = new Date()) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return dimension === 'day' ? `${year}-${month}-${day}` : dimension === 'month' ? `${year}-${month}` : String(year)
+}
+
+function shiftStatisticsValue(dimension: StatisticsDimension, value: string, amount: number) {
+  if (dimension === 'day') {
+    const [year, month, day] = value.split('-').map(Number)
+    const date = new Date(year, month - 1, day + amount)
+    return statisticsValue('day', date)
+  }
+  if (dimension === 'month') {
+    const [year, month] = value.split('-').map(Number)
+    const date = new Date(year, month - 1 + amount, 1)
+    return statisticsValue('month', date)
+  }
+  return String(Number(value) + amount)
+}
+
+type Screen = 'home' | 'create' | 'join' | 'auth' | 'nickname' | 'history' | 'daily' | 'friends' | 'friend' | 'personal' | 'profile' | 'match' | 'score' | 'stats'
+type TileRecordSection = 'pongs' | 'exposedKongs' | 'concealedKongs' | 'hand' | 'winningTile'
 type SyncStatus = 'idle' | 'syncing' | 'synced' | 'offline'
 type DialogVariant = 'default' | 'danger' | 'info' | 'error'
 
@@ -55,6 +96,7 @@ export default function Index() {
   const [history, setHistory] = useState<MatchSummary[]>([])
   const [friends, setFriends] = useState<Friend[]>([])
   const [friendStats, setFriendStats] = useState<FriendStatistics | null>(null)
+  const [personalStats, setPersonalStats] = useState<PersonalStatistics | null>(null)
   const [adminToken, setAdminToken] = useState('')
   const [loading, setLoading] = useState(false)
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle')
@@ -261,6 +303,20 @@ export default function Index() {
     })
   }
 
+  async function showPersonalStatistics(
+    dimension: StatisticsDimension = 'month',
+    value: string = statisticsValue('month'),
+  ) {
+    if (!user) {
+      setScreen('auth')
+      return
+    }
+    await run(async () => {
+      setPersonalStats(await api.personalStatistics(dimension, value, new Date().getTimezoneOffset()))
+      setScreen('personal')
+    })
+  }
+
   async function createMatch(players: MatchPlayerInput[]) {
     await run(async () => {
       const data = await api.createMatch(players)
@@ -437,6 +493,12 @@ export default function Index() {
       onProfile={() => setScreen('profile')}
     />}
     {screen === 'friend' && friendStats && <FriendStatisticsScreen statistics={friendStats} onBack={() => setScreen('friends')} />}
+    {screen === 'personal' && personalStats && <PersonalStatisticsScreen
+      statistics={personalStats}
+      loading={loading}
+      onBack={() => setScreen('profile')}
+      onChange={showPersonalStatistics}
+    />}
     {screen === 'profile' && <ProfileScreen
       user={user}
       matches={history}
@@ -445,6 +507,7 @@ export default function Index() {
       onHome={() => setScreen('home')}
       onHistory={showHistory}
       onFriends={showFriends}
+      onPersonalStatistics={() => showPersonalStatistics()}
       onLogin={() => setScreen('auth')}
       onLogout={logout}
       onEditNickname={() => { setNicknameReturn('profile'); setScreen('nickname') }}
@@ -935,7 +998,107 @@ function FriendStatisticsScreen({ statistics, onBack }: { statistics: FriendStat
   </View>
 }
 
-function ProfileScreen({ user, matches, dailyStats, syncStatus, onHome, onHistory, onFriends, onLogin, onLogout, onEditNickname, showDialog }: {
+function MahjongTileFace({ tile, compact = false, concealed = false }: { tile: MahjongTile; compact?: boolean; concealed?: boolean }) {
+  const suit = tile.endsWith('m') ? 'm' : tile.endsWith('p') ? 'p' : tile.endsWith('s') ? 's' : 'honor'
+  const number = suit === 'honor' ? tileLabel[tile] : tile.slice(0, 1)
+  const suitLabel = suit === 'm' ? '万' : suit === 'p' ? '筒' : suit === 's' ? '条' : ''
+  return <View className={`record-tile tile-${suit}${compact ? ' compact' : ''}${concealed ? ' concealed' : ''}`}>
+    <Text className='record-tile-number'>{concealed ? '▧' : number}</Text>
+    {!concealed && suitLabel && <Text className='record-tile-suit'>{suitLabel}</Text>}
+  </View>
+}
+
+function TileRecordDisplay({ record }: { record: HandTileRecord }) {
+  const sections = [
+    { key: 'pongs', label: '碰', tiles: record.pongs, count: 3, concealed: false },
+    { key: 'exposedKongs', label: '明杠', tiles: record.exposedKongs, count: 4, concealed: false },
+    { key: 'concealedKongs', label: '暗杠', tiles: record.concealedKongs, count: 4, concealed: false },
+  ] as const
+  return <View className='tile-record-display'>
+    {sections.map(section => section.tiles.length ? <View className='tile-record-display-row' key={section.key}>
+      <Text className='tile-record-display-label'>{section.label}</Text>
+      <View className='tile-meld-list'>{section.tiles.map((tile, meldIndex) => <View className='tile-meld' key={`${tile}-${meldIndex}`}>
+        {Array.from({ length: section.count }, (_, index) => <MahjongTileFace tile={tile} compact key={index} />)}
+      </View>)}</View>
+    </View> : null)}
+    {record.hand.length > 0 && <View className='tile-record-display-row'>
+      <Text className='tile-record-display-label'>手牌</Text>
+      <View className='tile-hand-list'>{record.hand.map((tile, index) => <MahjongTileFace tile={tile} compact key={`${tile}-${index}`} />)}</View>
+    </View>}
+    {record.winningTile && <View className='tile-record-display-row winning'>
+      <Text className='tile-record-display-label'>胡牌</Text>
+      <MahjongTileFace tile={record.winningTile} />
+    </View>}
+  </View>
+}
+
+function CircularMetric({ label, value, detail, tone }: { label: string; value: number; detail: string; tone: string }) {
+  const normalized = Math.max(0, Math.min(100, value))
+  return <View className='personal-ring-metric'>
+    <View className={`personal-ring ${tone}`} style={{ background: `conic-gradient(currentColor ${normalized}%, #eeeae2 ${normalized}% 100%)` }}>
+      <View className='personal-ring-inner'><Text>{normalized}%</Text></View>
+    </View>
+    <Text className='personal-ring-label'>{label}</Text>
+    <Text className='personal-ring-detail'>{detail}</Text>
+  </View>
+}
+
+function PersonalStatisticsScreen({ statistics, loading, onBack, onChange }: {
+  statistics: PersonalStatistics
+  loading: boolean
+  onBack: () => void
+  onChange: (dimension: StatisticsDimension, value: string) => void
+}) {
+  const percentage = (count: number) => statistics.totalHands ? Math.round(count / statistics.totalHands * 100) : 0
+  const previousValue = shiftStatisticsValue(statistics.dimension, statistics.value, -1)
+  const nextValue = shiftStatisticsValue(statistics.dimension, statistics.value, 1)
+  const canGoNext = nextValue <= statisticsValue(statistics.dimension)
+  const dimensions: Array<{ key: StatisticsDimension; label: string }> = [
+    { key: 'day', label: '按日' },
+    { key: 'month', label: '按月' },
+    { key: 'year', label: '按年' },
+  ]
+  const featured = statistics.featuredBigHand
+
+  return <View className='page personal-statistics-page' style={{ paddingTop: `${getPageTopInset()}px` }}>
+    <Header title='我的战绩' onBack={onBack} />
+    <View className='personal-dimension-tabs'>{dimensions.map(item => <Button
+      key={item.key}
+      className={statistics.dimension === item.key ? 'personal-dimension active' : 'personal-dimension'}
+      disabled={loading}
+      onClick={() => onChange(item.key, statisticsValue(item.key))}
+    >{item.label}</Button>)}</View>
+    <View className='personal-period-picker'>
+      <Button disabled={loading} onClick={() => onChange(statistics.dimension, previousValue)}>‹</Button>
+      <View><Text className='eyebrow'>STATISTICS PERIOD</Text><Text className='personal-period-label'>{statistics.label}</Text></View>
+      <Button disabled={loading || !canGoNext} onClick={() => onChange(statistics.dimension, nextValue)}>›</Button>
+    </View>
+
+    <View className='personal-total-card'>
+      <Text className='personal-total-number'>{statistics.totalHands}</Text>
+      <View><Text className='card-title'>总局数</Text><Text>胡牌 {statistics.wins} · 点炮 {statistics.dealIns} · 大胡 {statistics.bigHands}</Text></View>
+    </View>
+    <View className='personal-rings'>
+      <CircularMetric label='胡牌率' value={percentage(statistics.wins)} detail={`${statistics.wins} 局`} tone='win' />
+      <CircularMetric label='点炮率' value={percentage(statistics.dealIns)} detail={`${statistics.dealIns} 局`} tone='lose' />
+      <CircularMetric label='自摸率' value={percentage(statistics.tsumoWins)} detail={`${statistics.tsumoWins} 局`} tone='tsumo' />
+      <CircularMetric label='大胡率' value={percentage(statistics.bigHands)} detail={`${statistics.bigHands} 局`} tone='big' />
+    </View>
+
+    <PatternChart title='大胡次数详情' total={statistics.bigHands} patterns={statistics.patterns} emptyText='当前统计周期内还没有大胡记录' />
+
+    <View className='featured-big-hand-card'>
+      <View className='featured-big-hand-title'><View><Text className='eyebrow'>FEATURED BIG HAND</Text><Text className='title-small'>近期最高分大胡牌谱</Text></View>{featured && <Text className='featured-big-hand-score'>{featured.score > 0 ? '+' : ''}{featured.score}</Text>}</View>
+      {featured ? <>
+        <View className='featured-big-hand-meta'><Text>{featured.resultType === 'tsumo' ? '自摸' : '点炮胡'} · {featured.note}</Text><Text>{formatMatchTime(featured.createdAt)}</Text></View>
+        <TileRecordDisplay record={featured.tileRecord} />
+      </> : <Text className='featured-big-hand-empty'>当前统计周期内还没有录入过大胡牌谱</Text>}
+    </View>
+    <Text className='personal-statistics-note'>各项比率均以当前统计周期总局数为分母；大胡详情按牌型标签分别计数，一局含多个标签时会分别累计；时间范围按当前设备时区计算。</Text>
+  </View>
+}
+
+function ProfileScreen({ user, matches, dailyStats, syncStatus, onHome, onHistory, onFriends, onPersonalStatistics, onLogin, onLogout, onEditNickname, showDialog }: {
   user: AuthUser | null
   matches: MatchSummary[]
   dailyStats: DailyStats | null
@@ -943,6 +1106,7 @@ function ProfileScreen({ user, matches, dailyStats, syncStatus, onHome, onHistor
   onHome: () => void
   onHistory: () => void
   onFriends: () => void
+  onPersonalStatistics: () => void
   onLogin: () => void
   onLogout: () => void
   onEditNickname: () => void
@@ -987,6 +1151,11 @@ function ProfileScreen({ user, matches, dailyStats, syncStatus, onHome, onHistor
       <View><Text className='profile-number'>{dailyStats?.matchCount || 0}</Text><Text>今日牌局</Text></View>
       <View><Text className='profile-number'>{dailyStats?.handCount || 0}</Text><Text>今日局数</Text></View>
     </View>
+    {user && <View className='personal-statistics-entry' onClick={onPersonalStatistics}>
+      <View className='personal-statistics-entry-icon'>战</View>
+      <View className='grow'><Text className='card-title'>我的战绩</Text><Text>按日、月、年查看胡牌与大胡统计</Text></View>
+      <Text className='card-arrow'>›</Text>
+    </View>}
     <View className='settings-card'>
       {user && <View className='setting-row' onClick={onEditNickname}><View><Text className='setting-title'>牌桌昵称</Text><Text className='setting-subnote'>{displayUserName(user)}</Text></View><Text className='card-arrow'>›</Text></View>}
       <View className='setting-row'><View><Text className='setting-title'>数据同步</Text><Text className={`setting-note ${syncStatus}`}>{syncText}</Text></View><Text className='card-arrow'>›</Text></View>
@@ -1078,6 +1247,113 @@ function DetailGroup({ title, count, groups }: { title: string; count: number; g
   </View>
 }
 
+function hasTileRecordContent(record: HandTileRecord) {
+  return Boolean(record.pongs.length || record.exposedKongs.length || record.concealedKongs.length || record.hand.length || record.winningTile)
+}
+
+function tileCopyCount(record: HandTileRecord, target: MahjongTile) {
+  return record.pongs.filter(tile => tile === target).length * 3 +
+    record.exposedKongs.filter(tile => tile === target).length * 4 +
+    record.concealedKongs.filter(tile => tile === target).length * 4 +
+    record.hand.filter(tile => tile === target).length +
+    (record.winningTile === target ? 1 : 0)
+}
+
+function tileRecordPhysicalCount(record: HandTileRecord) {
+  return record.pongs.length * 3 +
+    (record.exposedKongs.length + record.concealedKongs.length) * 4 +
+    record.hand.length +
+    (record.winningTile ? 1 : 0)
+}
+
+function TileRecordEditor({ record, onChange }: { record: HandTileRecord; onChange: (record: HandTileRecord) => void }) {
+  const [active, setActive] = useState<TileRecordSection>('hand')
+  const sections: Array<{ key: TileRecordSection; label: string; hint: string }> = [
+    { key: 'pongs', label: '碰', hint: `${record.pongs.length} 组` },
+    { key: 'exposedKongs', label: '明杠', hint: `${record.exposedKongs.length} 组` },
+    { key: 'concealedKongs', label: '暗杠', hint: `${record.concealedKongs.length} 组` },
+    { key: 'hand', label: '手牌', hint: `${record.hand.length} 张` },
+    { key: 'winningTile', label: '胡的牌', hint: record.winningTile ? '已录入' : '未录入' },
+  ]
+
+  function addTile(tile: MahjongTile) {
+    const next: HandTileRecord = {
+      pongs: [...record.pongs],
+      exposedKongs: [...record.exposedKongs],
+      concealedKongs: [...record.concealedKongs],
+      hand: [...record.hand],
+      winningTile: record.winningTile,
+    }
+    if (active === 'winningTile') next.winningTile = tile
+    else if (active === 'hand') {
+      if (next.hand.length >= 14) {
+        void Taro.showToast({ title: '手牌最多录入 14 张', icon: 'none' })
+        return
+      }
+      next.hand.push(tile)
+    } else {
+      if (next.pongs.length + next.exposedKongs.length + next.concealedKongs.length >= 4) {
+        void Taro.showToast({ title: '碰和杠合计最多 4 组', icon: 'none' })
+        return
+      }
+      next[active].push(tile)
+    }
+    if (tileCopyCount(next, tile) > 4) {
+      void Taro.showToast({ title: `${tileLabel[tile]}最多出现 4 张`, icon: 'none' })
+      return
+    }
+    const kongCount = next.exposedKongs.length + next.concealedKongs.length
+    if (tileRecordPhysicalCount(next) > 14 + kongCount) {
+      void Taro.showToast({ title: '当前碰杠数量下，手牌张数过多', icon: 'none' })
+      return
+    }
+    onChange(next)
+  }
+
+  function removeTile(section: TileRecordSection, index: number) {
+    const next: HandTileRecord = {
+      pongs: [...record.pongs],
+      exposedKongs: [...record.exposedKongs],
+      concealedKongs: [...record.concealedKongs],
+      hand: [...record.hand],
+      winningTile: record.winningTile,
+    }
+    if (section === 'winningTile') next.winningTile = null
+    else next[section].splice(index, 1)
+    onChange(next)
+  }
+
+  function sectionContent(section: TileRecordSection) {
+    if (section === 'winningTile') {
+      return record.winningTile
+        ? <View className='tile-record-single' onClick={event => { event.stopPropagation(); removeTile(section, 0) }}><MahjongTileFace tile={record.winningTile} /><Text>点击移除</Text></View>
+        : <Text className='tile-record-placeholder'>点击下方麻将牌录入胡的牌</Text>
+    }
+    const tiles = record[section]
+    if (!tiles.length) return <Text className='tile-record-placeholder'>选择此区域后，点击下方麻将牌录入</Text>
+    if (section === 'hand') return <View className='tile-editor-hand'>{tiles.map((tile, index) => <View key={`${tile}-${index}`} onClick={event => { event.stopPropagation(); removeTile(section, index) }}><MahjongTileFace tile={tile} compact /></View>)}</View>
+    const count = section === 'pongs' ? 3 : 4
+    return <View className='tile-editor-melds'>{tiles.map((tile, meldIndex) => <View className='tile-editor-meld' key={`${tile}-${meldIndex}`} onClick={event => { event.stopPropagation(); removeTile(section, meldIndex) }}>
+      {Array.from({ length: count }, (_, index) => <MahjongTileFace tile={tile} compact key={index} />)}
+    </View>)}</View>
+  }
+
+  return <View className='tile-record-editor'>
+    <View className='tile-record-editor-head'><View><Text className='card-title'>录入大胡牌谱</Text><Text>先选择区域，再点击麻将牌；已录入的牌可点击删除。</Text></View><Button className='tile-record-clear' disabled={!hasTileRecordContent(record)} onClick={() => onChange(emptyTileRecord())}>清空</Button></View>
+    <View className='tile-record-regions'>{sections.map(section => <View key={section.key} className={active === section.key ? 'tile-record-region active' : 'tile-record-region'} onClick={() => setActive(section.key)}>
+      <View className='tile-record-region-title'><Text>{section.label}</Text><Text>{section.hint}</Text></View>
+      {sectionContent(section.key)}
+    </View>)}</View>
+    <View className='tile-palette'>
+      <View className='tile-palette-heading'><Text>当前录入：{sections.find(section => section.key === active)?.label}</Text><Text>每种牌最多 4 张</Text></View>
+      {tileGroups.map(group => <View className='tile-palette-group' key={group.name}>
+        <Text className='tile-palette-group-name'>{group.name}</Text>
+        <View className='tile-palette-grid'>{group.tiles.map(tile => <View className='tile-palette-item' key={tile} onClick={() => addTile(tile)}><MahjongTileFace tile={tile} compact /></View>)}</View>
+      </View>)}
+    </View>
+  </View>
+}
+
 function ScoreScreen({ players, loading, onBack, onSubmit }: {
   players: Player[]
   loading: boolean
@@ -1091,6 +1367,23 @@ function ScoreScreen({ players, loading, onBack, onSubmit }: {
   const [tsumoPayment, setTsumoPayment] = useState('50')
   const [values, setValues] = useState<Record<string, string>>(Object.fromEntries(players.map(player => [player.id, '0'])))
   const [notes, setNotes] = useState<string[]>([])
+  const [tileRecord, setTileRecord] = useState<HandTileRecord>(emptyTileRecord())
+  const [showTileRecord, setShowTileRecord] = useState(false)
+  const canRecordTiles = (type === 'ron' || type === 'tsumo') && notes.some(note => bigHandOptions.has(note))
+
+  function changeType(nextType: 'ron' | 'tsumo' | 'draw' | 'custom') {
+    setType(nextType)
+    if (nextType !== 'ron' && nextType !== 'tsumo') setShowTileRecord(false)
+  }
+
+  function toggleNote(option: string) {
+    const next = notes.includes(option) ? notes.filter(item => item !== option) : [...notes, option]
+    setNotes(next)
+    if (!next.some(note => bigHandOptions.has(note))) {
+      setShowTileRecord(false)
+      setTileRecord(emptyTileRecord())
+    }
+  }
 
   function save() {
     let scores: { playerId: string; change: number }[]
@@ -1116,16 +1409,22 @@ function ScoreScreen({ players, loading, onBack, onSubmit }: {
       loserPlayerId: type === 'ron' ? loser : undefined,
       scores,
       note: notes.length ? notes.join('、') : undefined,
+      tileRecord: canRecordTiles && hasTileRecordContent(tileRecord) ? tileRecord : undefined,
     })
   }
 
   return <View className='page' style={{ paddingTop: `${getPageTopInset()}px` }}><Header title='记一局' onBack={onBack} />
-    <View className='tabs'>{(['ron', 'tsumo', 'draw', 'custom'] as const).map(value => <Button key={value} className={type === value ? 'tab active' : 'tab'} onClick={() => setType(value)}>{typeName[value]}</Button>)}</View>
+    <View className='tabs'>{(['ron', 'tsumo', 'draw', 'custom'] as const).map(value => <Button key={value} className={type === value ? 'tab active' : 'tab'} onClick={() => changeType(value)}>{typeName[value]}</Button>)}</View>
     {(type === 'ron' || type === 'tsumo') && <PlayerPicker title='胡牌者' players={players} selected={winner} onSelect={id => { setWinner(id); if (id === loser) setLoser(players.find(player => player.id !== id)!.id) }} />}
     {type === 'ron' && <><PlayerPicker title='放炮者' players={players.filter(player => player.id !== winner)} selected={loser} onSelect={setLoser} /><View className='field'><Text>分数</Text><Input type='number' value={amount} onInput={event => setAmount(event.detail.value)} /></View></>}
     {type === 'tsumo' && <View className='field'><Text>每人支付</Text><Input type='number' value={tsumoPayment} onInput={event => setTsumoPayment(event.detail.value)} /></View>}
     {type === 'custom' && players.map(player => <View className='field' key={player.id}><Text>{player.name}</Text><Input type='number' value={values[player.id]} onInput={event => setValues({ ...values, [player.id]: event.detail.value })} /></View>)}
-    <View className='note-field'><Text className='section-title'>备注（可选）</Text><View className='note-options'>{noteOptions.map(option => <Button key={option} className={notes.includes(option) ? 'note selected' : 'note'} onClick={() => setNotes(current => current.includes(option) ? current.filter(item => item !== option) : [...current, option])}>{option}</Button>)}</View></View>
+    <View className='note-field'><Text className='section-title'>备注（可选）</Text><View className='note-options'>{noteOptions.map(option => <Button key={option} className={notes.includes(option) ? 'note selected' : 'note'} onClick={() => toggleNote(option)}>{option}</Button>)}</View></View>
+    {canRecordTiles && <View className='tile-record-entry'>
+      <View><Text className='card-title'>大胡牌谱</Text><Text>{hasTileRecordContent(tileRecord) ? '牌谱已录入，可继续修改' : '可选录入，之后会展示在我的战绩中'}</Text></View>
+      <Button onClick={() => setShowTileRecord(value => !value)}>{showTileRecord ? '收起' : hasTileRecordContent(tileRecord) ? '修改' : '录入'}</Button>
+    </View>}
+    {canRecordTiles && showTileRecord && <TileRecordEditor record={tileRecord} onChange={setTileRecord} />}
     <Button className='primary' disabled={loading} onClick={save}>{loading ? '保存中…' : '确认保存'}</Button>
   </View>
 }

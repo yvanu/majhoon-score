@@ -6,11 +6,15 @@ import type {
   Friend,
   FriendPatternStat,
   FriendStatistics,
+  Hand,
   HandInput,
+  HandTileRecord,
   HandType,
+  MahjongTile,
   Match,
   MatchPlayerInput,
   MatchSummary,
+  PersonalStatistics,
   Player,
   PlayerStat,
   Stats,
@@ -37,6 +41,12 @@ const app = new Hono<Env>()
 const winds: Wind[] = ['east', 'south', 'west', 'north']
 const handTypes: HandType[] = ['tsumo', 'ron', 'draw', 'custom']
 const recordedPatterns = new Set(['对对胡', '混一色', '清一色', '七对', '全球独钓', '龙七', '花开', '杠开', '外包'])
+const mahjongTiles = new Set<MahjongTile>([
+  '1m', '2m', '3m', '4m', '5m', '6m', '7m', '8m', '9m',
+  '1p', '2p', '3p', '4p', '5p', '6p', '7p', '8p', '9p',
+  '1s', '2s', '3s', '4s', '5s', '6s', '7s', '8s', '9s',
+  'east', 'south', 'west', 'north', 'red', 'green', 'white',
+])
 const encoder = new TextEncoder()
 
 const jsonError = (c: Context<Env>, message: string, status: ErrorStatus = 400) =>
@@ -181,6 +191,42 @@ async function ensureFriendSchema(db: D1Database) {
   }
 }
 
+async function ensurePersonalStatisticsSchema(db: D1Database) {
+  const playerColumns = await db.prepare('PRAGMA table_info(players)').all<{ name: string }>()
+  if (!playerColumns.results.some(column => column.name === 'user_id')) {
+    try {
+      await db.prepare(`
+        ALTER TABLE players
+        ADD COLUMN user_id TEXT REFERENCES users(id) ON DELETE SET NULL
+      `).run()
+    } catch (error) {
+      const refreshed = await db.prepare('PRAGMA table_info(players)').all<{ name: string }>()
+      if (!refreshed.results.some(column => column.name === 'user_id')) throw error
+    }
+  }
+  await db.prepare('CREATE INDEX IF NOT EXISTS idx_players_user_id ON players(user_id)').run()
+
+  const handColumns = await db.prepare('PRAGMA table_info(hands)').all<{ name: string }>()
+  if (!handColumns.results.some(column => column.name === 'tile_record')) {
+    try {
+      await db.prepare('ALTER TABLE hands ADD COLUMN tile_record TEXT').run()
+    } catch (error) {
+      const refreshed = await db.prepare('PRAGMA table_info(hands)').all<{ name: string }>()
+      if (!refreshed.results.some(column => column.name === 'tile_record')) throw error
+    }
+  }
+
+  const migrationTable = await db.prepare(`
+    SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'd1_migrations'
+  `).first<{ name: string }>()
+  if (migrationTable) {
+    await db.prepare(`
+      INSERT INTO d1_migrations(name)
+      SELECT ? WHERE NOT EXISTS (SELECT 1 FROM d1_migrations WHERE name = ?)
+    `).bind('0004_personal_statistics_and_tiles.sql', '0004_personal_statistics_and_tiles.sql').run()
+  }
+}
+
 function shareCode() {
   const characters = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
   const bytes = crypto.getRandomValues(new Uint8Array(6))
@@ -215,6 +261,106 @@ function validatePlayers(value: unknown): MatchPlayerInput[] | null {
   return valid
 }
 
+function validateTileRecord(value: unknown): HandTileRecord | null {
+  if (!isRecord(value)) return null
+
+  const readTiles = (input: unknown, max: number): MahjongTile[] | null => {
+    if (!Array.isArray(input) || input.length > max) return null
+    const tiles = input.filter((tile): tile is MahjongTile => typeof tile === 'string' && mahjongTiles.has(tile as MahjongTile))
+    return tiles.length === input.length ? tiles : null
+  }
+
+  const pongs = readTiles(value.pongs, 4)
+  const exposedKongs = readTiles(value.exposedKongs, 4)
+  const concealedKongs = readTiles(value.concealedKongs, 4)
+  const hand = readTiles(value.hand, 14)
+  const winningTile = value.winningTile === null
+    ? null
+    : typeof value.winningTile === 'string' && mahjongTiles.has(value.winningTile as MahjongTile)
+      ? value.winningTile as MahjongTile
+      : undefined
+
+  if (!pongs || !exposedKongs || !concealedKongs || !hand || winningTile === undefined) return null
+  const meldCount = pongs.length + exposedKongs.length + concealedKongs.length
+  if (meldCount > 4) return null
+  const kongCount = exposedKongs.length + concealedKongs.length
+  const physicalTileCount = pongs.length * 3 + kongCount * 4 + hand.length + (winningTile ? 1 : 0)
+  if (physicalTileCount > 14 + kongCount) return null
+
+  const counts = new Map<MahjongTile, number>()
+  const add = (tile: MahjongTile, amount: number) => counts.set(tile, (counts.get(tile) ?? 0) + amount)
+  pongs.forEach(tile => add(tile, 3))
+  exposedKongs.forEach(tile => add(tile, 4))
+  concealedKongs.forEach(tile => add(tile, 4))
+  hand.forEach(tile => add(tile, 1))
+  if (winningTile) add(winningTile, 1)
+  if ([...counts.values()].some(count => count > 4) || counts.size === 0) return null
+
+  return { pongs, exposedKongs, concealedKongs, hand, winningTile }
+}
+
+function parseStoredTileRecord(value: unknown): HandTileRecord | null {
+  if (!value) return null
+  try {
+    return validateTileRecord(typeof value === 'string' ? JSON.parse(value) : value)
+  } catch {
+    return null
+  }
+}
+
+function bigHandPatterns(note: unknown) {
+  if (typeof note !== 'string') return []
+  return note.split('、').map(item => item.trim()).filter(item => recordedPatterns.has(item))
+}
+
+function resolveStatisticsPeriod(dimensionValue: string | undefined, rawValue: string | undefined, rawOffset: string | undefined) {
+  const dimension: PersonalStatistics['dimension'] = dimensionValue === 'day' || dimensionValue === 'year' ? dimensionValue : 'month'
+  const parsedOffset = Number(rawOffset)
+  const timezoneOffset = Number.isFinite(parsedOffset) ? Math.max(-840, Math.min(840, Math.round(parsedOffset))) : 0
+  const localNow = new Date(Date.now() - timezoneOffset * 60_000)
+  const defaultValue = dimension === 'day'
+    ? `${localNow.getUTCFullYear()}-${String(localNow.getUTCMonth() + 1).padStart(2, '0')}-${String(localNow.getUTCDate()).padStart(2, '0')}`
+    : dimension === 'month'
+      ? `${localNow.getUTCFullYear()}-${String(localNow.getUTCMonth() + 1).padStart(2, '0')}`
+      : String(localNow.getUTCFullYear())
+  const value = rawValue || defaultValue
+
+  let year = 0
+  let month = 1
+  let day = 1
+  if (dimension === 'day') {
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+    if (!match) return null
+    year = Number(match[1]); month = Number(match[2]); day = Number(match[3])
+    const check = new Date(Date.UTC(year, month - 1, day))
+    if (check.getUTCFullYear() !== year || check.getUTCMonth() !== month - 1 || check.getUTCDate() !== day) return null
+  } else if (dimension === 'month') {
+    const match = value.match(/^(\d{4})-(\d{2})$/)
+    if (!match) return null
+    year = Number(match[1]); month = Number(match[2])
+    if (month < 1 || month > 12) return null
+  } else {
+    if (!/^\d{4}$/.test(value)) return null
+    year = Number(value)
+  }
+  if (year < 2000 || year > 2200) return null
+
+  const toUtc = (nextYear: number, nextMonth: number, nextDay: number) =>
+    new Date(Date.UTC(nextYear, nextMonth - 1, nextDay) + timezoneOffset * 60_000).toISOString()
+  const startAt = toUtc(year, month, day)
+  const endAt = dimension === 'day'
+    ? toUtc(new Date(Date.UTC(year, month - 1, day + 1)).getUTCFullYear(), new Date(Date.UTC(year, month - 1, day + 1)).getUTCMonth() + 1, new Date(Date.UTC(year, month - 1, day + 1)).getUTCDate())
+    : dimension === 'month'
+      ? toUtc(month === 12 ? year + 1 : year, month === 12 ? 1 : month + 1, 1)
+      : toUtc(year + 1, 1, 1)
+  const label = dimension === 'day'
+    ? `${year}年${month}月${day}日`
+    : dimension === 'month'
+      ? `${year}年${month}月`
+      : `${year}年`
+  return { dimension, value, label, startAt, endAt }
+}
+
 function validateHand(value: unknown): HandInput | null {
   if (!isRecord(value) || typeof value.type !== 'string' ||
       !handTypes.includes(value.type as HandType) ||
@@ -227,6 +373,10 @@ function validateHand(value: unknown): HandInput | null {
     return { playerId: item.playerId, change: item.change }
   })
   if (scores.some(item => !item)) return null
+  const tileRecord = value.tileRecord === undefined || value.tileRecord === null
+    ? undefined
+    : validateTileRecord(value.tileRecord)
+  if (value.tileRecord !== undefined && value.tileRecord !== null && !tileRecord) return null
 
   return {
     type: value.type as HandType,
@@ -234,10 +384,12 @@ function validateHand(value: unknown): HandInput | null {
     loserPlayerId: typeof value.loserPlayerId === 'string' ? value.loserPlayerId : undefined,
     scores: scores as HandInput['scores'],
     note: typeof value.note === 'string' ? value.note.trim().slice(0, 100) : undefined,
+    tileRecord: tileRecord || undefined,
   }
 }
 
 async function getMatch(db: D1Database, idOrCode: string): Promise<Match | null> {
+  await ensurePersonalStatisticsSchema(db)
   const match = await db.prepare(`
     SELECT id, share_code, status, current_wind, current_hand, created_at, finished_at
     FROM matches WHERE id = ? OR share_code = ?
@@ -245,7 +397,7 @@ async function getMatch(db: D1Database, idOrCode: string): Promise<Match | null>
   if (!match) return null
 
   const players = await db.prepare(`
-    SELECT p.id, p.name, p.avatar_seed, p.friend_id, p.seat, COALESCE(SUM(hs.score_change), 0) score
+    SELECT p.id, p.name, p.avatar_seed, p.friend_id, p.user_id, p.seat, COALESCE(SUM(hs.score_change), 0) score
     FROM players p
     LEFT JOIN hand_scores hs ON hs.player_id = p.id
     WHERE p.match_id = ?
@@ -255,14 +407,14 @@ async function getMatch(db: D1Database, idOrCode: string): Promise<Match | null>
 
   const hands = await db.prepare(`
     SELECT id, sequence, wind, hand_number, result_type, winner_player_id,
-           loser_player_id, note, created_at
+           loser_player_id, note, tile_record, created_at
     FROM hands WHERE match_id = ? ORDER BY sequence DESC
-  `).bind(match.id).all<Match['hands'][number]>()
+  `).bind(match.id).all<Omit<Hand, 'tile_record'> & { tile_record: string | null }>()
 
   return {
     ...match,
     players: players.results.map(player => ({ ...player, score: Number(player.score) })),
-    hands: hands.results,
+    hands: hands.results.map(hand => ({ ...hand, tile_record: parseStoredTileRecord(hand.tile_record) })),
   }
 }
 
@@ -625,10 +777,100 @@ app.get('/api/me/daily-statistics', async c => {
   return c.json(stats)
 })
 
+app.get('/api/me/statistics', async c => {
+  const user = await currentUser(c)
+  if (!user) return jsonError(c, '请先登录', 401)
+  await ensureFriendSchema(c.env.DB)
+  await ensurePersonalStatisticsSchema(c.env.DB)
+
+  const period = resolveStatisticsPeriod(
+    c.req.query('dimension'),
+    c.req.query('value'),
+    c.req.query('timezoneOffset'),
+  )
+  if (!period) return jsonError(c, '统计时间范围无效')
+
+  const rows = await c.env.DB.prepare(`
+    SELECT h.id hand_id, h.match_id, h.result_type, h.winner_player_id,
+      h.loser_player_id, h.note, h.tile_record, h.created_at,
+      p.id player_id, COALESCE(hs.score_change, 0) score_change
+    FROM hands h
+    JOIN matches m ON m.id = h.match_id AND m.owner_user_id = ?
+    JOIN users u ON u.id = ?
+    JOIN players p ON p.match_id = m.id AND (
+      p.user_id = u.id OR (
+        p.user_id IS NULL AND p.friend_id IS NULL AND
+        p.name = COALESCE(NULLIF(u.display_name, ''), u.username) COLLATE NOCASE
+      )
+    )
+    LEFT JOIN hand_scores hs ON hs.hand_id = h.id AND hs.player_id = p.id
+    WHERE h.created_at >= ? AND h.created_at < ?
+    ORDER BY h.created_at DESC
+  `).bind(user.id, user.id, period.startAt, period.endAt).all<Record<string, unknown>>()
+
+  let wins = 0
+  let dealIns = 0
+  let tsumoWins = 0
+  let bigHands = 0
+  const patternCounts = new Map<string, number>()
+  let featuredBigHand: PersonalStatistics['featuredBigHand'] = null
+
+  for (const row of rows.results) {
+    const playerId = String(row.player_id)
+    const isWin = row.winner_player_id === playerId
+    const isDealIn = row.result_type === 'ron' && row.loser_player_id === playerId
+    const patterns = bigHandPatterns(row.note)
+
+    if (isWin) {
+      wins += 1
+      if (row.result_type === 'tsumo') tsumoWins += 1
+      if (patterns.length) {
+        bigHands += 1
+        patterns.forEach(pattern => patternCounts.set(pattern, (patternCounts.get(pattern) ?? 0) + 1))
+        const tileRecord = parseStoredTileRecord(row.tile_record)
+        const score = Number(row.score_change ?? 0)
+        if (tileRecord && (row.result_type === 'ron' || row.result_type === 'tsumo')) {
+          const candidate = {
+            handId: String(row.hand_id),
+            matchId: String(row.match_id),
+            resultType: row.result_type,
+            note: typeof row.note === 'string' ? row.note : '',
+            score,
+            createdAt: String(row.created_at),
+            tileRecord,
+          } as const
+          if (!featuredBigHand || candidate.score > featuredBigHand.score ||
+              (candidate.score === featuredBigHand.score && candidate.createdAt > featuredBigHand.createdAt)) {
+            featuredBigHand = candidate
+          }
+        }
+      }
+    }
+    if (isDealIn) dealIns += 1
+  }
+
+  const response: PersonalStatistics = {
+    dimension: period.dimension,
+    value: period.value,
+    label: period.label,
+    totalHands: rows.results.length,
+    wins,
+    dealIns,
+    tsumoWins,
+    bigHands,
+    patterns: [...patternCounts.entries()]
+      .map(([name, count]) => ({ name, count }))
+      .sort((first, second) => second.count - first.count || first.name.localeCompare(second.name, 'zh-CN')),
+    featuredBigHand,
+  }
+  return c.json(response)
+})
+
 app.post('/api/matches', async c => {
   const inputs = validatePlayers(await c.req.json().catch(() => null))
   if (!inputs) return jsonError(c, '请输入四个不重复的玩家姓名')
   await ensureFriendSchema(c.env.DB)
+  await ensurePersonalStatisticsSchema(c.env.DB)
   const matchId = uid()
   const adminToken = randomHex(24)
   const createdAt = now()
@@ -639,10 +881,14 @@ app.post('/api/matches', async c => {
     code = shareCode()
   }
 
-  const resolved: Array<{ name: string; avatarSeed: number; friendId: string | null }> = []
+  const resolved: Array<{ name: string; avatarSeed: number; friendId: string | null; userId: string | null }> = []
   for (const input of inputs) {
-    if (!user || input.isSelf) {
-      resolved.push({ name: input.name, avatarSeed: avatarSeed(input.name), friendId: null })
+    if (!user) {
+      resolved.push({ name: input.name, avatarSeed: avatarSeed(input.name), friendId: null, userId: null })
+      continue
+    }
+    if (input.isSelf) {
+      resolved.push({ name: input.name, avatarSeed: avatarSeed(input.name), friendId: null, userId: user.id })
       continue
     }
 
@@ -663,7 +909,7 @@ app.post('/api/matches', async c => {
     if (!friend) return jsonError(c, '保存牌友失败，请重试', 500)
     await c.env.DB.prepare('UPDATE friends SET last_played_at = ?, updated_at = ? WHERE id = ?')
       .bind(createdAt, createdAt, friend.id).run()
-    resolved.push({ name: friend.name, avatarSeed: friend.avatar_seed, friendId: friend.id })
+    resolved.push({ name: friend.name, avatarSeed: friend.avatar_seed, friendId: friend.id, userId: null })
   }
 
   await c.env.DB.batch([
@@ -672,9 +918,9 @@ app.post('/api/matches', async c => {
       VALUES(?, ?, ?, ?, ?, ?)
     `).bind(matchId, code, await sha256(adminToken), user?.id ?? null, createdAt, createdAt),
     ...resolved.map((player, seat) => c.env.DB.prepare(`
-      INSERT INTO players(id, match_id, name, avatar_seed, friend_id, seat, created_at)
-      VALUES(?, ?, ?, ?, ?, ?, ?)
-    `).bind(uid(), matchId, player.name, player.avatarSeed, player.friendId, seat, createdAt)),
+      INSERT INTO players(id, match_id, name, avatar_seed, friend_id, user_id, seat, created_at)
+      VALUES(?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(uid(), matchId, player.name, player.avatarSeed, player.friendId, player.userId, seat, createdAt)),
   ])
   return c.json({ match: await getMatch(c.env.DB, matchId), adminToken }, 201)
 })
@@ -704,6 +950,7 @@ app.post('/api/matches/:id/claim', async c => {
 app.post('/api/matches/:id/hands', async c => {
   const id = c.req.param('id')
   if (!await canWrite(c, id)) return jsonError(c, '没有该牌局的修改权限', 401)
+  await ensurePersonalStatisticsSchema(c.env.DB)
   const input = validateHand(await c.req.json().catch(() => null))
   if (!input) return jsonError(c, '计分数据格式无效')
   const match = await c.env.DB.prepare(
@@ -730,6 +977,9 @@ app.post('/api/matches/:id/hands', async c => {
   }
   if (input.winnerPlayerId && !validPlayerIds.has(input.winnerPlayerId)) return jsonError(c, '胡牌者无效')
   if (input.loserPlayerId && !validPlayerIds.has(input.loserPlayerId)) return jsonError(c, '放炮者无效')
+  if (input.tileRecord && ((input.type !== 'ron' && input.type !== 'tsumo') || !bigHandPatterns(input.note).length)) {
+    return jsonError(c, '牌谱只能记录在带大胡标签的胡牌局中')
+  }
 
   const sequence = await c.env.DB.prepare(
     'SELECT COALESCE(MAX(sequence), 0) + 1 next FROM hands WHERE match_id = ?',
@@ -740,8 +990,8 @@ app.post('/api/matches/:id/hands', async c => {
   await c.env.DB.batch([
     c.env.DB.prepare(`
       INSERT INTO hands(id, match_id, sequence, wind, hand_number, result_type,
-        winner_player_id, loser_player_id, note, created_at)
-      VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        winner_player_id, loser_player_id, note, tile_record, created_at)
+      VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       handId,
       id,
@@ -752,6 +1002,7 @@ app.post('/api/matches/:id/hands', async c => {
       input.winnerPlayerId ?? null,
       input.loserPlayerId ?? null,
       input.note ?? null,
+      input.tileRecord ? JSON.stringify(input.tileRecord) : null,
       createdAt,
     ),
     ...input.scores.map(score => c.env.DB.prepare(

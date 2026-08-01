@@ -1,12 +1,27 @@
 export type Wind = 'east' | 'south' | 'west' | 'north'
 export type MatchStatus = 'active' | 'finished'
 export type HandType = 'tsumo' | 'ron' | 'draw' | 'custom'
+export type MahjongTile =
+  | '1m' | '2m' | '3m' | '4m' | '5m' | '6m' | '7m' | '8m' | '9m'
+  | '1p' | '2p' | '3p' | '4p' | '5p' | '6p' | '7p' | '8p' | '9p'
+  | '1s' | '2s' | '3s' | '4s' | '5s' | '6s' | '7s' | '8s' | '9s'
+  | 'east' | 'south' | 'west' | 'north' | 'red' | 'green' | 'white'
+export type StatisticsDimension = 'day' | 'month' | 'year'
+
+export interface HandTileRecord {
+  pongs: MahjongTile[]
+  exposedKongs: MahjongTile[]
+  concealedKongs: MahjongTile[]
+  hand: MahjongTile[]
+  winningTile: MahjongTile | null
+}
 
 export interface Player {
   id: string
   name: string
   avatar_seed: number
   friend_id?: string | null
+  user_id?: string | null
   seat: number
   score: number
 }
@@ -52,6 +67,7 @@ export interface Hand {
   winner_player_id: string | null
   loser_player_id: string | null
   note: string | null
+  tile_record: HandTileRecord | null
   created_at: string
 }
 
@@ -78,6 +94,35 @@ export interface HandInput {
   loserPlayerId?: string
   scores: ScoreChange[]
   note?: string
+  tileRecord?: HandTileRecord
+}
+
+export interface PersonalPatternStat {
+  name: string
+  count: number
+}
+
+export interface FeaturedBigHand {
+  handId: string
+  matchId: string
+  resultType: 'ron' | 'tsumo'
+  note: string
+  score: number
+  createdAt: string
+  tileRecord: HandTileRecord
+}
+
+export interface PersonalStatistics {
+  dimension: StatisticsDimension
+  value: string
+  label: string
+  totalHands: number
+  wins: number
+  dealIns: number
+  tsumoWins: number
+  bigHands: number
+  patterns: PersonalPatternStat[]
+  featuredBigHand: FeaturedBigHand | null
 }
 
 export interface PlayerStat extends Player {
