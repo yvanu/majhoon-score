@@ -40,6 +40,13 @@ const tileLabel: Record<MahjongTile, string> = {
   east: '东', south: '南', west: '西', north: '北', red: '中', green: '发', white: '白',
 }
 const emptyTileRecord = (): HandTileRecord => ({ pongs: [], exposedKongs: [], concealedKongs: [], hand: [], winningTile: null })
+const cloneTileRecord = (record: HandTileRecord): HandTileRecord => ({
+  pongs: [...record.pongs],
+  exposedKongs: [...record.exposedKongs],
+  concealedKongs: [...record.concealedKongs],
+  hand: [...record.hand],
+  winningTile: record.winningTile,
+})
 
 function statisticsValue(dimension: StatisticsDimension, date = new Date()) {
   const year = date.getFullYear()
@@ -1338,18 +1345,48 @@ function TileRecordEditor({ record, onChange }: { record: HandTileRecord; onChan
     </View>)}</View>
   }
 
+  const currentSection = sections.find(section => section.key === active) || sections[3]
+
   return <View className='tile-record-editor'>
-    <View className='tile-record-editor-head'><View><Text className='card-title'>录入大胡牌谱</Text><Text>先选择区域，再点击麻将牌；已录入的牌可点击删除。</Text></View><Button className='tile-record-clear' disabled={!hasTileRecordContent(record)} onClick={() => onChange(emptyTileRecord())}>清空</Button></View>
-    <View className='tile-record-regions'>{sections.map(section => <View key={section.key} className={active === section.key ? 'tile-record-region active' : 'tile-record-region'} onClick={() => setActive(section.key)}>
-      <View className='tile-record-region-title'><Text>{section.label}</Text><Text>{section.hint}</Text></View>
-      {sectionContent(section.key)}
+    <View className='tile-record-section-tabs'>{sections.map(section => <View key={section.key} className={active === section.key ? 'tile-record-section-tab active' : 'tile-record-section-tab'} onClick={() => setActive(section.key)}>
+      <Text>{section.label}</Text><Text>{section.hint}</Text>
     </View>)}</View>
+    <View className='tile-record-current'>
+      <View className='tile-record-region-title'><Text>{currentSection.label}</Text><Text>{currentSection.hint}</Text></View>
+      {sectionContent(active)}
+    </View>
     <View className='tile-palette'>
-      <View className='tile-palette-heading'><Text>当前录入：{sections.find(section => section.key === active)?.label}</Text><Text>每种牌最多 4 张</Text></View>
+      <View className='tile-palette-heading'><Text>点击麻将牌录入“{currentSection.label}”</Text><Text>每种牌最多 4 张</Text></View>
       {tileGroups.map(group => <View className='tile-palette-group' key={group.name}>
         <Text className='tile-palette-group-name'>{group.name}</Text>
         <View className='tile-palette-grid'>{group.tiles.map(tile => <View className='tile-palette-item' key={tile} onClick={() => addTile(tile)}><MahjongTileFace tile={tile} compact /></View>)}</View>
       </View>)}
+    </View>
+  </View>
+}
+
+function TileRecordModal({ record, onCancel, onConfirm }: {
+  record: HandTileRecord
+  onCancel: () => void
+  onConfirm: (record: HandTileRecord) => void
+}) {
+  const [draft, setDraft] = useState<HandTileRecord>(() => cloneTileRecord(record))
+
+  return <View className='modal-backdrop tile-record-modal-backdrop' onClick={onCancel}>
+    <View className='tile-record-modal' onClick={event => event.stopPropagation()}>
+      <View className='tile-record-modal-header'>
+        <View><Text className='eyebrow'>BIG HAND RECORD</Text><Text className='title-small'>录入大胡牌谱</Text></View>
+        <Button className='close-button' onClick={onCancel}>×</Button>
+      </View>
+      <Text className='tile-record-modal-tip'>先选择碰、明杠、暗杠、手牌或胡的牌，再点击下方麻将牌；已录入的牌可点击删除。</Text>
+      <ScrollView scrollY className='tile-record-modal-scroll'>
+        <TileRecordEditor record={draft} onChange={setDraft} />
+      </ScrollView>
+      <View className='tile-record-modal-actions'>
+        <Button className='secondary' onClick={onCancel}>取消</Button>
+        <Button className='tile-record-clear' disabled={!hasTileRecordContent(draft)} onClick={() => setDraft(emptyTileRecord())}>清空</Button>
+        <Button className='primary' onClick={() => onConfirm(cloneTileRecord(draft))}>完成</Button>
+      </View>
     </View>
   </View>
 }
@@ -1422,10 +1459,14 @@ function ScoreScreen({ players, loading, onBack, onSubmit }: {
     <View className='note-field'><Text className='section-title'>备注（可选）</Text><View className='note-options'>{noteOptions.map(option => <Button key={option} className={notes.includes(option) ? 'note selected' : 'note'} onClick={() => toggleNote(option)}>{option}</Button>)}</View></View>
     {canRecordTiles && <View className='tile-record-entry'>
       <View><Text className='card-title'>大胡牌谱</Text><Text>{hasTileRecordContent(tileRecord) ? '牌谱已录入，可继续修改' : '可选录入，之后会展示在我的战绩中'}</Text></View>
-      <Button onClick={() => setShowTileRecord(value => !value)}>{showTileRecord ? '收起' : hasTileRecordContent(tileRecord) ? '修改' : '录入'}</Button>
+      <Button onClick={() => setShowTileRecord(true)}>{hasTileRecordContent(tileRecord) ? '修改' : '录入'}</Button>
     </View>}
-    {canRecordTiles && showTileRecord && <TileRecordEditor record={tileRecord} onChange={setTileRecord} />}
     <Button className='primary' disabled={loading} onClick={save}>{loading ? '保存中…' : '确认保存'}</Button>
+    {canRecordTiles && showTileRecord && <TileRecordModal
+      record={tileRecord}
+      onCancel={() => setShowTileRecord(false)}
+      onConfirm={record => { setTileRecord(record); setShowTileRecord(false) }}
+    />}
   </View>
 }
 
