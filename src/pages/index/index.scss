@@ -435,7 +435,8 @@ page { background: var(--page-bg); color: var(--text); }
 .personal-statistics-entry-icon { width: 70px; height: 70px; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; border-radius: 22px; background: linear-gradient(135deg,#ffd55f,#ffb91f); color: #38280a; font-size: 32px; font-weight: 900; }
 .personal-statistics-entry .grow text { display: block; }
 .personal-statistics-entry .grow > text:last-child { margin-top: 7px; color: var(--text-secondary); font-size: 20px; }
-.personal-statistics-page { padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
+.personal-statistics-scroll { width: 100%; height: 100vh; }
+.personal-statistics-page { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
 .personal-dimension-tabs { margin-bottom: 18px; padding: 7px; display: grid; grid-template-columns: repeat(3,1fr); gap: 7px; border: 1px solid var(--line); border-radius: 24px; background: #f6f3ed; }
 .personal-dimension { height: 64px; line-height: 64px; margin: 0; padding: 0; border-radius: 18px; background: transparent; color: #89858b; font-size: 22px; }
 .personal-dimension.active { background: #fff; color: #9a6b00; font-weight: 800; box-shadow: 0 8px 20px rgba(82,63,28,.08); }
@@ -478,13 +479,14 @@ page { background: var(--page-bg); color: var(--text); }
 .record-tile.tile-honor .record-tile-number { font-size: 29px; }
 .record-tile.compact.tile-honor .record-tile-number { font-size: 23px; }
 .record-tile.concealed { background: repeating-linear-gradient(45deg,#e8d7a7 0,#e8d7a7 4px,#fff5d8 4px,#fff5d8 8px); color: #9c7b30; }
-.tile-record-display { padding: 18px; border: 1px solid #eadfca; border-radius: 22px; background: rgba(255,255,255,.8); }
-.tile-record-display-row { display: flex; align-items: flex-start; gap: 14px; }
-.tile-record-display-row + .tile-record-display-row { margin-top: 15px; padding-top: 15px; border-top: 1px dashed #e7dfd1; }
-.tile-record-display-row.winning { align-items: center; }
-.tile-record-display-label { width: 56px; padding-top: 8px; flex: 0 0 auto; color: #8f7540; font-size: 18px; font-weight: 800; }
-.tile-meld-list, .tile-hand-list, .tile-editor-hand, .tile-editor-melds { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 7px; }
-.tile-meld, .tile-editor-meld { display: flex; gap: 2px; }
+.featured-tile-scroll { width: 100%; }
+.featured-tile-line { min-width: 100%; width: max-content; padding: 16px; box-sizing: border-box; display: inline-flex; align-items: flex-end; gap: 28px; white-space: nowrap; border: 1px solid #eadfca; border-radius: 22px; background: rgba(255,255,255,.82); }
+.featured-tile-section { display: inline-flex; align-items: flex-end; gap: 9px; flex: 0 0 auto; }
+.featured-tile-section.winning { padding-left: 8px; border-left: 1px dashed #dfd5c5; }
+.featured-tile-label { flex: 0 0 auto; padding: 7px 8px; border-radius: 10px; background: #fff1c2; color: #8f6808; font-size: 16px; font-weight: 850; }
+.featured-tile-content { display: inline-flex; align-items: flex-end; gap: 5px; flex: 0 0 auto; }
+.tile-editor-hand, .tile-editor-melds { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 7px; }
+.tile-meld, .tile-editor-meld { display: flex; gap: 2px; flex: 0 0 auto; }
 
 /* 牌谱录入 */
 .tile-record-entry { margin: 22px 0 14px; padding: 22px; display: flex; align-items: center; justify-content: space-between; gap: 18px; border: 1px solid #f0dfb5; border-radius: 24px; background: #fff8e4; }

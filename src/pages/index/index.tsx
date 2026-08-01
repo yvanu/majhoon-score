@@ -1016,27 +1016,30 @@ function MahjongTileFace({ tile, compact = false, concealed = false }: { tile: M
 }
 
 function TileRecordDisplay({ record }: { record: HandTileRecord }) {
-  const sections = [
-    { key: 'pongs', label: '碰', tiles: record.pongs, count: 3, concealed: false },
-    { key: 'exposedKongs', label: '明杠', tiles: record.exposedKongs, count: 4, concealed: false },
-    { key: 'concealedKongs', label: '暗杠', tiles: record.concealedKongs, count: 4, concealed: false },
+  const meldSections = [
+    { key: 'pongs', label: '碰', tiles: record.pongs, count: 3 },
+    { key: 'exposedKongs', label: '明杠', tiles: record.exposedKongs, count: 4 },
+    { key: 'concealedKongs', label: '暗杠', tiles: record.concealedKongs, count: 4 },
   ] as const
-  return <View className='tile-record-display'>
-    {sections.map(section => section.tiles.length ? <View className='tile-record-display-row' key={section.key}>
-      <Text className='tile-record-display-label'>{section.label}</Text>
-      <View className='tile-meld-list'>{section.tiles.map((tile, meldIndex) => <View className='tile-meld' key={`${tile}-${meldIndex}`}>
-        {Array.from({ length: section.count }, (_, index) => <MahjongTileFace tile={tile} compact key={index} />)}
-      </View>)}</View>
-    </View> : null)}
-    {record.hand.length > 0 && <View className='tile-record-display-row'>
-      <Text className='tile-record-display-label'>手牌</Text>
-      <View className='tile-hand-list'>{record.hand.map((tile, index) => <MahjongTileFace tile={tile} compact key={`${tile}-${index}`} />)}</View>
-    </View>}
-    {record.winningTile && <View className='tile-record-display-row winning'>
-      <Text className='tile-record-display-label'>胡牌</Text>
-      <MahjongTileFace tile={record.winningTile} />
-    </View>}
-  </View>
+
+  return <ScrollView scrollX className='featured-tile-scroll'>
+    <View className='featured-tile-line'>
+      {meldSections.map(section => section.tiles.length ? <View className='featured-tile-section' key={section.key}>
+        <Text className='featured-tile-label'>{section.label}</Text>
+        <View className='featured-tile-content'>{section.tiles.map((tile, meldIndex) => <View className='tile-meld' key={`${tile}-${meldIndex}`}>
+          {Array.from({ length: section.count }, (_, index) => <MahjongTileFace tile={tile} compact key={index} />)}
+        </View>)}</View>
+      </View> : null)}
+      {record.hand.length > 0 && <View className='featured-tile-section'>
+        <Text className='featured-tile-label'>手牌</Text>
+        <View className='featured-tile-content'>{record.hand.map((tile, index) => <MahjongTileFace tile={tile} compact key={`${tile}-${index}`} />)}</View>
+      </View>}
+      {record.winningTile && <View className='featured-tile-section winning'>
+        <Text className='featured-tile-label'>胡牌</Text>
+        <View className='featured-tile-content'><MahjongTileFace tile={record.winningTile} compact /></View>
+      </View>}
+    </View>
+  </ScrollView>
 }
 
 function CircularMetric({ label, value, detail, tone }: { label: string; value: number; detail: string; tone: string }) {
@@ -1067,7 +1070,8 @@ function PersonalStatisticsScreen({ statistics, loading, onBack, onChange }: {
   ]
   const featured = statistics.featuredBigHand
 
-  return <View className='page personal-statistics-page' style={{ paddingTop: `${getPageTopInset()}px` }}>
+  return <ScrollView scrollY className='personal-statistics-scroll'>
+    <View className='page personal-statistics-page' style={{ paddingTop: `${getPageTopInset()}px` }}>
     <Header title='我的战绩' onBack={onBack} />
     <View className='personal-dimension-tabs'>{dimensions.map(item => <Button
       key={item.key}
@@ -1102,7 +1106,8 @@ function PersonalStatisticsScreen({ statistics, loading, onBack, onChange }: {
       </> : <Text className='featured-big-hand-empty'>当前统计周期内还没有录入过大胡牌谱</Text>}
     </View>
     <Text className='personal-statistics-note'>各项比率均以当前统计周期总局数为分母；大胡详情按牌型标签分别计数，一局含多个标签时会分别累计；时间范围按当前设备时区计算。</Text>
-  </View>
+    </View>
+  </ScrollView>
 }
 
 function ProfileScreen({ user, matches, dailyStats, syncStatus, onHome, onHistory, onFriends, onPersonalStatistics, onLogin, onLogout, onEditNickname, showDialog }: {
