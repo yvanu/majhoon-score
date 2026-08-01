@@ -296,6 +296,9 @@ page { background: var(--page-bg); color: var(--text); }
 }
 .field { border-color: var(--line); }
 .field text, .card text, .grow text, .daily-overview text, .profile-stats text { color: var(--text-secondary); }
+.daily-overview > view { background: linear-gradient(145deg, #fffdf8, #fff7df); border-color: #eadfca; box-shadow: 0 10px 26px rgba(91,72,37,.06); }
+.daily-overview > view > text:first-child { color: #817b70; }
+.daily-overview .daily-overview-value { color: var(--text) !important; }
 .field input { color: var(--text); }
 .card-title { color: var(--text) !important; }
 .code { background: var(--yellow-soft); color: #8d6500; }
