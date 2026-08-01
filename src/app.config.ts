@@ -2,9 +2,10 @@ export default defineAppConfig({
   pages: ['pages/index/index'],
   window: {
     navigationStyle: 'custom',
-    backgroundTextStyle: 'light',
-    navigationBarBackgroundColor: '#0f172a',
+    backgroundColor: '#fbfaf7',
+    backgroundTextStyle: 'dark',
+    navigationBarBackgroundColor: '#fbfaf7',
     navigationBarTitleText: '雀记',
-    navigationBarTextStyle: 'white',
+    navigationBarTextStyle: 'black',
   },
 })
