@@ -39,6 +39,10 @@ const tileLabel: Record<MahjongTile, string> = {
   '1s': '一条', '2s': '二条', '3s': '三条', '4s': '四条', '5s': '五条', '6s': '六条', '7s': '七条', '8s': '八条', '9s': '九条',
   east: '东', south: '南', west: '西', north: '北', red: '中', green: '发', white: '白',
 }
+const orderedTiles = tileGroups.flatMap(group => group.tiles)
+const sortMahjongTiles = (tiles: MahjongTile[]) => [...tiles].sort(
+  (first, second) => orderedTiles.indexOf(first) - orderedTiles.indexOf(second),
+)
 const emptyTileRecord = (): HandTileRecord => ({ pongs: [], exposedKongs: [], concealedKongs: [], hand: [], winningTile: null })
 const cloneTileRecord = (record: HandTileRecord): HandTileRecord => ({
   pongs: [...record.pongs],
@@ -1064,25 +1068,28 @@ function MahjongTileFace({ tile, compact = false, concealed = false }: { tile: M
 
 function TileRecordDisplay({ record }: { record: HandTileRecord }) {
   const meldSections = [
-    { key: 'pongs', label: '碰', tiles: record.pongs, count: 3 },
-    { key: 'exposedKongs', label: '明杠', tiles: record.exposedKongs, count: 4 },
-    { key: 'concealedKongs', label: '暗杠', tiles: record.concealedKongs, count: 4 },
+    { key: 'pongs', tiles: sortMahjongTiles(record.pongs), count: 3, concealed: false },
+    { key: 'exposedKongs', tiles: sortMahjongTiles(record.exposedKongs), count: 4, concealed: false },
+    { key: 'concealedKongs', tiles: sortMahjongTiles(record.concealedKongs), count: 4, concealed: true },
   ] as const
+  const sortedHand = sortMahjongTiles(record.hand)
 
   return <ScrollView scrollX className='featured-tile-scroll'>
     <View className='featured-tile-line'>
-      {meldSections.map(section => section.tiles.length ? <View className='featured-tile-section' key={section.key}>
-        <Text className='featured-tile-label'>{section.label}</Text>
+      {meldSections.map(section => section.tiles.length ? <View className={`featured-tile-section ${section.key}`} key={section.key}>
         <View className='featured-tile-content'>{section.tiles.map((tile, meldIndex) => <View className='tile-meld' key={`${tile}-${meldIndex}`}>
-          {Array.from({ length: section.count }, (_, index) => <MahjongTileFace tile={tile} compact key={index} />)}
+          {Array.from({ length: section.count }, (_, index) => <MahjongTileFace
+            tile={tile}
+            compact
+            concealed={section.concealed && (index === 1 || index === 2)}
+            key={index}
+          />)}
         </View>)}</View>
       </View> : null)}
-      {record.hand.length > 0 && <View className='featured-tile-section'>
-        <Text className='featured-tile-label'>手牌</Text>
-        <View className='featured-tile-content'>{record.hand.map((tile, index) => <MahjongTileFace tile={tile} compact key={`${tile}-${index}`} />)}</View>
+      {sortedHand.length > 0 && <View className='featured-tile-section hand'>
+        <View className='featured-tile-content'>{sortedHand.map((tile, index) => <MahjongTileFace tile={tile} compact key={`${tile}-${index}`} />)}</View>
       </View>}
       {record.winningTile && <View className='featured-tile-section winning'>
-        <Text className='featured-tile-label'>胡牌</Text>
         <View className='featured-tile-content'><MahjongTileFace tile={record.winningTile} compact /></View>
       </View>}
     </View>
