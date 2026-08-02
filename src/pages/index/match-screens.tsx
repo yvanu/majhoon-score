@@ -296,7 +296,7 @@ function TileRecordModal({ record, onCancel, onConfirm }: {
   return <View className='modal-backdrop tile-record-modal-backdrop' onClick={onCancel}>
     <View className='tile-record-modal' onClick={event => event.stopPropagation()}>
       <View className='tile-record-modal-header'>
-        <View><Text className='eyebrow'>BIG HAND RECORD</Text><Text className='title-small'>录入大胡牌谱</Text></View>
+        <View><Text className='eyebrow'>BIG HAND RECORD · v1.7.13</Text><Text className='title-small'>录入大胡牌谱</Text></View>
         <Button className='close-button' onClick={onCancel}>×</Button>
       </View>
       <Text className='tile-record-modal-tip'>先选择碰、明杠、暗杠、手牌或胡的牌，再点击下方麻将牌；已录入的牌可点击删除。</Text>
@@ -399,6 +399,7 @@ export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }:
       <Button onClick={() => setShowTileRecord(true)}>{hasTileRecordContent(tileRecord) ? '修改' : '录入'}</Button>
     </View>}
     <Button className='primary' disabled={loading} onClick={save}>{loading ? '保存中…' : isEditing ? '保存修改' : '确认保存'}</Button>
+    <View className='score-bottom-spacer'><Text>v1.7.13</Text></View>
     {canRecordTiles && showTileRecord && <TileRecordModal
       record={tileRecord}
       onCancel={() => setShowTileRecord(false)}
