@@ -31,7 +31,7 @@ import {
 } from './shared'
 import type { ShowDialog, SyncStatus } from './shared'
 
-export function Home({ user, currentMatch, recentMatch, dailyStats, syncStatus, onContinue, onStart, onJoin, onOpen, onHistory, onDaily, onFriends, onLogin, onProfile }: {
+export function Home({ user, currentMatch, recentMatch, dailyStats, syncStatus, onContinue, onStart, onJoin, onOpen, onHistory, onDaily, onLogin }: {
   user: AuthUser | null
   currentMatch: Match | null
   recentMatch: MatchSummary | null
@@ -43,9 +43,7 @@ export function Home({ user, currentMatch, recentMatch, dailyStats, syncStatus, 
   onOpen: (code: string, statusHint?: MatchSummary['status']) => void
   onHistory: () => void
   onDaily: () => void
-  onFriends: () => void
   onLogin: () => void
-  onProfile: () => void
 }) {
   const syncText = syncStatus === 'syncing' ? '同步中' : syncStatus === 'offline' ? '网络异常' : '已同步'
   const selfRows = dailyStats?.players.filter(player => player.isSelf) || []
@@ -140,7 +138,6 @@ export function Home({ user, currentMatch, recentMatch, dailyStats, syncStatus, 
       <View><Text className='card-title'>登录后同步牌局</Text><Text>保存历史记录、查看每日统计</Text></View><Text className='card-arrow'>›</Text>
     </View>}
 
-    <BottomNav active='home' onHome={() => undefined} onMatches={onHistory} onFriends={onFriends} onProfile={onProfile} />
   </View>
 }
 
@@ -318,14 +315,11 @@ export function NicknameScreen({ user, required, loading, onBack, onSave }: {
   </View>
 }
 
-export function HistoryScreen({ matches, loading, onHome, onOpen, onDelete, onFriends, onProfile }: {
+export function HistoryScreen({ matches, loading, onOpen, onDelete }: {
   matches: MatchSummary[]
   loading: boolean
-  onHome: () => void
   onOpen: (match: MatchSummary) => void
   onDelete: (id: string) => void
-  onFriends: () => void
-  onProfile: () => void
 }) {
   return <View className='page tab-page' style={{ paddingTop: `${getPageTopInset()}px` }}><View className='page-title-row'><View><Text className='eyebrow'>MATCH HISTORY</Text><Text className='title-small'>我的牌局</Text></View><Text className='count-badge'>{matches.length}</Text></View>
     {!matches.length && <View className='empty'><Text className='empty-icon'>🀫</Text><Text className='card-title'>暂无历史牌局</Text><Text>登录后创建的牌局会显示在这里</Text></View>}
@@ -334,17 +328,13 @@ export function HistoryScreen({ matches, loading, onHome, onOpen, onDelete, onFr
       <View className='grow'><Text className='card-title'>{current.player_names.join(' · ') || '四人牌局'}</Text><Text>{formatMatchTime(current.created_at)} · {current.hand_count} 局</Text><Text>分享码 {current.share_code}</Text></View>
       <Button className='delete-button' disabled={loading} onClick={event => { event.stopPropagation(); onDelete(current.id) }}>删除</Button>
     </View>)}</ScrollView>
-    <BottomNav active='matches' onHome={onHome} onMatches={() => undefined} onFriends={onFriends} onProfile={onProfile} />
   </View>
 }
 
-export function FriendsScreen({ friends, loading, onHome, onHistory, onOpen, onProfile }: {
+export function FriendsScreen({ friends, loading, onOpen }: {
   friends: Friend[]
   loading: boolean
-  onHome: () => void
-  onHistory: () => void
   onOpen: (friend: Friend) => void
-  onProfile: () => void
 }) {
   return <View className='page tab-page friends-page' style={{ paddingTop: `${getPageTopInset()}px` }}>
     <View className='page-title-row'>
@@ -368,7 +358,6 @@ export function FriendsScreen({ friends, loading, onHome, onHistory, onOpen, onP
         <Text className='card-arrow'>›</Text>
       </View>)}
     </ScrollView>
-    <BottomNav active='friends' onHome={onHome} onMatches={onHistory} onFriends={() => undefined} onProfile={onProfile} />
   </View>
 }
 
@@ -535,14 +524,12 @@ export function PersonalStatisticsScreen({ statistics, loading, onBack, onChange
   </ScrollView>
 }
 
-export function ProfileScreen({ user, matches, dailyStats, syncStatus, onHome, onHistory, onFriends, onPersonalStatistics, onLogin, onLogout, onEditNickname, showDialog }: {
+export function ProfileScreen({ user, matches, dailyStats, syncStatus, onHistory, onPersonalStatistics, onLogin, onLogout, onEditNickname, showDialog }: {
   user: AuthUser | null
   matches: MatchSummary[]
   dailyStats: DailyStats | null
   syncStatus: SyncStatus
-  onHome: () => void
   onHistory: () => void
-  onFriends: () => void
   onPersonalStatistics: () => void
   onLogin: () => void
   onLogout: () => void
@@ -601,11 +588,10 @@ export function ProfileScreen({ user, matches, dailyStats, syncStatus, onHome, o
     </View>
     {user && <Button className='danger-link' onClick={confirmLogout}>退出登录</Button>}
     <Text className='version-text'>雀记 · 微信小程序</Text>
-    <BottomNav active='profile' onHome={onHome} onMatches={onHistory} onFriends={onFriends} onProfile={() => undefined} />
   </View>
 }
 
-function BottomNav({ active, onHome, onMatches, onFriends, onProfile }: {
+export function BottomNav({ active, onHome, onMatches, onFriends, onProfile }: {
   active: 'home' | 'matches' | 'friends' | 'profile'
   onHome: () => void
   onMatches: () => void

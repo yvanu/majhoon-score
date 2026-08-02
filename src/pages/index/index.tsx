@@ -27,6 +27,7 @@ import {
 import type { DialogOptions, DialogState, Screen, SyncStatus } from './shared'
 import {
   Auth,
+  BottomNav,
   Create,
   DailyStatsScreen,
   FriendStatisticsScreen,
@@ -502,6 +503,16 @@ export default function Index() {
     if (user) void run(refreshDashboard)
   }
 
+  const activeTab = screen === 'history'
+    ? 'matches'
+    : screen === 'friends'
+      ? 'friends'
+      : screen === 'profile'
+        ? 'profile'
+        : screen === 'home'
+          ? 'home'
+          : null
+
   return <View className='app'>
     <View key={screen} className='screen-transition'>
     {screen === 'home' && <Home
@@ -516,9 +527,7 @@ export default function Index() {
       onOpen={(code, statusHint) => openMatch(code, code !== match?.id, statusHint)}
       onHistory={showHistory}
       onDaily={showDailyStats}
-      onFriends={showFriends}
       onLogin={() => setScreen('auth')}
-      onProfile={showProfile}
     />}
     {screen === 'create' && <Create user={user} onBack={() => setScreen('home')} onCreate={createMatch} loading={loading} />}
     {screen === 'join' && <Join onBack={() => setScreen('home')} onOpen={code => openMatch(code)} loading={loading} />}
@@ -533,20 +542,14 @@ export default function Index() {
     {screen === 'history' && user && <HistoryScreen
       matches={history}
       loading={loading}
-      onHome={() => setScreen('home')}
       onOpen={current => openMatch(current.id, current.id !== match?.id, current.status)}
       onDelete={deleteHistoryMatch}
-      onFriends={showFriends}
-      onProfile={showProfile}
     />}
     {screen === 'daily' && dailyStats && <DailyStatsScreen stats={dailyStats} onBack={() => setScreen('home')} />}
     {screen === 'friends' && user && <FriendsScreen
       friends={friends}
       loading={loading}
-      onHome={() => setScreen('home')}
-      onHistory={showHistory}
       onOpen={openFriend}
-      onProfile={showProfile}
     />}
     {screen === 'friend' && friendStats && <FriendStatisticsScreen statistics={friendStats} onBack={() => setScreen('friends')} />}
     {screen === 'personal' && (personalStats ? <PersonalStatisticsScreen
@@ -560,9 +563,7 @@ export default function Index() {
       matches={history}
       dailyStats={dailyStats}
       syncStatus={syncStatus}
-      onHome={() => setScreen('home')}
       onHistory={showHistory}
-      onFriends={showFriends}
       onPersonalStatistics={() => showPersonalStatistics()}
       onLogin={() => setScreen('auth')}
       onLogout={logout}
@@ -587,6 +588,13 @@ export default function Index() {
     />}
     {screen === 'stats' && match && stats && <StatsScreen match={match} stats={stats} onReset={reset} />}
     </View>
+    {activeTab && <BottomNav
+      active={activeTab}
+      onHome={() => setScreen('home')}
+      onMatches={showHistory}
+      onFriends={showFriends}
+      onProfile={showProfile}
+    />}
     {dialog && <ConfirmDialog
       dialog={dialog}
       onCancel={() => closeDialog(false)}
