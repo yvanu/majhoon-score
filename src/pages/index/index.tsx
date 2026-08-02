@@ -1590,6 +1590,11 @@ function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }: {
     }
   }
 
+  function adjustScore(current: string, delta: number, onChange: (value: string) => void) {
+    const value = Math.max(5, Math.round(Number(current) || 0) + delta)
+    onChange(String(value))
+  }
+
   function save() {
     let scores: { playerId: string; change: number }[]
     if (type === 'ron') {
@@ -1622,8 +1627,8 @@ function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }: {
     {isEditing && <Text className='edit-hand-tip'>正在修改第 {initialHand?.sequence} 局，保存后会自动重新计算当前总分和战况。</Text>}
     <View className='tabs'>{(['ron', 'tsumo', 'draw', 'custom'] as const).map(value => <Button key={value} className={type === value ? 'tab active' : 'tab'} onClick={() => changeType(value)}>{typeName[value]}</Button>)}</View>
     {(type === 'ron' || type === 'tsumo') && <PlayerPicker title='胡牌者' players={players} selected={winner} onSelect={id => { setWinner(id); if (id === loser) setLoser(players.find(player => player.id !== id)!.id) }} />}
-    {type === 'ron' && <><PlayerPicker title='放炮者' players={players.filter(player => player.id !== winner)} selected={loser} onSelect={setLoser} /><View className='field score-field'><Text>分数</Text><Input type='number' value={amount} cursorSpacing={28} onInput={event => setAmount(event.detail.value)} /><View className='score-presets'>{[20, 50, 100, 200].map(value => <Button key={value} className={amount === String(value) ? 'score-preset active' : 'score-preset'} onClick={() => setAmount(String(value))}>{value}</Button>)}</View></View></>}
-    {type === 'tsumo' && <View className='field score-field'><Text>每人支付</Text><Input type='number' value={tsumoPayment} cursorSpacing={28} onInput={event => setTsumoPayment(event.detail.value)} /><View className='score-presets'>{[20, 50, 100, 200].map(value => <Button key={value} className={tsumoPayment === String(value) ? 'score-preset active' : 'score-preset'} onClick={() => setTsumoPayment(String(value))}>{value}</Button>)}</View></View>}
+    {type === 'ron' && <><PlayerPicker title='放炮者' players={players.filter(player => player.id !== winner)} selected={loser} onSelect={setLoser} /><View className='field score-field'><Text>分数</Text><Input type='number' value={amount} cursorSpacing={28} onInput={event => setAmount(event.detail.value)} /><View className='score-presets'><Button className={amount === '50' ? 'score-preset active' : 'score-preset'} onClick={() => setAmount('50')}>50</Button><Button className={amount === '70' ? 'score-preset active' : 'score-preset'} onClick={() => setAmount('70')}>70</Button><Button className='score-preset' onClick={() => adjustScore(amount, 5, setAmount)}>+5</Button><Button className='score-preset' onClick={() => adjustScore(amount, -5, setAmount)}>-5</Button></View></View></>}
+    {type === 'tsumo' && <View className='field score-field'><Text>每人支付</Text><Input type='number' value={tsumoPayment} cursorSpacing={28} onInput={event => setTsumoPayment(event.detail.value)} /><View className='score-presets'><Button className={tsumoPayment === '50' ? 'score-preset active' : 'score-preset'} onClick={() => setTsumoPayment('50')}>50</Button><Button className={tsumoPayment === '70' ? 'score-preset active' : 'score-preset'} onClick={() => setTsumoPayment('70')}>70</Button><Button className='score-preset' onClick={() => adjustScore(tsumoPayment, 5, setTsumoPayment)}>+5</Button><Button className='score-preset' onClick={() => adjustScore(tsumoPayment, -5, setTsumoPayment)}>-5</Button></View></View>}
     {type === 'custom' && players.map(player => <View className='field' key={player.id}><Text>{player.name}</Text><Input type='number' value={values[player.id]} onInput={event => setValues({ ...values, [player.id]: event.detail.value })} /></View>)}
     <View className='note-field'><Text className='section-title'>备注（可选）</Text><View className='note-options'>{noteOptions.map(option => <Button key={option} className={notes.includes(option) ? 'note selected' : 'note'} onClick={() => toggleNote(option)}>{option}</Button>)}</View></View>
     {canRecordTiles && <View className='tile-record-entry'>
