@@ -4,7 +4,7 @@ import type { AuthResult, AuthUser, DailyStats, Friend, FriendStatistics, HandIn
 export const AUTH_KEY = 'mahjong-auth-token'
 export const CURRENT_KEY = 'mahjong-current'
 
-const baseUrl = process.env.TARO_APP_API_BASE || ''
+export const API_BASE_URL = process.env.TARO_APP_API_BASE || ''
 
 type RequestError = Error & { errMsg?: string }
 
@@ -12,7 +12,7 @@ async function request<T>(path: string, method: keyof Taro.request.Method = 'GET
   const auth = Taro.getStorageSync<string>(AUTH_KEY)
   try {
     const response = await Taro.request<T & { error?: string }>({
-      url: `${baseUrl}${path}`,
+      url: `${API_BASE_URL}${path}`,
       method,
       data,
       timeout: 15_000,

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import Taro from '@tarojs/taro'
-import { Button, Input, ScrollView, Text, View } from '@tarojs/components'
+import { Button, Image, Input, ScrollView, Text, View } from '@tarojs/components'
 import type {
   AuthUser,
   DailyStats,
@@ -15,7 +15,7 @@ import type {
   PersonalStatistics,
   StatisticsDimension,
 } from '@shared/types'
-import { api } from '../../services/api'
+import { API_BASE_URL, api } from '../../services/api'
 import {
   FriendAvatar,
   Header,
@@ -382,21 +382,23 @@ export function FriendStatisticsScreen({ statistics, onBack }: { statistics: Fri
   </View>
 }
 
-const mahjongCodePoints: Record<MahjongTile, number> = {
-  east: 0x1f000, south: 0x1f001, west: 0x1f002, north: 0x1f003, red: 0x1f004, green: 0x1f005, white: 0x1f006,
-  '1m': 0x1f007, '2m': 0x1f008, '3m': 0x1f009, '4m': 0x1f00a, '5m': 0x1f00b, '6m': 0x1f00c, '7m': 0x1f00d, '8m': 0x1f00e, '9m': 0x1f00f,
-  '1s': 0x1f010, '2s': 0x1f011, '3s': 0x1f012, '4s': 0x1f013, '5s': 0x1f014, '6s': 0x1f015, '7s': 0x1f016, '8s': 0x1f017, '9s': 0x1f018,
-  '1p': 0x1f019, '2p': 0x1f01a, '3p': 0x1f01b, '4p': 0x1f01c, '5p': 0x1f01d, '6p': 0x1f01e, '7p': 0x1f01f, '8p': 0x1f020, '9p': 0x1f021,
+const mahjongAssetNames: Record<MahjongTile, string> = {
+  east: 'Ton.png', south: 'Nan.png', west: 'Shaa.png', north: 'Pei.png', red: 'Chun.png', green: 'Hatsu.png', white: 'Haku.png',
+  '1m': 'Man1.png', '2m': 'Man2.png', '3m': 'Man3.png', '4m': 'Man4.png', '5m': 'Man5.png', '6m': 'Man6.png', '7m': 'Man7.png', '8m': 'Man8.png', '9m': 'Man9.png',
+  '1p': 'Pin1.png', '2p': 'Pin2.png', '3p': 'Pin3.png', '4p': 'Pin4.png', '5p': 'Pin5.png', '6p': 'Pin6.png', '7p': 'Pin7.png', '8p': 'Pin8.png', '9p': 'Pin9.png',
+  '1s': 'Sou1.png', '2s': 'Sou2.png', '3s': 'Sou3.png', '4s': 'Sou4.png', '5s': 'Sou5.png', '6s': 'Sou6.png', '7s': 'Sou7.png', '8s': 'Sou8.png', '9s': 'Sou9.png',
 }
+const mahjongAssetBase = `${API_BASE_URL}/assets/mahjong`
 
 export function MahjongTileFace({ tile, compact = false, concealed = false }: { tile: MahjongTile; compact?: boolean; concealed?: boolean }) {
   const suit = tile.endsWith('m') ? 'm' : tile.endsWith('p') ? 'p' : tile.endsWith('s') ? 's' : 'honor'
-  return <View className={`record-tile tile-${suit}${compact ? ' compact' : ''}${concealed ? ' concealed' : ''}`}>
+  const imageName = concealed ? 'Back.png' : mahjongAssetNames[tile]
+  return <View className={`record-tile tile-${suit} tile-${tile}${compact ? ' compact' : ''}${concealed ? ' concealed' : ''}`}>
     <View className='record-tile-side' />
     <View className='record-tile-face'>
-      {concealed
-        ? <View className='record-tile-back'><View className='record-tile-back-pattern' /></View>
-        : <Text className='mahjong-standard-glyph'>{String.fromCodePoint(mahjongCodePoints[tile])}</Text>}
+      {tile === 'white' && !concealed
+        ? <View className='mahjong-white-dragon' />
+        : <Image className='mahjong-tile-image' src={`${mahjongAssetBase}/${imageName}`} mode='aspectFit' />}
     </View>
   </View>
 }
