@@ -382,13 +382,31 @@ export function FriendStatisticsScreen({ statistics, onBack }: { statistics: Fri
   </View>
 }
 
+const chineseTileNumbers = ['', '一', '二', '三', '四', '五', '六', '七', '八', '九']
+
 export function MahjongTileFace({ tile, compact = false, concealed = false }: { tile: MahjongTile; compact?: boolean; concealed?: boolean }) {
   const suit = tile.endsWith('m') ? 'm' : tile.endsWith('p') ? 'p' : tile.endsWith('s') ? 's' : 'honor'
-  const number = suit === 'honor' ? tileLabel[tile] : tile.slice(0, 1)
-  const suitLabel = suit === 'm' ? '万' : suit === 'p' ? '筒' : suit === 's' ? '条' : ''
+  const number = suit === 'honor' ? 0 : Number(tile.slice(0, 1))
+
   return <View className={`record-tile tile-${suit}${compact ? ' compact' : ''}${concealed ? ' concealed' : ''}`}>
-    <Text className='record-tile-number'>{concealed ? '▧' : number}</Text>
-    {!concealed && suitLabel && <Text className='record-tile-suit'>{suitLabel}</Text>}
+    <View className='record-tile-side' />
+    <View className='record-tile-face'>
+      {concealed ? <View className='record-tile-back'><View className='record-tile-back-pattern' /></View> : <>
+        {suit === 'm' && <View className='tile-man-face'>
+          <Text className='tile-man-number'>{chineseTileNumbers[number]}</Text>
+          <Text className='tile-man-suit'>萬</Text>
+        </View>}
+        {suit === 'p' && <View className={`tile-pips tile-pips-${number}`}>
+          {Array.from({ length: number }, (_, index) => <View className={`tile-pip tile-pip-${index + 1}`} key={index} />)}
+        </View>}
+        {suit === 's' && <View className={`tile-bamboos tile-bamboos-${number}`}>
+          {Array.from({ length: number }, (_, index) => <View className={`tile-bamboo tile-bamboo-${index + 1}`} key={index}>
+            <View className='tile-bamboo-head' /><View className='tile-bamboo-body' />
+          </View>)}
+        </View>}
+        {suit === 'honor' && <Text className={`tile-honor-character honor-${tile}`}>{tileLabel[tile]}</Text>}
+      </>}
+    </View>
   </View>
 }
 
