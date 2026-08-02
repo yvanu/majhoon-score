@@ -216,10 +216,14 @@ export function registerMeRoutes(app: Hono<Env>) {
     `).bind(user.id, start, end).first<{ match_count: number; hand_count: number }>()
     const result = await c.env.DB.prepare(`
       SELECT p.name,
+        MAX(CASE WHEN p.user_id = ? OR (
+          p.user_id IS NULL AND p.friend_id IS NULL AND p.name = ? COLLATE NOCASE
+        ) THEN 1 ELSE 0 END) is_self,
         COALESCE(SUM(hs.score_change), 0) score,
         SUM(CASE WHEN h.winner_player_id = p.id THEN 1 ELSE 0 END) wins,
         SUM(CASE WHEN h.result_type = 'tsumo' AND h.winner_player_id = p.id THEN 1 ELSE 0 END) tsumo,
-        SUM(CASE WHEN h.result_type = 'ron' AND h.loser_player_id = p.id THEN 1 ELSE 0 END) deal_in
+        SUM(CASE WHEN h.result_type = 'ron' AND h.loser_player_id = p.id THEN 1 ELSE 0 END) deal_in,
+        SUM(CASE WHEN h.winner_player_id = p.id AND COALESCE(h.note, '') <> '' THEN 1 ELSE 0 END) big_hands
       FROM matches m
       JOIN players p ON p.match_id = m.id
       LEFT JOIN hand_scores hs ON hs.player_id = p.id
@@ -227,7 +231,13 @@ export function registerMeRoutes(app: Hono<Env>) {
       WHERE m.owner_user_id = ? AND m.created_at BETWEEN ? AND ?
       GROUP BY p.name
       ORDER BY score DESC, wins DESC, p.name ASC
-    `).bind(user.id, start, end).all<Record<string, unknown>>()
+    `).bind(
+      user.id,
+      user.display_name?.trim() || user.username,
+      user.id,
+      start,
+      end,
+    ).all<Record<string, unknown>>()
 
     const stats: DailyStats = {
       date,
@@ -239,6 +249,8 @@ export function registerMeRoutes(app: Hono<Env>) {
         wins: Number(row.wins ?? 0),
         tsumo: Number(row.tsumo ?? 0),
         deal_in: Number(row.deal_in ?? 0),
+        bigHands: Number(row.big_hands ?? 0),
+        isSelf: Number(row.is_self ?? 0) === 1,
       })),
     }
     return c.json(stats)

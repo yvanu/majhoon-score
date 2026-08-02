@@ -155,6 +155,8 @@ export interface DailyPlayerStat {
   wins: number
   tsumo: number
   deal_in: number
+  bigHands: number
+  isSelf?: boolean
 }
 
 export interface DailyStats {

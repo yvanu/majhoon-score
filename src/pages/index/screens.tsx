@@ -48,7 +48,23 @@ export function Home({ user, currentMatch, recentMatch, dailyStats, syncStatus, 
   onProfile: () => void
 }) {
   const syncText = syncStatus === 'syncing' ? '同步中' : syncStatus === 'offline' ? '网络异常' : '已同步'
-  const topPlayer = dailyStats?.players[0]
+  const selfRows = dailyStats?.players.filter(player => player.isSelf) || []
+  const fallbackRows = selfRows.length
+    ? selfRows
+    : dailyStats?.players.filter(player => player.name === displayUserName(user)) || []
+  const selfStats = fallbackRows.length
+    ? fallbackRows.reduce((total, player) => ({
+      score: total.score + player.score,
+      wins: total.wins + player.wins,
+      tsumo: total.tsumo + player.tsumo,
+      bigHands: total.bigHands + (player.bigHands || 0),
+    }), { score: 0, wins: 0, tsumo: 0, bigHands: 0 })
+    : null
+  const scoreLabel = !selfStats || selfStats.score === 0
+    ? '今日持平'
+    : selfStats.score > 0
+      ? '今日净胜'
+      : '今日净负'
 
   async function scanAndOpen() {
     try {
@@ -97,11 +113,29 @@ export function Home({ user, currentMatch, recentMatch, dailyStats, syncStatus, 
       </View> : <View className='mini-empty' onClick={onStart}><Text>还没有牌局，开启第一将吧</Text><Text>去创建 ›</Text></View>}
 
       <View className='section-head'><Text>今日战绩</Text><Text className='section-more' onClick={onDaily}>详情 ›</Text></View>
-      <View className='dashboard-card daily-card' onClick={onDaily}>
-        <View className='daily-metric'><Text className='daily-metric-value'>{dailyStats?.matchCount || 0}</Text><Text>今日牌局</Text></View>
-        <View className='daily-metric'><Text className='daily-metric-value'>{dailyStats?.handCount || 0}</Text><Text>今日局数</Text></View>
-        <View className='daily-metric'><Text className='daily-metric-value'>{topPlayer ? `${topPlayer.score > 0 ? '+' : ''}${topPlayer.score}` : '0'}</Text><Text>领先分数</Text></View>
-      </View>
+      {selfStats ? <View className='dashboard-card daily-card' onClick={onDaily}>
+        <View className='daily-card-summary'>
+          <View>
+            <Text className='daily-card-eyebrow'>我的今日净分</Text>
+            <Text className={`daily-card-score ${selfStats.score > 0 ? 'score-positive' : selfStats.score < 0 ? 'score-negative' : 'score-even'}`}>
+              {selfStats.score > 0 ? '+' : ''}{selfStats.score}
+            </Text>
+            <Text className='daily-card-result'>{scoreLabel}</Text>
+          </View>
+          <View className='daily-card-count'>
+            <Text>{dailyStats?.matchCount || 0} 将</Text>
+            <Text>{dailyStats?.handCount || 0} 局</Text>
+          </View>
+        </View>
+        <View className='daily-card-details'>
+          <View><Text className='daily-detail-value'>{selfStats.wins}</Text><Text>胡牌</Text></View>
+          <View><Text className='daily-detail-value'>{selfStats.tsumo}</Text><Text>自摸</Text></View>
+          <View><Text className='daily-detail-value'>{selfStats.bigHands}</Text><Text>大胡</Text></View>
+        </View>
+      </View> : <View className='dashboard-card daily-card daily-card-empty' onClick={onDaily}>
+        <View><Text className='card-title'>今天还没有你的战绩</Text><Text>{dailyStats?.handCount ? '创建牌局时选择自己后会显示' : '开启一将，记录今天的牌桌表现'}</Text></View>
+        <Text className='card-arrow'>›</Text>
+      </View>}
     </> : <View className='login-card' onClick={onLogin}>
       <View><Text className='card-title'>登录后同步牌局</Text><Text>保存历史记录、查看每日统计</Text></View><Text className='card-arrow'>›</Text>
     </View>}
