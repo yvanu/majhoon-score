@@ -335,7 +335,7 @@ function TileRecordModal({ record, onCancel, onConfirm }: {
   return <View className='modal-backdrop tile-record-modal-backdrop' onClick={onCancel}>
     <View className='tile-record-modal' style={{ height: `${modalHeight}px` }} onClick={event => event.stopPropagation()}>
       <View className='tile-record-modal-header'>
-        <View><Text className='eyebrow'>BIG HAND RECORD · v1.7.16</Text><Text className='title-small'>录入大胡牌谱</Text></View>
+        <View><Text className='eyebrow'>BIG HAND RECORD · v1.7.17</Text><Text className='title-small'>录入大胡牌谱</Text></View>
         <Button className='close-button' onClick={onCancel}>×</Button>
       </View>
       <Text className='tile-record-modal-tip'>先选择碰、明杠、暗杠、手牌或胡的牌，再点击下方麻将牌；已录入的牌可点击删除。</Text>
@@ -408,6 +408,16 @@ export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }:
 
   function updateRonDraft(playerId: string, updater: (draft: WinnerDraft) => WinnerDraft) {
     setRonDrafts(current => ({ ...current, [playerId]: updater(current[playerId] || { amount: '50', notes: [], tileRecord: emptyTileRecord() }) }))
+  }
+
+  function selectRonLoser(playerId: string) {
+    setLoser(playerId)
+    setRonWinnerIds(current => {
+      const remaining = current.filter(id => id !== playerId)
+      if (remaining.length) return remaining
+      const replacement = players.find(player => player.id !== playerId)?.id
+      return replacement ? [replacement] : current
+    })
   }
 
   function toggleRonWinner(playerId: string) {
@@ -513,12 +523,12 @@ export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }:
     ? tileRecord
     : tileEditorTarget ? ronDrafts[tileEditorTarget]?.tileRecord : null
 
-  return <View className='page score-page' style={{ paddingTop: `${getPageTopInset()}px` }}><Header title={isEditing ? '修改本局' : '记一局'} onBack={onBack} />
+  return <><ScrollView scrollY className='score-page-scroll' showScrollbar={false}><View className='page score-page' style={{ paddingTop: `${getPageTopInset()}px` }}><Header title={isEditing ? '修改本局' : '记一局'} onBack={onBack} />
     {isEditing && <Text className='edit-hand-tip'>正在修改第 {initialHand?.sequence} 局，保存后会自动重新计算当前总分和战况。</Text>}
     <View className='tabs'>{(['ron', 'tsumo', 'draw', 'custom'] as const).map(value => <Button key={value} className={type === value ? 'tab active' : 'tab'} onClick={() => changeType(value)}>{typeName[value]}</Button>)}</View>
 
     {type === 'ron' && <>
-      <PlayerPicker title='放炮者' players={players.filter(player => !ronWinnerIds.includes(player.id))} selected={loser} onSelect={setLoser} />
+      <PlayerPicker title='放炮者' players={players} selected={loser} onSelect={selectRonLoser} />
       <MultiPlayerPicker title='胡牌者（可多选）' players={players.filter(player => player.id !== loser)} selected={ronWinnerIds} onToggle={toggleRonWinner} />
       {ronWinnerIds.length > 1 && <View className='multi-ron-summary'><Text>一炮{ronWinnerIds.length === 2 ? '双' : '三'}响</Text><Text>{players.find(player => player.id === loser)?.name || '放炮者'} 合计 -{ronTotal}</Text></View>}
       {ronWinnerIds.map((playerId, index) => {
@@ -551,16 +561,17 @@ export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }:
     {type === 'custom' && players.map(player => <View className='field' key={player.id}><Text>{player.name}</Text><Input type='number' value={values[player.id]} onInput={event => setValues({ ...values, [player.id]: event.detail.value })} /></View>)}
     <Button className='primary' disabled={loading} onClick={save}>{loading ? '保存中…' : isEditing ? '保存修改' : '确认保存'}</Button>
     <View className='score-bottom-spacer' />
-    {activeTileRecord && <TileRecordModal
-      record={activeTileRecord}
-      onCancel={() => setTileEditorTarget(null)}
-      onConfirm={record => {
-        if (tileEditorTarget === 'tsumo') setTileRecord(record)
-        else if (tileEditorTarget) updateRonDraft(tileEditorTarget, draft => ({ ...draft, tileRecord: record }))
-        setTileEditorTarget(null)
-      }}
-    />}
-  </View>
+  </View></ScrollView>
+  {activeTileRecord && <TileRecordModal
+    record={activeTileRecord}
+    onCancel={() => setTileEditorTarget(null)}
+    onConfirm={record => {
+      if (tileEditorTarget === 'tsumo') setTileRecord(record)
+      else if (tileEditorTarget) updateRonDraft(tileEditorTarget, draft => ({ ...draft, tileRecord: record }))
+      setTileEditorTarget(null)
+    }}
+  />}
+  </>
 }
 
 function PlayerPicker({ title, players, selected, onSelect }: { title: string; players: Player[]; selected: string; onSelect: (id: string) => void }) {
