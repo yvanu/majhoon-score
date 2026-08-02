@@ -449,7 +449,12 @@ export default function Index() {
       setPersonalStats(null)
       setEditingHandId(null)
       setScreen('match')
-      await Taro.showToast({ title: handId ? '本局已修改' : '计分已保存', icon: 'success' })
+      await Taro.showToast({
+        title: input.type === 'event'
+          ? handId ? '事件已修改' : '事件已记录'
+          : handId ? '本局已修改' : '计分已保存',
+        icon: 'success',
+      })
     })
   }
 
@@ -460,16 +465,19 @@ export default function Index() {
 
   async function undo() {
     if (!match) return
+    const latestIsEvent = match.hands[0]?.result_type === 'event'
     const confirmed = await showDialog({
-      title: '撤销上一局',
-      content: '上一局的分数和战绩记录会被移除，之后仍可重新录入。',
+      title: latestIsEvent ? '撤销局内事件' : '撤销上一局',
+      content: latestIsEvent
+        ? '最近一项局内事件及其分数变化会被移除，当前局数不会改变。'
+        : '上一局的分数和战绩记录会被移除，之后仍可重新录入。',
       confirmText: '确认撤销',
     })
     if (!confirmed) return
     await run(async () => {
       setMatch((await api.undo(match.id, adminToken)).match)
       setPersonalStats(null)
-      await Taro.showToast({ title: '已撤销上一局', icon: 'success' })
+      await Taro.showToast({ title: latestIsEvent ? '局内事件已撤销' : '已撤销上一局', icon: 'success' })
     })
   }
 

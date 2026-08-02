@@ -43,7 +43,7 @@ function buildStats(total: D1Result<{ count: number }>, result: D1Result<StoredP
 function statisticsStatements(db: D1Database, idOrCode: string) {
   const [key, code] = selectorValues(idOrCode)
   return [
-    db.prepare(`SELECT COUNT(*) count FROM hands WHERE match_id = ${matchIdSelector}`).bind(key, code),
+    db.prepare(`SELECT COUNT(*) count FROM hands WHERE match_id = ${matchIdSelector} AND result_type <> 'event'`).bind(key, code),
     db.prepare(`
       SELECT p.id, p.name, p.avatar_seed, p.friend_id, p.user_id, p.seat,
         (SELECT COALESCE(SUM(hs.score_change), 0) FROM hand_scores hs WHERE hs.player_id = p.id) score,

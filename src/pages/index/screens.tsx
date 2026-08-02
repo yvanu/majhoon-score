@@ -91,7 +91,7 @@ export function Home({ user, currentMatch, recentMatch, dailyStats, syncStatus, 
     </View>
 
     {currentMatch && <View className='continue-card' onClick={onContinue}>
-      <View className='continue-copy'><Text className='eyebrow'>正在进行</Text><Text className='continue-title'>继续上一将</Text><Text>{windName[currentMatch.current_wind]}风 · 第 {currentMatch.current_hand} 局 · 已记 {currentMatch.hands.length} 局</Text></View>
+      <View className='continue-copy'><Text className='eyebrow'>正在进行</Text><Text className='continue-title'>继续上一将</Text><Text>{windName[currentMatch.current_wind]}风 · 第 {currentMatch.current_hand} 局 · 已记 {currentMatch.hands.filter(hand => hand.result_type !== 'event').length} 局</Text></View>
       <Text className='card-arrow'>›</Text>
     </View>}
 

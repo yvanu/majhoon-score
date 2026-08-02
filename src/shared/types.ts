@@ -1,6 +1,7 @@
 export type Wind = 'east' | 'south' | 'west' | 'north'
 export type MatchStatus = 'active' | 'finished'
-export type HandType = 'tsumo' | 'ron' | 'draw' | 'custom'
+export type HandType = 'tsumo' | 'ron' | 'draw' | 'event' | 'custom'
+export type InHandEventType = '明杠' | '暗杠' | '花杠' | '被跟圈' | '四风归一'
 export type MahjongTile =
   | '1m' | '2m' | '3m' | '4m' | '5m' | '6m' | '7m' | '8m' | '9m'
   | '1p' | '2p' | '3p' | '4p' | '5p' | '6p' | '7p' | '8p' | '9p'

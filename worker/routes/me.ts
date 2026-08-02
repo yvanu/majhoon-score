@@ -24,7 +24,8 @@ export function registerMeRoutes(app: Hono<Env>) {
     if (!user) return jsonError(c, '请先登录', 401)
     const result = await c.env.DB.prepare(`
       SELECT m.id, m.share_code, m.status, m.current_wind, m.current_hand,
-             m.created_at, m.finished_at, COUNT(DISTINCT h.id) hand_count,
+             m.created_at, m.finished_at,
+             COUNT(DISTINCT CASE WHEN h.result_type <> 'event' THEN h.id END) hand_count,
              GROUP_CONCAT(DISTINCT p.name) player_names
       FROM matches m
       LEFT JOIN players p ON p.match_id = m.id
@@ -164,7 +165,7 @@ export function registerMeRoutes(app: Hono<Env>) {
 
     for (const row of rows.results) {
       matchIds.add(String(row.match_id))
-      if (!row.hand_id) continue
+      if (!row.hand_id || row.result_type === 'event') continue
       handIds.add(String(row.hand_id))
       const handId = String(row.hand_id)
       const playerId = String(row.player_id)
@@ -221,7 +222,8 @@ export function registerMeRoutes(app: Hono<Env>) {
     const start = `${date}T00:00:00.000Z`
     const end = `${date}T23:59:59.999Z`
     const summary = await c.env.DB.prepare(`
-      SELECT COUNT(DISTINCT m.id) match_count, COUNT(DISTINCT h.id) hand_count
+      SELECT COUNT(DISTINCT m.id) match_count,
+        COUNT(DISTINCT CASE WHEN h.result_type <> 'event' THEN h.id END) hand_count
       FROM matches m
       LEFT JOIN hands h ON h.match_id = m.id
       WHERE m.owner_user_id = ? AND m.created_at BETWEEN ? AND ?
@@ -361,7 +363,7 @@ export function registerMeRoutes(app: Hono<Env>) {
       dimension: period.dimension,
       value: period.value,
       label: period.label,
-      totalHands: rows.results.length,
+      totalHands: rows.results.filter(row => row.result_type !== 'event').length,
       wins,
       dealIns,
       tsumoWins,

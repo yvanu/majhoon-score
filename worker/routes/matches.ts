@@ -17,6 +17,8 @@ import { getMatch, getMatchBundle, getMatchStatistics } from '../match-service'
 import { ensureFriendSchema, ensurePersonalStatisticsSchema } from '../schema'
 import { bigHandPatterns, validateHand, validatePlayers } from '../validation'
 
+const inHandEventTypes = new Set(['明杠', '暗杠', '花杠', '被跟圈', '四风归一'])
+
 function responseOutcomes(input: HandInput): Hand['outcomes'] {
   return (input.outcomes || []).map(outcome => ({
     winner_player_id: outcome.winnerPlayerId,
@@ -40,6 +42,29 @@ function handInputError(input: HandInput, validPlayerIds: Set<string>) {
   if ((input.type === 'ron' || input.type === 'tsumo') && !outcomes.length) return '胡牌结果不能为空'
   if (input.type !== 'ron' && input.type !== 'tsumo' && outcomes.length) return '当前计分类型不能包含胡牌结果'
   if (new Set(winnerIds).size !== winnerIds.length || winnerIds.some(id => !validPlayerIds.has(id))) return '胡牌者无效'
+
+  if (input.type === 'event') {
+    if (!input.winnerPlayerId || !validPlayerIds.has(input.winnerPlayerId)) return '局内事件需要指定获分玩家'
+    if (!input.note || !inHandEventTypes.has(input.note)) return '局内事件类型无效'
+    const winnerScore = input.scores.find(item => item.playerId === input.winnerPlayerId)?.change ?? 0
+    if (winnerScore <= 0) return '局内事件获分必须大于 0'
+    if (input.note === '明杠') {
+      if (!input.loserPlayerId || !validPlayerIds.has(input.loserPlayerId) || input.loserPlayerId === input.winnerPlayerId) {
+        return '明杠需要指定不同的放杠者'
+      }
+      const loserScore = input.scores.find(item => item.playerId === input.loserPlayerId)?.change ?? 0
+      if (loserScore !== -winnerScore) return '明杠双方分数不一致'
+      if (input.scores.some(item => item.playerId !== input.winnerPlayerId && item.playerId !== input.loserPlayerId && item.change !== 0)) {
+        return '明杠只能由放杠者支付'
+      }
+    } else {
+      if (input.loserPlayerId) return '当前局内事件不需要指定单独付款人'
+      const payerScores = input.scores.filter(item => item.playerId !== input.winnerPlayerId).map(item => item.change)
+      if (payerScores.some(score => score >= 0) || new Set(payerScores).size !== 1 || winnerScore !== -payerScores.reduce((sum, score) => sum + score, 0)) {
+        return '局内事件应由其余三家等额支付'
+      }
+    }
+  }
 
   if (input.type === 'tsumo') {
     if (outcomes.length !== 1 || input.loserPlayerId) return '自摸需要且只能指定一位胡牌者'
@@ -186,7 +211,9 @@ export function registerMatchRoutes(app: Hono<Env>) {
 
     const sequence = Number((sequenceResult as D1Result<{ next: number | string }>).results[0]?.next ?? 1)
     const handId = uid()
-    const next = nextPosition(match.current_wind, match.current_hand)
+    const next = input.type === 'event'
+      ? { wind: match.current_wind, hand: match.current_hand }
+      : nextPosition(match.current_wind, match.current_hand)
     const createdAt = now()
     const outcomes = responseOutcomes(input)
     const primaryOutcome = outcomes[0]
@@ -196,10 +223,10 @@ export function registerMatchRoutes(app: Hono<Env>) {
       wind: match.current_wind,
       hand_number: match.current_hand,
       result_type: input.type,
-      winner_player_id: primaryOutcome?.winner_player_id ?? null,
+      winner_player_id: primaryOutcome?.winner_player_id ?? input.winnerPlayerId ?? null,
       loser_player_id: input.loserPlayerId ?? null,
-      note: primaryOutcome?.note ?? null,
-      tile_record: primaryOutcome?.tile_record ?? null,
+      note: primaryOutcome?.note ?? input.note ?? null,
+      tile_record: primaryOutcome?.tile_record ?? input.tileRecord ?? null,
       outcomes,
       scores: input.scores,
       created_at: createdAt,
@@ -267,7 +294,7 @@ export function registerMatchRoutes(app: Hono<Env>) {
         'SELECT id, status, current_wind, current_hand FROM matches WHERE id = ?',
       ).bind(id),
       c.env.DB.prepare(`
-        SELECT id, sequence, wind, hand_number, created_at
+        SELECT id, sequence, wind, hand_number, result_type, created_at
         FROM hands WHERE id = ? AND match_id = ?
       `).bind(handId, id),
       c.env.DB.prepare('SELECT id FROM players WHERE match_id = ?').bind(id),
@@ -281,8 +308,11 @@ export function registerMatchRoutes(app: Hono<Env>) {
     if (!match) return jsonError(c, '牌局不存在', 404)
     if (match.status !== 'active') return jsonError(c, '本将已经结束，不能再修改计分', 409)
 
-    const storedHand = (handResult as D1Result<Pick<Hand, 'id' | 'sequence' | 'wind' | 'hand_number' | 'created_at'>>).results[0]
+    const storedHand = (handResult as D1Result<Pick<Hand, 'id' | 'sequence' | 'wind' | 'hand_number' | 'result_type' | 'created_at'>>).results[0]
     if (!storedHand) return jsonError(c, '该局记录不存在', 404)
+    if ((storedHand.result_type === 'event') !== (input.type === 'event')) {
+      return jsonError(c, '局内事件和本局结果不能互相转换')
+    }
 
     const playerRows = playerResult as D1Result<{ id: string }>
     const validPlayerIds = new Set(playerRows.results.map(player => player.id))
@@ -294,10 +324,10 @@ export function registerMatchRoutes(app: Hono<Env>) {
     const hand: Hand = {
       ...storedHand,
       result_type: input.type,
-      winner_player_id: primaryOutcome?.winner_player_id ?? null,
+      winner_player_id: primaryOutcome?.winner_player_id ?? input.winnerPlayerId ?? null,
       loser_player_id: input.loserPlayerId ?? null,
-      note: primaryOutcome?.note ?? null,
-      tile_record: primaryOutcome?.tile_record ?? null,
+      note: primaryOutcome?.note ?? input.note ?? null,
+      tile_record: primaryOutcome?.tile_record ?? input.tileRecord ?? null,
       outcomes,
       scores: input.scores,
     }
