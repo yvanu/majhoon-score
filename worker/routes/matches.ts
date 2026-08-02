@@ -44,23 +44,31 @@ function handInputError(input: HandInput, validPlayerIds: Set<string>) {
   if (new Set(winnerIds).size !== winnerIds.length || winnerIds.some(id => !validPlayerIds.has(id))) return '胡牌者无效'
 
   if (input.type === 'event') {
-    if (!input.winnerPlayerId || !validPlayerIds.has(input.winnerPlayerId)) return '局内事件需要指定获分玩家'
+    if (!input.winnerPlayerId || !validPlayerIds.has(input.winnerPlayerId)) return '局内事件需要指定相关玩家'
     if (!input.note || !inHandEventTypes.has(input.note)) return '局内事件类型无效'
-    const winnerScore = input.scores.find(item => item.playerId === input.winnerPlayerId)?.change ?? 0
-    if (winnerScore <= 0) return '局内事件获分必须大于 0'
-    if (input.note === '明杠') {
+    const eventPlayerScore = input.scores.find(item => item.playerId === input.winnerPlayerId)?.change ?? 0
+    if (input.note === '被跟圈') {
+      if (input.loserPlayerId) return '被跟圈不需要指定单独付款人'
+      const receiverScores = input.scores.filter(item => item.playerId !== input.winnerPlayerId).map(item => item.change)
+      if (eventPlayerScore >= 0 || receiverScores.some(score => score <= 0) ||
+          new Set(receiverScores).size !== 1 || -eventPlayerScore !== receiverScores.reduce((sum, score) => sum + score, 0)) {
+        return '被跟圈者应向其余三家等额支付'
+      }
+    } else if (input.note === '明杠') {
+      if (eventPlayerScore <= 0) return '明杠者获分必须大于 0'
       if (!input.loserPlayerId || !validPlayerIds.has(input.loserPlayerId) || input.loserPlayerId === input.winnerPlayerId) {
         return '明杠需要指定不同的放杠者'
       }
       const loserScore = input.scores.find(item => item.playerId === input.loserPlayerId)?.change ?? 0
-      if (loserScore !== -winnerScore) return '明杠双方分数不一致'
+      if (loserScore !== -eventPlayerScore) return '明杠双方分数不一致'
       if (input.scores.some(item => item.playerId !== input.winnerPlayerId && item.playerId !== input.loserPlayerId && item.change !== 0)) {
         return '明杠只能由放杠者支付'
       }
     } else {
+      if (eventPlayerScore <= 0) return '局内事件获分必须大于 0'
       if (input.loserPlayerId) return '当前局内事件不需要指定单独付款人'
       const payerScores = input.scores.filter(item => item.playerId !== input.winnerPlayerId).map(item => item.change)
-      if (payerScores.some(score => score >= 0) || new Set(payerScores).size !== 1 || winnerScore !== -payerScores.reduce((sum, score) => sum + score, 0)) {
+      if (payerScores.some(score => score >= 0) || new Set(payerScores).size !== 1 || eventPlayerScore !== -payerScores.reduce((sum, score) => sum + score, 0)) {
         return '局内事件应由其余三家等额支付'
       }
     }

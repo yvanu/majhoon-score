@@ -379,6 +379,7 @@ type InHandEventOption = {
   type: InHandEventType
   defaultAmount: number
   allPay: boolean
+  playerPaysAll?: boolean
   playerLabel: string
 }
 
@@ -386,7 +387,7 @@ const inHandEventOptions: InHandEventOption[] = [
   { type: '明杠', defaultAmount: 20, allPay: false, playerLabel: '明杠者' },
   { type: '暗杠', defaultAmount: 10, allPay: true, playerLabel: '暗杠者' },
   { type: '花杠', defaultAmount: 20, allPay: true, playerLabel: '花杠者' },
-  { type: '被跟圈', defaultAmount: 10, allPay: true, playerLabel: '被跟圈者' },
+  { type: '被跟圈', defaultAmount: 10, allPay: true, playerPaysAll: true, playerLabel: '被跟圈者' },
   { type: '四风归一', defaultAmount: 10, allPay: true, playerLabel: '获分者' },
 ]
 
@@ -459,11 +460,15 @@ export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }:
   const eventAmountValue = Math.max(1, Math.round(Number(eventAmount) || 0))
   const eventScores = players.map(player => ({
     playerId: player.id,
-    change: player.id === eventPlayer
-      ? eventAmountValue * (eventOption.allPay ? players.length - 1 : 1)
-      : eventOption.allPay || player.id === eventPayer
-        ? -eventAmountValue
-        : 0,
+    change: eventOption.playerPaysAll
+      ? player.id === eventPlayer
+        ? -eventAmountValue * (players.length - 1)
+        : eventAmountValue
+      : player.id === eventPlayer
+        ? eventAmountValue * (eventOption.allPay ? players.length - 1 : 1)
+        : eventOption.allPay || player.id === eventPayer
+          ? -eventAmountValue
+          : 0,
   }))
   const tabOptions: HandType[] = initialHand
     ? initialHand.result_type === 'event'
@@ -687,7 +692,7 @@ export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }:
       >{option.type}</Button>)}</View>
       <PlayerPicker title={eventOption.playerLabel} players={players} selected={eventPlayer} onSelect={selectEventPlayer} />
       {!eventOption.allPay && <PlayerPicker title='放杠者' players={players.filter(player => player.id !== eventPlayer)} selected={eventPayer} onSelect={setEventPayer} />}
-      <View className='field score-field event-score-field'><Text>{eventOption.allPay ? '每家支付' : '放杠者支付'}</Text><Input type='number' value={eventAmount} cursorSpacing={28} onInput={event => setEventAmount(event.detail.value)} /><View className='score-presets'><Button className={eventAmount === '10' ? 'score-preset active' : 'score-preset'} onClick={() => setEventAmount('10')}>10</Button><Button className={eventAmount === '20' ? 'score-preset active' : 'score-preset'} onClick={() => setEventAmount('20')}>20</Button><Button className='score-preset' onClick={() => adjustScore(eventAmount, 5, setEventAmount)}>+5</Button><Button className='score-preset' onClick={() => adjustScore(eventAmount, -5, setEventAmount)}>-5</Button></View></View>
+      <View className='field score-field event-score-field'><Text>{eventOption.playerPaysAll ? '被跟圈者每家支付' : eventOption.allPay ? '每家支付' : '放杠者支付'}</Text><Input type='number' value={eventAmount} cursorSpacing={28} onInput={event => setEventAmount(event.detail.value)} /><View className='score-presets'><Button className={eventAmount === '10' ? 'score-preset active' : 'score-preset'} onClick={() => setEventAmount('10')}>10</Button><Button className={eventAmount === '20' ? 'score-preset active' : 'score-preset'} onClick={() => setEventAmount('20')}>20</Button><Button className='score-preset' onClick={() => adjustScore(eventAmount, 5, setEventAmount)}>+5</Button><Button className='score-preset' onClick={() => adjustScore(eventAmount, -5, setEventAmount)}>-5</Button></View></View>
       <View className='event-preview-card'>
         <View className='event-preview-head'><Text>本次分数变化</Text><Text>{eventType}</Text></View>
         <View className='event-preview-grid'>{eventScores.map(score => <View key={score.playerId}><Text>{players.find(player => player.id === score.playerId)?.name}</Text><Text className={score.change > 0 ? 'positive' : score.change < 0 ? 'negative' : ''}>{score.change > 0 ? '+' : ''}{score.change}</Text></View>)}</View>
