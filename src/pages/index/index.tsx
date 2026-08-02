@@ -9,6 +9,7 @@ import type {
   FriendStatistics,
   Hand,
   HandInput,
+  HandMutationResult,
   Match,
   MatchPlayerInput,
   MatchSummary,
@@ -39,6 +40,32 @@ import {
 } from './screens'
 import { MatchScreen, ScoreScreen, StatsScreen } from './match-screens'
 import './index.scss'
+
+function applyHandMutation(current: Match, result: HandMutationResult, replacedHandId?: string | null): Match {
+  const previous = replacedHandId
+    ? current.hands.find(hand => hand.id === replacedHandId)
+    : undefined
+  const scoreDelta = new Map<string, number>()
+  previous?.scores.forEach(score => {
+    scoreDelta.set(score.playerId, (scoreDelta.get(score.playerId) || 0) - score.change)
+  })
+  result.hand.scores.forEach(score => {
+    scoreDelta.set(score.playerId, (scoreDelta.get(score.playerId) || 0) + score.change)
+  })
+
+  return {
+    ...current,
+    current_wind: result.current_wind,
+    current_hand: result.current_hand,
+    players: current.players.map(player => ({
+      ...player,
+      score: player.score + (scoreDelta.get(player.id) || 0),
+    })),
+    hands: replacedHandId
+      ? current.hands.map(hand => hand.id === replacedHandId ? result.hand : hand)
+      : [result.hand, ...current.hands],
+  }
+}
 
 export default function Index() {
   const [screen, setScreenState] = useState<Screen>('home')
@@ -415,7 +442,9 @@ export default function Index() {
       const data = handId
         ? await api.updateHand(match.id, handId, input, adminToken)
         : await api.addHand(match.id, input, adminToken)
-      setMatch(data.match)
+      setMatch(current => current?.id === match.id
+        ? applyHandMutation(current, data, handId)
+        : current)
       setPersonalStats(null)
       setEditingHandId(null)
       setScreen('match')

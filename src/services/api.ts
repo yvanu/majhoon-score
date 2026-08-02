@@ -1,5 +1,5 @@
 import Taro from '@tarojs/taro'
-import type { AuthResult, AuthUser, DailyStats, Friend, FriendStatistics, HandInput, Match, MatchPlayerInput, MatchSummary, PersonalStatistics, StatisticsDimension, Stats } from '@shared/types'
+import type { AuthResult, AuthUser, DailyStats, Friend, FriendStatistics, HandInput, HandMutationResult, Match, MatchPlayerInput, MatchSummary, PersonalStatistics, StatisticsDimension, Stats } from '@shared/types'
 
 export const AUTH_KEY = 'mahjong-auth-token'
 export const CURRENT_KEY = 'mahjong-current'
@@ -49,9 +49,9 @@ export const api = {
     `/api/matches/${encodeURIComponent(idOrCode)}${includeStatistics ? '?includeStatistics=1' : ''}`,
   ),
   addHand: (matchId: string, input: HandInput, token: string) =>
-    request<{ match: Match }>(`/api/matches/${matchId}/hands`, 'POST', input, token),
+    request<HandMutationResult>(`/api/matches/${matchId}/hands`, 'POST', input, token),
   updateHand: (matchId: string, handId: string, input: HandInput, token: string) =>
-    request<{ match: Match }>(`/api/matches/${matchId}/hands/${handId}`, 'PUT', input, token),
+    request<HandMutationResult>(`/api/matches/${matchId}/hands/${handId}`, 'PUT', input, token),
   undo: (matchId: string, token: string) => request<{ match: Match }>(`/api/matches/${matchId}/hands/last`, 'DELETE', undefined, token),
   finish: (matchId: string, token: string) => request<{ match: Match }>(`/api/matches/${matchId}/finish`, 'POST', undefined, token),
   statistics: (matchId: string) => request<Stats>(`/api/matches/${matchId}/statistics`),

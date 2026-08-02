@@ -1,5 +1,5 @@
 import type { Hono } from 'hono'
-import type { HandInput, Wind } from '../../src/shared/types'
+import type { Hand, HandInput, Wind } from '../../src/shared/types'
 import { canWrite, currentUser } from '../auth-service'
 import {
   avatarSeed,
@@ -126,100 +126,164 @@ export function registerMatchRoutes(app: Hono<Env>) {
   })
 
   app.post('/api/matches/:id/hands', async c => {
+    const startedAt = performance.now()
     const id = c.req.param('id')
     if (!await canWrite(c, id)) return jsonError(c, '没有该牌局的修改权限', 401)
-    await ensurePersonalStatisticsSchema(c.env.DB)
+    const authorizedAt = performance.now()
     const input = validateHand(await c.req.json().catch(() => null))
     if (!input) return jsonError(c, '计分数据格式无效')
-    const match = await c.env.DB.prepare(
-      'SELECT id, status, current_wind, current_hand FROM matches WHERE id = ?',
-    ).bind(id).first<{ id: string; status: string; current_wind: Wind; current_hand: number }>()
+
+    const [matchResult, playerResult, sequenceResult] = await c.env.DB.batch([
+      c.env.DB.prepare(
+        'SELECT id, status, current_wind, current_hand FROM matches WHERE id = ?',
+      ).bind(id),
+      c.env.DB.prepare('SELECT id FROM players WHERE match_id = ?').bind(id),
+      c.env.DB.prepare(
+        'SELECT COALESCE(MAX(sequence), 0) + 1 next FROM hands WHERE match_id = ?',
+      ).bind(id),
+    ])
+    const match = (matchResult as D1Result<{
+      id: string
+      status: string
+      current_wind: Wind
+      current_hand: number
+    }>).results[0]
     if (!match) return jsonError(c, '牌局不存在', 404)
     if (match.status !== 'active') return jsonError(c, '本将已经结束', 409)
 
-    const playerRows = await c.env.DB.prepare('SELECT id FROM players WHERE match_id = ?').bind(id).all<{ id: string }>()
+    const playerRows = playerResult as D1Result<{ id: string }>
     const validPlayerIds = new Set(playerRows.results.map(player => player.id))
     const inputError = handInputError(input, validPlayerIds)
     if (inputError) return jsonError(c, inputError)
 
-    const sequence = await c.env.DB.prepare(
-      'SELECT COALESCE(MAX(sequence), 0) + 1 next FROM hands WHERE match_id = ?',
-    ).bind(id).first<{ next: number }>()
+    const sequence = Number((sequenceResult as D1Result<{ next: number | string }>).results[0]?.next ?? 1)
     const handId = uid()
     const next = nextPosition(match.current_wind, match.current_hand)
     const createdAt = now()
+    const hand: Hand = {
+      id: handId,
+      sequence,
+      wind: match.current_wind,
+      hand_number: match.current_hand,
+      result_type: input.type,
+      winner_player_id: input.winnerPlayerId ?? null,
+      loser_player_id: input.loserPlayerId ?? null,
+      note: input.note ?? null,
+      tile_record: input.tileRecord ?? null,
+      scores: input.scores,
+      created_at: createdAt,
+    }
+    const preparedAt = performance.now()
     await c.env.DB.batch([
       c.env.DB.prepare(`
         INSERT INTO hands(id, match_id, sequence, wind, hand_number, result_type,
           winner_player_id, loser_player_id, note, tile_record, created_at)
         VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).bind(
-        handId,
+        hand.id,
         id,
-        sequence?.next ?? 1,
-        match.current_wind,
-        match.current_hand,
-        input.type,
-        input.winnerPlayerId ?? null,
-        input.loserPlayerId ?? null,
-        input.note ?? null,
-        input.tileRecord ? JSON.stringify(input.tileRecord) : null,
-        createdAt,
+        hand.sequence,
+        hand.wind,
+        hand.hand_number,
+        hand.result_type,
+        hand.winner_player_id,
+        hand.loser_player_id,
+        hand.note,
+        hand.tile_record ? JSON.stringify(hand.tile_record) : null,
+        hand.created_at,
       ),
-      ...input.scores.map(score => c.env.DB.prepare(
+      ...hand.scores.map(score => c.env.DB.prepare(
         'INSERT INTO hand_scores(hand_id, player_id, score_change) VALUES(?, ?, ?)',
-      ).bind(handId, score.playerId, score.change)),
+      ).bind(hand.id, score.playerId, score.change)),
       c.env.DB.prepare(
         'UPDATE matches SET current_wind = ?, current_hand = ?, updated_at = ? WHERE id = ?',
       ).bind(next.wind, next.hand, createdAt, id),
     ])
-    return c.json({ match: await getMatch(c.env.DB, id) }, 201)
+    const completedAt = performance.now()
+    c.header('Server-Timing', [
+      `authorize;dur=${(authorizedAt - startedAt).toFixed(1)}`,
+      `prepare;dur=${(preparedAt - authorizedAt).toFixed(1)}`,
+      `write;dur=${(completedAt - preparedAt).toFixed(1)}`,
+      `total;dur=${(completedAt - startedAt).toFixed(1)}`,
+    ].join(', '))
+    return c.json({ hand, current_wind: next.wind, current_hand: next.hand }, 201)
   })
 
   app.put('/api/matches/:id/hands/:handId', async c => {
+    const startedAt = performance.now()
     const id = c.req.param('id')
     const handId = c.req.param('handId')
     if (!await canWrite(c, id)) return jsonError(c, '没有该牌局的修改权限', 401)
-    await ensurePersonalStatisticsSchema(c.env.DB)
+    const authorizedAt = performance.now()
     const input = validateHand(await c.req.json().catch(() => null))
     if (!input) return jsonError(c, '计分数据格式无效')
 
-    const match = await c.env.DB.prepare('SELECT id, status FROM matches WHERE id = ?')
-      .bind(id).first<{ id: string; status: string }>()
+    const [matchResult, handResult, playerResult] = await c.env.DB.batch([
+      c.env.DB.prepare(
+        'SELECT id, status, current_wind, current_hand FROM matches WHERE id = ?',
+      ).bind(id),
+      c.env.DB.prepare(`
+        SELECT id, sequence, wind, hand_number, created_at
+        FROM hands WHERE id = ? AND match_id = ?
+      `).bind(handId, id),
+      c.env.DB.prepare('SELECT id FROM players WHERE match_id = ?').bind(id),
+    ])
+    const match = (matchResult as D1Result<{
+      id: string
+      status: string
+      current_wind: Wind
+      current_hand: number
+    }>).results[0]
     if (!match) return jsonError(c, '牌局不存在', 404)
     if (match.status !== 'active') return jsonError(c, '本将已经结束，不能再修改计分', 409)
 
-    const hand = await c.env.DB.prepare('SELECT id FROM hands WHERE id = ? AND match_id = ?')
-      .bind(handId, id).first<{ id: string }>()
-    if (!hand) return jsonError(c, '该局记录不存在', 404)
+    const storedHand = (handResult as D1Result<Pick<Hand, 'id' | 'sequence' | 'wind' | 'hand_number' | 'created_at'>>).results[0]
+    if (!storedHand) return jsonError(c, '该局记录不存在', 404)
 
-    const playerRows = await c.env.DB.prepare('SELECT id FROM players WHERE match_id = ?').bind(id).all<{ id: string }>()
+    const playerRows = playerResult as D1Result<{ id: string }>
     const validPlayerIds = new Set(playerRows.results.map(player => player.id))
     const inputError = handInputError(input, validPlayerIds)
     if (inputError) return jsonError(c, inputError)
 
+    const hand: Hand = {
+      ...storedHand,
+      result_type: input.type,
+      winner_player_id: input.winnerPlayerId ?? null,
+      loser_player_id: input.loserPlayerId ?? null,
+      note: input.note ?? null,
+      tile_record: input.tileRecord ?? null,
+      scores: input.scores,
+    }
     const updatedAt = now()
+    const preparedAt = performance.now()
     await c.env.DB.batch([
       c.env.DB.prepare(`
         UPDATE hands
         SET result_type = ?, winner_player_id = ?, loser_player_id = ?, note = ?, tile_record = ?
         WHERE id = ? AND match_id = ?
       `).bind(
-        input.type,
-        input.winnerPlayerId ?? null,
-        input.loserPlayerId ?? null,
-        input.note ?? null,
-        input.tileRecord ? JSON.stringify(input.tileRecord) : null,
-        handId,
+        hand.result_type,
+        hand.winner_player_id,
+        hand.loser_player_id,
+        hand.note,
+        hand.tile_record ? JSON.stringify(hand.tile_record) : null,
+        hand.id,
         id,
       ),
-      c.env.DB.prepare('DELETE FROM hand_scores WHERE hand_id = ?').bind(handId),
-      ...input.scores.map(score => c.env.DB.prepare(
+      c.env.DB.prepare('DELETE FROM hand_scores WHERE hand_id = ?').bind(hand.id),
+      ...hand.scores.map(score => c.env.DB.prepare(
         'INSERT INTO hand_scores(hand_id, player_id, score_change) VALUES(?, ?, ?)',
-      ).bind(handId, score.playerId, score.change)),
+      ).bind(hand.id, score.playerId, score.change)),
       c.env.DB.prepare('UPDATE matches SET updated_at = ? WHERE id = ?').bind(updatedAt, id),
     ])
-    return c.json({ match: await getMatch(c.env.DB, id) })
+    const completedAt = performance.now()
+    c.header('Server-Timing', [
+      `authorize;dur=${(authorizedAt - startedAt).toFixed(1)}`,
+      `prepare;dur=${(preparedAt - authorizedAt).toFixed(1)}`,
+      `write;dur=${(completedAt - preparedAt).toFixed(1)}`,
+      `total;dur=${(completedAt - startedAt).toFixed(1)}`,
+    ].join(', '))
+    return c.json({ hand, current_wind: match.current_wind, current_hand: match.current_hand })
   })
 
   app.delete('/api/matches/:id/hands/last', async c => {

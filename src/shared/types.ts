@@ -98,6 +98,12 @@ export interface HandInput {
   tileRecord?: HandTileRecord
 }
 
+export interface HandMutationResult {
+  hand: Hand
+  current_wind: Wind
+  current_hand: number
+}
+
 export interface PersonalPatternStat {
   name: string
   count: number
