@@ -18,6 +18,7 @@ async function request<T>(path: string, method: keyof Taro.request.Method = 'GET
       timeout: 15_000,
       header: {
         'content-type': 'application/json',
+        'x-match-response': 'hand-delta-v1',
         ...(auth ? { authorization: `Bearer ${auth}` } : {}),
         ...(adminToken ? { 'x-admin-token': adminToken } : {}),
       },

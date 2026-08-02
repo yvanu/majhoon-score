@@ -206,7 +206,9 @@ export function registerMatchRoutes(app: Hono<Env>) {
       `write;dur=${(completedAt - preparedAt).toFixed(1)}`,
       `total;dur=${(completedAt - startedAt).toFixed(1)}`,
     ].join(', '))
-    return c.json({ hand, current_wind: next.wind, current_hand: next.hand }, 201)
+    const response = { hand, current_wind: next.wind, current_hand: next.hand }
+    if (c.req.header('x-match-response') === 'hand-delta-v1') return c.json(response, 201)
+    return c.json({ ...response, match: await getMatch(c.env.DB, id) }, 201)
   })
 
   app.put('/api/matches/:id/hands/:handId', async c => {
@@ -283,7 +285,9 @@ export function registerMatchRoutes(app: Hono<Env>) {
       `write;dur=${(completedAt - preparedAt).toFixed(1)}`,
       `total;dur=${(completedAt - startedAt).toFixed(1)}`,
     ].join(', '))
-    return c.json({ hand, current_wind: match.current_wind, current_hand: match.current_hand })
+    const response = { hand, current_wind: match.current_wind, current_hand: match.current_hand }
+    if (c.req.header('x-match-response') === 'hand-delta-v1') return c.json(response)
+    return c.json({ ...response, match: await getMatch(c.env.DB, id) })
   })
 
   app.delete('/api/matches/:id/hands/last', async c => {
