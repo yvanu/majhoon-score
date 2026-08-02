@@ -23,7 +23,7 @@ import type {
 import { api, AUTH_KEY, CURRENT_KEY } from '../../services/api'
 import './index.scss'
 
-const animals = ['🐼', '🐯', '🦊', '🐸', '🐧', '🐵', '🦁', '🐨', '🐰', '🐲', '🦄', '🐙']
+const seatLabels = ['东', '南', '西', '北']
 const windName: Record<string, string> = { east: '东', south: '南', west: '西', north: '北' }
 const typeName: Record<string, string> = { tsumo: '自摸', ron: '点炮', draw: '流局', custom: '自定义' }
 const noteOptions = ['无花果', '对对胡', '混一色', '清一色', '七对', '全球独钓', '龙七', '花开', '杠开', '抢杠', '压绝', '天胡', '地听', '外包']
@@ -91,9 +91,29 @@ type DialogOptions = {
 type DialogState = DialogOptions & { closing: boolean }
 type ShowDialog = (options: DialogOptions) => Promise<boolean>
 
-function Avatar({ player, large = false }: { player: Player; large?: boolean }) {
-  const seed = Number(player.avatar_seed || 0)
-  return <View className={`avatar avatar-${seed % 6}${large ? ' avatar-large' : ''}`}>{animals[seed % animals.length]}</View>
+function avatarInitial(name: string) {
+  return [...name.trim()][0] || '雀'
+}
+
+function AvatarFace({ name, palette, seat, large = false, selected = false }: {
+  name: string
+  palette: number
+  seat?: number
+  large?: boolean
+  selected?: boolean
+}) {
+  return <View className={`avatar avatar-${palette % 6}${large ? ' avatar-large' : ''}${selected ? ' avatar-selected' : ''}`}>
+    <Text className='avatar-initial'>{avatarInitial(name)}</Text>
+    {seat !== undefined && <Text className='avatar-seat-badge'>{seatLabels[seat]}</Text>}
+  </View>
+}
+
+function Avatar({ player, large = false, selected = false }: { player: Player; large?: boolean; selected?: boolean }) {
+  return <AvatarFace name={player.name} palette={player.seat} seat={player.seat} large={large} selected={selected} />
+}
+
+function FriendAvatar({ friend, large = false }: { friend: Friend; large?: boolean }) {
+  return <AvatarFace name={friend.name} palette={Number(friend.avatar_seed || 0)} large={large} />
 }
 
 export default function Index() {
@@ -876,7 +896,7 @@ function Create({ user, onBack, onCreate, loading }: {
       {friendsLoading && <Text className='friend-empty'>正在加载牌友…</Text>}
       {!friendsLoading && !friends.length && <View className='friend-empty'><Text className='card-title'>还没有牌友</Text><Text>先手动输入名字并创建牌局，完成后会自动保存。</Text></View>}
       <ScrollView scrollY className='friend-list'>{friends.map(friend => <View className='friend-card' key={friend.id} onClick={() => chooseFriend(friend)}>
-        <View className={`avatar avatar-${friend.avatar_seed % 6}`}>{animals[friend.avatar_seed % animals.length]}</View>
+        <FriendAvatar friend={friend} />
         <View className='grow'><Text className='card-title'>{friend.name}</Text><Text>共同 {friend.jointMatches} 将 · 杠开 {friend.gangKaiWins} 次 · 被杠开 {friend.gangKaiAgainst} 次</Text></View>
         <Text className='card-arrow'>›</Text>
       </View>)}</ScrollView>
@@ -1013,7 +1033,7 @@ function FriendsScreen({ friends, loading, onHome, onHistory, onOpen, onProfile 
     </View>}
     <ScrollView scrollY className='friend-directory-list'>
       {friends.map(friend => <View className='friend-directory-card' key={friend.id} onClick={() => onOpen(friend)}>
-        <View className={`avatar avatar-${friend.avatar_seed % 6}`}>{animals[friend.avatar_seed % animals.length]}</View>
+        <FriendAvatar friend={friend} />
         <View className='grow'>
           <Text className='card-title'>{friend.name}</Text>
           <Text>共同 {friend.jointMatches} 将</Text>
@@ -1051,7 +1071,7 @@ function FriendStatisticsScreen({ statistics, onBack }: { statistics: FriendStat
   return <View className='page friend-statistics-page' style={{ paddingTop: `${getPageTopInset()}px` }}>
     <Header title='牌友战绩' onBack={onBack} />
     <View className='friend-statistics-hero'>
-      <View className={`avatar avatar-large avatar-${friend.avatar_seed % 6}`}>{animals[friend.avatar_seed % animals.length]}</View>
+      <FriendAvatar friend={friend} large />
       <View className='grow'><Text className='title-small'>{friend.name}</Text><Text>共同 {friend.jointMatches} 将 · 共 {statistics.totalHands} 局</Text></View>
     </View>
     <View className='friend-statistics-overview'>
@@ -1645,7 +1665,15 @@ function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }: {
 }
 
 function PlayerPicker({ title, players, selected, onSelect }: { title: string; players: Player[]; selected: string; onSelect: (id: string) => void }) {
-  return <View><Text className='section-title'>{title}</Text><View className='picker'>{players.map(player => <View className={selected === player.id ? 'pick selected' : 'pick'} key={player.id} onClick={() => onSelect(player.id)}><Avatar player={player} /><Text>{player.name}</Text></View>)}</View></View>
+  return <View><Text className='section-title'>{title}</Text><View className='picker'>{players.map(player => {
+    const isSelected = selected === player.id
+    return <View className={isSelected ? 'pick selected' : 'pick'} key={player.id} onClick={() => onSelect(player.id)}>
+      {isSelected && <Text className='pick-check'>✓</Text>}
+      <Avatar player={player} selected={isSelected} />
+      <Text className='pick-name'>{player.name}</Text>
+      <Text className='pick-seat'>{seatLabels[player.seat]}家</Text>
+    </View>
+  })}</View></View>
 }
 
 function StatsScreen({ match, stats, onReset }: { match: Match; stats: Stats; onReset: () => void }) {
