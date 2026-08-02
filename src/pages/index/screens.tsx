@@ -382,30 +382,21 @@ export function FriendStatisticsScreen({ statistics, onBack }: { statistics: Fri
   </View>
 }
 
-const chineseTileNumbers = ['', '一', '二', '三', '四', '五', '六', '七', '八', '九']
+const mahjongCodePoints: Record<MahjongTile, number> = {
+  east: 0x1f000, south: 0x1f001, west: 0x1f002, north: 0x1f003, red: 0x1f004, green: 0x1f005, white: 0x1f006,
+  '1m': 0x1f007, '2m': 0x1f008, '3m': 0x1f009, '4m': 0x1f00a, '5m': 0x1f00b, '6m': 0x1f00c, '7m': 0x1f00d, '8m': 0x1f00e, '9m': 0x1f00f,
+  '1s': 0x1f010, '2s': 0x1f011, '3s': 0x1f012, '4s': 0x1f013, '5s': 0x1f014, '6s': 0x1f015, '7s': 0x1f016, '8s': 0x1f017, '9s': 0x1f018,
+  '1p': 0x1f019, '2p': 0x1f01a, '3p': 0x1f01b, '4p': 0x1f01c, '5p': 0x1f01d, '6p': 0x1f01e, '7p': 0x1f01f, '8p': 0x1f020, '9p': 0x1f021,
+}
 
 export function MahjongTileFace({ tile, compact = false, concealed = false }: { tile: MahjongTile; compact?: boolean; concealed?: boolean }) {
   const suit = tile.endsWith('m') ? 'm' : tile.endsWith('p') ? 'p' : tile.endsWith('s') ? 's' : 'honor'
-  const number = suit === 'honor' ? 0 : Number(tile.slice(0, 1))
-
   return <View className={`record-tile tile-${suit}${compact ? ' compact' : ''}${concealed ? ' concealed' : ''}`}>
     <View className='record-tile-side' />
     <View className='record-tile-face'>
-      {concealed ? <View className='record-tile-back'><View className='record-tile-back-pattern' /></View> : <>
-        {suit === 'm' && <View className='tile-man-face'>
-          <Text className='tile-man-number'>{chineseTileNumbers[number]}</Text>
-          <Text className='tile-man-suit'>萬</Text>
-        </View>}
-        {suit === 'p' && <View className={`tile-pips tile-pips-${number}`}>
-          {Array.from({ length: number }, (_, index) => <View className={`tile-pip tile-pip-${index + 1}`} key={index} />)}
-        </View>}
-        {suit === 's' && <View className={`tile-bamboos tile-bamboos-${number}`}>
-          {Array.from({ length: number }, (_, index) => <View className={`tile-bamboo tile-bamboo-${index + 1}`} key={index}>
-            <View className='tile-bamboo-head' /><View className='tile-bamboo-body' />
-          </View>)}
-        </View>}
-        {suit === 'honor' && <Text className={`tile-honor-character honor-${tile}`}>{tileLabel[tile]}</Text>}
-      </>}
+      {concealed
+        ? <View className='record-tile-back'><View className='record-tile-back-pattern' /></View>
+        : <Text className='mahjong-standard-glyph'>{String.fromCodePoint(mahjongCodePoints[tile])}</Text>}
     </View>
   </View>
 }

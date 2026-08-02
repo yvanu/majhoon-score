@@ -292,15 +292,23 @@ function TileRecordModal({ record, onCancel, onConfirm }: {
   onConfirm: (record: HandTileRecord) => void
 }) {
   const [draft, setDraft] = useState<HandTileRecord>(() => cloneTileRecord(record))
+  let windowHeight = 720
+  try {
+    windowHeight = Taro.getWindowInfo().windowHeight || windowHeight
+  } catch (error) {
+    console.warn('Unable to read window height:', error)
+  }
+  const modalHeight = Math.max(440, windowHeight - 48)
+  const scrollHeight = Math.max(220, modalHeight - 276)
 
   return <View className='modal-backdrop tile-record-modal-backdrop' onClick={onCancel}>
-    <View className='tile-record-modal' onClick={event => event.stopPropagation()}>
+    <View className='tile-record-modal' style={{ height: `${modalHeight}px` }} onClick={event => event.stopPropagation()}>
       <View className='tile-record-modal-header'>
-        <View><Text className='eyebrow'>BIG HAND RECORD · v1.7.14</Text><Text className='title-small'>录入大胡牌谱</Text></View>
+        <View><Text className='eyebrow'>BIG HAND RECORD · v1.7.15</Text><Text className='title-small'>录入大胡牌谱</Text></View>
         <Button className='close-button' onClick={onCancel}>×</Button>
       </View>
       <Text className='tile-record-modal-tip'>先选择碰、明杠、暗杠、手牌或胡的牌，再点击下方麻将牌；已录入的牌可点击删除。</Text>
-      <ScrollView scrollY className='tile-record-modal-scroll'>
+      <ScrollView scrollY className='tile-record-modal-scroll' style={{ height: `${scrollHeight}px` }}>
         <TileRecordEditor record={draft} onChange={setDraft} />
       </ScrollView>
       <View className='tile-record-modal-actions'>
