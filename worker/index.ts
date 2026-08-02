@@ -20,9 +20,7 @@ app.get('/assets/mahjong/:file', async c => {
   if (!mahjongAssetFiles.has(file)) return jsonError(c, '麻将牌资源不存在', 404)
 
   const source = `https://cdn.jsdelivr.net/gh/FluffyStuff/riichi-mahjong-tiles@master/Export/Regular/${file}`
-  const response = await fetch(source, {
-    cf: { cacheEverything: true, cacheTtl: 31_536_000 },
-  })
+  const response = await fetch(source)
   if (!response.ok || !response.body) return jsonError(c, '麻将牌资源加载失败', 502)
 
   return new Response(response.body, {
