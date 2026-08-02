@@ -17,6 +17,15 @@ import { getMatch, getMatchBundle, getMatchStatistics } from '../match-service'
 import { ensureFriendSchema, ensurePersonalStatisticsSchema } from '../schema'
 import { bigHandPatterns, validateHand, validatePlayers } from '../validation'
 
+function responseOutcomes(input: HandInput): Hand['outcomes'] {
+  return (input.outcomes || []).map(outcome => ({
+    winner_player_id: outcome.winnerPlayerId,
+    score: outcome.score,
+    note: outcome.note ?? null,
+    tile_record: outcome.tileRecord ?? null,
+  }))
+}
+
 function handInputError(input: HandInput, validPlayerIds: Set<string>) {
   if (new Set(input.scores.map(score => score.playerId)).size !== 4 ||
       input.scores.some(score => !validPlayerIds.has(score.playerId))) {
@@ -25,17 +34,36 @@ function handInputError(input: HandInput, validPlayerIds: Set<string>) {
   if (input.scores.reduce((sum, score) => sum + score.change, 0) !== 0) {
     return '四人分数变化之和必须为 0'
   }
-  if (input.type === 'tsumo' && (!input.winnerPlayerId || input.loserPlayerId)) {
-    return '自摸需要且只能指定胡牌者'
+
+  const outcomes = input.outcomes || []
+  const winnerIds = outcomes.map(outcome => outcome.winnerPlayerId)
+  if ((input.type === 'ron' || input.type === 'tsumo') && !outcomes.length) return '胡牌结果不能为空'
+  if (input.type !== 'ron' && input.type !== 'tsumo' && outcomes.length) return '当前计分类型不能包含胡牌结果'
+  if (new Set(winnerIds).size !== winnerIds.length || winnerIds.some(id => !validPlayerIds.has(id))) return '胡牌者无效'
+
+  if (input.type === 'tsumo') {
+    if (outcomes.length !== 1 || input.loserPlayerId) return '自摸需要且只能指定一位胡牌者'
   }
-  if (input.type === 'ron' && (!input.winnerPlayerId || !input.loserPlayerId ||
-      input.winnerPlayerId === input.loserPlayerId)) {
-    return '点炮需要指定不同的胡牌者和放炮者'
+  if (input.type === 'ron') {
+    if (!input.loserPlayerId || !validPlayerIds.has(input.loserPlayerId)) return '点炮需要指定放炮者'
+    if (outcomes.length > 3 || winnerIds.includes(input.loserPlayerId)) return '胡牌者和放炮者不能相同'
   }
-  if (input.winnerPlayerId && !validPlayerIds.has(input.winnerPlayerId)) return '胡牌者无效'
-  if (input.loserPlayerId && !validPlayerIds.has(input.loserPlayerId)) return '放炮者无效'
-  if (input.tileRecord && ((input.type !== 'ron' && input.type !== 'tsumo') || !bigHandPatterns(input.note).length)) {
-    return '牌谱只能记录在带大胡标签的胡牌局中'
+
+  const outcomeTotal = outcomes.reduce((sum, outcome) => sum + outcome.score, 0)
+  for (const outcome of outcomes) {
+    const score = input.scores.find(item => item.playerId === outcome.winnerPlayerId)?.change
+    if (score !== outcome.score) return '胡牌者得分与计分明细不一致'
+    if (outcome.tileRecord && !bigHandPatterns(outcome.note).length) return '牌谱只能记录在带大胡标签的胡牌结果中'
+  }
+  if (input.type === 'ron') {
+    const loserScore = input.scores.find(item => item.playerId === input.loserPlayerId)?.change
+    if (loserScore !== -outcomeTotal) return '放炮者扣分必须等于所有胡牌者得分之和'
+    if (input.scores.some(item => !winnerIds.includes(item.playerId) && item.playerId !== input.loserPlayerId && item.change !== 0)) {
+      return '未参与胡牌的玩家分数必须为 0'
+    }
+  }
+  if (input.type === 'tsumo' && input.scores.find(item => item.playerId === winnerIds[0])?.change !== outcomeTotal) {
+    return '自摸得分与计分明细不一致'
   }
   return null
 }
@@ -160,16 +188,19 @@ export function registerMatchRoutes(app: Hono<Env>) {
     const handId = uid()
     const next = nextPosition(match.current_wind, match.current_hand)
     const createdAt = now()
+    const outcomes = responseOutcomes(input)
+    const primaryOutcome = outcomes[0]
     const hand: Hand = {
       id: handId,
       sequence,
       wind: match.current_wind,
       hand_number: match.current_hand,
       result_type: input.type,
-      winner_player_id: input.winnerPlayerId ?? null,
+      winner_player_id: primaryOutcome?.winner_player_id ?? null,
       loser_player_id: input.loserPlayerId ?? null,
-      note: input.note ?? null,
-      tile_record: input.tileRecord ?? null,
+      note: primaryOutcome?.note ?? null,
+      tile_record: primaryOutcome?.tile_record ?? null,
+      outcomes,
       scores: input.scores,
       created_at: createdAt,
     }
@@ -195,6 +226,17 @@ export function registerMatchRoutes(app: Hono<Env>) {
       ...hand.scores.map(score => c.env.DB.prepare(
         'INSERT INTO hand_scores(hand_id, player_id, score_change) VALUES(?, ?, ?)',
       ).bind(hand.id, score.playerId, score.change)),
+      ...hand.outcomes.map((outcome, index) => c.env.DB.prepare(`
+        INSERT INTO hand_outcomes(hand_id, winner_player_id, score_gain, note, tile_record, outcome_order)
+        VALUES(?, ?, ?, ?, ?, ?)
+      `).bind(
+        hand.id,
+        outcome.winner_player_id,
+        outcome.score,
+        outcome.note,
+        outcome.tile_record ? JSON.stringify(outcome.tile_record) : null,
+        index,
+      )),
       c.env.DB.prepare(
         'UPDATE matches SET current_wind = ?, current_hand = ?, updated_at = ? WHERE id = ?',
       ).bind(next.wind, next.hand, createdAt, id),
@@ -247,13 +289,16 @@ export function registerMatchRoutes(app: Hono<Env>) {
     const inputError = handInputError(input, validPlayerIds)
     if (inputError) return jsonError(c, inputError)
 
+    const outcomes = responseOutcomes(input)
+    const primaryOutcome = outcomes[0]
     const hand: Hand = {
       ...storedHand,
       result_type: input.type,
-      winner_player_id: input.winnerPlayerId ?? null,
+      winner_player_id: primaryOutcome?.winner_player_id ?? null,
       loser_player_id: input.loserPlayerId ?? null,
-      note: input.note ?? null,
-      tile_record: input.tileRecord ?? null,
+      note: primaryOutcome?.note ?? null,
+      tile_record: primaryOutcome?.tile_record ?? null,
+      outcomes,
       scores: input.scores,
     }
     const updatedAt = now()
@@ -273,9 +318,21 @@ export function registerMatchRoutes(app: Hono<Env>) {
         id,
       ),
       c.env.DB.prepare('DELETE FROM hand_scores WHERE hand_id = ?').bind(hand.id),
+      c.env.DB.prepare('DELETE FROM hand_outcomes WHERE hand_id = ?').bind(hand.id),
       ...hand.scores.map(score => c.env.DB.prepare(
         'INSERT INTO hand_scores(hand_id, player_id, score_change) VALUES(?, ?, ?)',
       ).bind(hand.id, score.playerId, score.change)),
+      ...hand.outcomes.map((outcome, index) => c.env.DB.prepare(`
+        INSERT INTO hand_outcomes(hand_id, winner_player_id, score_gain, note, tile_record, outcome_order)
+        VALUES(?, ?, ?, ?, ?, ?)
+      `).bind(
+        hand.id,
+        outcome.winner_player_id,
+        outcome.score,
+        outcome.note,
+        outcome.tile_record ? JSON.stringify(outcome.tile_record) : null,
+        index,
+      )),
       c.env.DB.prepare('UPDATE matches SET updated_at = ? WHERE id = ?').bind(updatedAt, id),
     ])
     const completedAt = performance.now()

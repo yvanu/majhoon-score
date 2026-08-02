@@ -58,6 +58,20 @@ export interface MatchPlayerInput {
   isSelf?: boolean
 }
 
+export interface HandOutcome {
+  winner_player_id: string
+  score: number
+  note: string | null
+  tile_record: HandTileRecord | null
+}
+
+export interface HandOutcomeInput {
+  winnerPlayerId: string
+  score: number
+  note?: string
+  tileRecord?: HandTileRecord
+}
+
 export interface Hand {
   id: string
   sequence: number
@@ -68,6 +82,7 @@ export interface Hand {
   loser_player_id: string | null
   note: string | null
   tile_record: HandTileRecord | null
+  outcomes: HandOutcome[]
   scores: ScoreChange[]
   created_at: string
 }
@@ -93,6 +108,7 @@ export interface HandInput {
   type: HandType
   winnerPlayerId?: string
   loserPlayerId?: string
+  outcomes?: HandOutcomeInput[]
   scores: ScoreChange[]
   note?: string
   tileRecord?: HandTileRecord

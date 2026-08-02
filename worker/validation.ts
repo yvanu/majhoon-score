@@ -149,17 +149,50 @@ export function validateHand(value: unknown): HandInput | null {
     return { playerId: item.playerId, change: item.change }
   })
   if (scores.some(item => !item)) return null
+
   const tileRecord = value.tileRecord === undefined || value.tileRecord === null
     ? undefined
     : validateTileRecord(value.tileRecord)
   if (value.tileRecord !== undefined && value.tileRecord !== null && !tileRecord) return null
 
+  let outcomes: HandInput['outcomes']
+  if (value.outcomes !== undefined) {
+    if (!Array.isArray(value.outcomes) || value.outcomes.length < 1 || value.outcomes.length > 3) return null
+    const parsed = value.outcomes.map(item => {
+      if (!isRecord(item) || typeof item.winnerPlayerId !== 'string' ||
+          typeof item.score !== 'number' || !Number.isInteger(item.score) ||
+          item.score <= 0 || item.score > 1_000_000) return null
+      const outcomeTileRecord = item.tileRecord === undefined || item.tileRecord === null
+        ? undefined
+        : validateTileRecord(item.tileRecord)
+      if (item.tileRecord !== undefined && item.tileRecord !== null && !outcomeTileRecord) return null
+      return {
+        winnerPlayerId: item.winnerPlayerId,
+        score: item.score,
+        note: typeof item.note === 'string' ? item.note.trim().slice(0, 100) : undefined,
+        tileRecord: outcomeTileRecord || undefined,
+      }
+    })
+    if (parsed.some(item => !item)) return null
+    outcomes = parsed as NonNullable<HandInput['outcomes']>
+  }
+
+  const winnerPlayerId = typeof value.winnerPlayerId === 'string' ? value.winnerPlayerId : undefined
+  const note = typeof value.note === 'string' ? value.note.trim().slice(0, 100) : undefined
+  if (!outcomes && (value.type === 'ron' || value.type === 'tsumo') && winnerPlayerId) {
+    const winnerScore = scores.find(item => item?.playerId === winnerPlayerId)?.change ?? 0
+    if (winnerScore > 0) {
+      outcomes = [{ winnerPlayerId, score: winnerScore, note, tileRecord: tileRecord || undefined }]
+    }
+  }
+
   return {
     type: value.type as HandType,
-    winnerPlayerId: typeof value.winnerPlayerId === 'string' ? value.winnerPlayerId : undefined,
+    winnerPlayerId,
     loserPlayerId: typeof value.loserPlayerId === 'string' ? value.loserPlayerId : undefined,
+    outcomes,
     scores: scores as HandInput['scores'],
-    note: typeof value.note === 'string' ? value.note.trim().slice(0, 100) : undefined,
+    note,
     tileRecord: tileRecord || undefined,
   }
 }

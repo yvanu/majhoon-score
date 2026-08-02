@@ -1,8 +1,15 @@
-import type { Hand, Match, Player, PlayerStat, Stats } from '../src/shared/types'
+import type { Hand, HandOutcome, Match, Player, PlayerStat, Stats } from '../src/shared/types'
 import { parseStoredTileRecord } from './validation'
 
-type StoredHand = Omit<Hand, 'tile_record' | 'scores'> & { tile_record: string | null }
+type StoredHand = Omit<Hand, 'tile_record' | 'outcomes' | 'scores'> & { tile_record: string | null }
 type StoredHandScore = { hand_id: string; player_id: string; score_change: number | string }
+type StoredHandOutcome = {
+  hand_id: string
+  winner_player_id: string
+  score_gain: number | string
+  note: string | null
+  tile_record: string | null
+}
 type StoredPlayer = Player & { score: number | string }
 type StoredPlayerStat = PlayerStat & Record<string, number | string>
 type MatchBase = Omit<Match, 'players' | 'hands'>
@@ -39,17 +46,21 @@ function statisticsStatements(db: D1Database, idOrCode: string) {
     db.prepare(`SELECT COUNT(*) count FROM hands WHERE match_id = ${matchIdSelector}`).bind(key, code),
     db.prepare(`
       SELECT p.id, p.name, p.avatar_seed, p.friend_id, p.user_id, p.seat,
-        COALESCE(SUM(hs.score_change), 0) score,
-        SUM(CASE WHEN h.winner_player_id = p.id THEN 1 ELSE 0 END) wins,
-        SUM(CASE WHEN h.result_type = 'tsumo' AND h.winner_player_id = p.id THEN 1 ELSE 0 END) tsumo,
-        SUM(CASE WHEN h.result_type = 'ron' AND h.loser_player_id = p.id THEN 1 ELSE 0 END) deal_in,
-        COALESCE(MAX(CASE WHEN hs.score_change > 0 THEN hs.score_change END), 0) max_gain,
-        COALESCE(MIN(CASE WHEN hs.score_change < 0 THEN hs.score_change END), 0) max_loss
+        (SELECT COALESCE(SUM(hs.score_change), 0) FROM hand_scores hs WHERE hs.player_id = p.id) score,
+        (SELECT COUNT(*) FROM hand_outcomes ho
+          JOIN hands h ON h.id = ho.hand_id
+          WHERE ho.winner_player_id = p.id AND h.match_id = p.match_id) wins,
+        (SELECT COUNT(*) FROM hand_outcomes ho
+          JOIN hands h ON h.id = ho.hand_id
+          WHERE ho.winner_player_id = p.id AND h.match_id = p.match_id AND h.result_type = 'tsumo') tsumo,
+        (SELECT COUNT(*) FROM hands h
+          WHERE h.match_id = p.match_id AND h.result_type = 'ron' AND h.loser_player_id = p.id) deal_in,
+        (SELECT COALESCE(MAX(hs.score_change), 0) FROM hand_scores hs
+          WHERE hs.player_id = p.id AND hs.score_change > 0) max_gain,
+        (SELECT COALESCE(MIN(hs.score_change), 0) FROM hand_scores hs
+          WHERE hs.player_id = p.id AND hs.score_change < 0) max_loss
       FROM players p
-      LEFT JOIN hand_scores hs ON hs.player_id = p.id
-      LEFT JOIN hands h ON h.id = hs.hand_id
       WHERE p.match_id = ${matchIdSelector}
-      GROUP BY p.id
       ORDER BY score DESC, wins DESC, seat ASC
     `).bind(key, code),
   ]
@@ -89,6 +100,13 @@ export async function getMatchBundle(
       WHERE h.match_id = ${matchIdSelector}
       ORDER BY h.sequence DESC, hs.player_id
     `).bind(key, code),
+    db.prepare(`
+      SELECT ho.hand_id, ho.winner_player_id, ho.score_gain, ho.note, ho.tile_record
+      FROM hand_outcomes ho
+      JOIN hands h ON h.id = ho.hand_id
+      WHERE h.match_id = ${matchIdSelector}
+      ORDER BY h.sequence DESC, ho.outcome_order ASC
+    `).bind(key, code),
   ]
   if (includeStatistics) statements.push(...statisticsStatements(db, idOrCode))
 
@@ -98,27 +116,51 @@ export async function getMatchBundle(
   const players = results[1] as D1Result<StoredPlayer>
   const hands = results[2] as D1Result<StoredHand>
   const handScores = results[3] as D1Result<StoredHandScore>
+  const handOutcomes = results[4] as D1Result<StoredHandOutcome>
   const scoresByHand = new Map<string, Array<{ playerId: string; change: number }>>()
   handScores.results.forEach(score => {
     const current = scoresByHand.get(score.hand_id) || []
     current.push({ playerId: score.player_id, change: Number(score.score_change) })
     scoresByHand.set(score.hand_id, current)
   })
+  const outcomesByHand = new Map<string, HandOutcome[]>()
+  handOutcomes.results.forEach(outcome => {
+    const current = outcomesByHand.get(outcome.hand_id) || []
+    current.push({
+      winner_player_id: outcome.winner_player_id,
+      score: Number(outcome.score_gain),
+      note: outcome.note,
+      tile_record: parseStoredTileRecord(outcome.tile_record),
+    })
+    outcomesByHand.set(outcome.hand_id, current)
+  })
+
   const response: { match: Match; stats?: Stats } = {
     match: {
       ...match,
       players: players.results.map(player => ({ ...player, score: Number(player.score) })),
-      hands: hands.results.map(hand => ({
-        ...hand,
-        tile_record: parseStoredTileRecord(hand.tile_record),
-        scores: scoresByHand.get(hand.id) || [],
-      })),
+      hands: hands.results.map(hand => {
+        const scores = scoresByHand.get(hand.id) || []
+        const primaryTileRecord = parseStoredTileRecord(hand.tile_record)
+        const outcomes = outcomesByHand.get(hand.id) || (hand.winner_player_id ? [{
+          winner_player_id: hand.winner_player_id,
+          score: scores.find(score => score.playerId === hand.winner_player_id)?.change || 0,
+          note: hand.note,
+          tile_record: primaryTileRecord,
+        }] : [])
+        return {
+          ...hand,
+          tile_record: primaryTileRecord,
+          outcomes,
+          scores,
+        }
+      }),
     },
   }
   if (includeStatistics) {
     response.stats = buildStats(
-      results[4] as D1Result<{ count: number }>,
-      results[5] as D1Result<StoredPlayerStat>,
+      results[5] as D1Result<{ count: number }>,
+      results[6] as D1Result<StoredPlayerStat>,
     )
   }
   return response

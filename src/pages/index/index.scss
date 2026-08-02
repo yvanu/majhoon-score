@@ -600,6 +600,18 @@ page { background: var(--page-bg); color: var(--text); }
 .score-presets { margin-top: 16px; display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
 .score-preset { height: 58px; line-height: 58px; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 16px; background: #f8f5ef; color: var(--text-secondary); font-size: 20px; }
 .score-preset.active { border-color: #e6b32f; background: #fff1bd; color: #855e00; font-weight: 850; }
+.multi-picker-title { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.multi-picker-title > text:last-child { color: var(--text-muted); font-size: 18px; }
+.multi-ron-summary { margin: 22px 0 16px; padding: 18px 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border: 1px solid #edcf7a; border-radius: 22px; background: linear-gradient(135deg,#fff8db,#fff0b9); color: #825b00; font-size: 21px; font-weight: 850; }
+.winner-outcome-card { margin-top: 18px; padding: 22px; border: 1px solid #eadfca; border-radius: 26px; background: #fffdf8; box-shadow: 0 12px 30px rgba(91,72,37,.07); }
+.winner-outcome-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.winner-outcome-head text { display: block; }
+.winner-outcome-index { margin-bottom: 5px; color: #9b720d; font-size: 17px; font-weight: 800; }
+.winner-outcome-score { color: #b27600; font-size: 34px; font-weight: 950; }
+.score-field.compact { margin-top: 18px; }
+.outcome-notes { margin-top: 18px; }
+.loser-total-card { margin: 20px 0 10px; padding: 20px 22px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border: 1px solid #f1c7bd; border-radius: 22px; background: #fff2ee; color: #9b463a; font-size: 21px; font-weight: 850; }
+.loser-total-card > text:last-child { font-size: 34px; font-weight: 950; }
 
 @media (max-width: 360px) {
   .personal-rings { grid-template-columns: repeat(2,1fr); row-gap: 22px; }

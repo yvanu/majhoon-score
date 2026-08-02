@@ -4,6 +4,7 @@ import { Button, Input, ScrollView, Text, View } from '@tarojs/components'
 import type {
   Hand,
   HandInput,
+  HandOutcome,
   HandTileRecord,
   MahjongTile,
   Match,
@@ -27,8 +28,29 @@ import {
 } from './shared'
 import type { TileRecordSection } from './shared'
 
+function handOutcomes(hand: Hand): HandOutcome[] {
+  if (hand.outcomes?.length) return hand.outcomes
+  if (!hand.winner_player_id) return []
+  return [{
+    winner_player_id: hand.winner_player_id,
+    score: hand.scores.find(score => score.playerId === hand.winner_player_id)?.change || 0,
+    note: hand.note,
+    tile_record: hand.tile_record,
+  }]
+}
+
+function outcomeHasBigPattern(outcome: HandOutcome) {
+  return (outcome.note?.split('、') || []).some(note => bigHandOptions.has(note))
+}
+
 function handHasBigPattern(hand: Hand) {
-  return (hand.note?.split('、') || []).some(note => bigHandOptions.has(note))
+  return handOutcomes(hand).some(outcomeHasBigPattern)
+}
+
+function playerWinEntries(match: Match, playerId: string) {
+  return match.hands.flatMap(hand => handOutcomes(hand)
+    .filter(outcome => outcome.winner_player_id === playerId)
+    .map(outcome => ({ hand, outcome })))
 }
 
 function handPlayerName(match: Match, playerId: string | null) {
@@ -36,8 +58,12 @@ function handPlayerName(match: Match, playerId: string | null) {
 }
 
 function handOutcomeText(match: Match, hand: Hand) {
-  if (hand.result_type === 'ron') return `${handPlayerName(match, hand.winner_player_id)} 胡 · ${handPlayerName(match, hand.loser_player_id)} 点炮`
-  if (hand.result_type === 'tsumo') return `${handPlayerName(match, hand.winner_player_id)} 自摸`
+  const outcomes = handOutcomes(hand)
+  if (hand.result_type === 'ron') {
+    if (outcomes.length > 1) return `${handPlayerName(match, hand.loser_player_id)} 一炮${outcomes.length === 2 ? '双' : '三'}响`
+    return `${handPlayerName(match, outcomes[0]?.winner_player_id || hand.winner_player_id)} 胡 · ${handPlayerName(match, hand.loser_player_id)} 点炮`
+  }
+  if (hand.result_type === 'tsumo') return `${handPlayerName(match, outcomes[0]?.winner_player_id || hand.winner_player_id)} 自摸`
   if (hand.result_type === 'draw') return '流局'
   return '自定义计分'
 }
@@ -79,23 +105,25 @@ export function MatchScreen({ match, canEdit, loading, onAdd, onEdit, onUndo, on
 
 function LiveMatchStatsModal({ match, onClose }: { match: Match; onClose: () => void }) {
   const playerStats = match.players.map(player => {
-    const wins = match.hands.filter(hand => hand.winner_player_id === player.id)
+    const wins = playerWinEntries(match, player.id)
     return {
       player,
       wins: wins.length,
-      bigHands: wins.filter(handHasBigPattern).length,
-      tsumo: wins.filter(hand => hand.result_type === 'tsumo').length,
+      bigHands: wins.filter(entry => outcomeHasBigPattern(entry.outcome)).length,
+      tsumo: wins.filter(entry => entry.hand.result_type === 'tsumo').length,
       dealIns: match.hands.filter(hand => hand.result_type === 'ron' && hand.loser_player_id === player.id).length,
     }
   })
   const relationMap = new Map<string, { winnerId: string; loserId: string; count: number; score: number }>()
   match.hands.forEach(hand => {
-    if (hand.result_type !== 'ron' || !hand.winner_player_id || !hand.loser_player_id) return
-    const key = `${hand.loser_player_id}:${hand.winner_player_id}`
-    const current = relationMap.get(key) || { winnerId: hand.winner_player_id, loserId: hand.loser_player_id, count: 0, score: 0 }
-    current.count += 1
-    current.score += Math.max(0, (hand.scores || []).find(score => score.playerId === hand.winner_player_id)?.change || 0)
-    relationMap.set(key, current)
+    if (hand.result_type !== 'ron' || !hand.loser_player_id) return
+    handOutcomes(hand).forEach(outcome => {
+      const key = `${hand.loser_player_id}:${outcome.winner_player_id}`
+      const current = relationMap.get(key) || { winnerId: outcome.winner_player_id, loserId: hand.loser_player_id!, count: 0, score: 0 }
+      current.count += 1
+      current.score += Math.max(0, outcome.score)
+      relationMap.set(key, current)
+    })
   })
   const relations = [...relationMap.values()].sort((first, second) => second.count - first.count || second.score - first.score)
 
@@ -127,10 +155,13 @@ function HandHistoryModal({ match, canEdit, onEdit, onClose }: {
     <View className='detail-header'><View><Text className='eyebrow'>HAND HISTORY</Text><Text className='title-small'>本将记录</Text></View><Button className='close-button' onClick={onClose}>×</Button></View>
     <Text className='hand-history-tip'>{canEdit ? '点击任意一局即可修改录入内容和分数。' : '当前为只读记录。'}</Text>
     <ScrollView scrollY className='match-modal-scroll hand-history-scroll'>{hands.map(hand => {
-      const winnerScore = hand.winner_player_id ? (hand.scores || []).find(score => score.playerId === hand.winner_player_id)?.change || 0 : 0
+      const outcomes = handOutcomes(hand)
+      const detail = outcomes.length
+        ? outcomes.map(outcome => `${handPlayerName(match, outcome.winner_player_id)} +${outcome.score}${outcome.note ? ` · ${outcome.note.split('、').join('')}` : ''}`).join('；')
+        : typeName[hand.result_type]
       return <View className={`hand-record-card${canEdit ? ' editable' : ''}`} key={hand.id} onClick={() => { if (canEdit) onEdit(hand) }}>
         <View className='hand-record-index'><Text>第 {hand.sequence} 局</Text><Text>{windName[hand.wind]}风 {hand.hand_number}局</Text></View>
-        <View className='hand-record-main'><Text className='card-title'>{handOutcomeText(match, hand)}</Text><Text>{hand.note || typeName[hand.result_type]}{winnerScore > 0 ? ` · +${winnerScore}` : ''}</Text></View>
+        <View className='hand-record-main'><Text className='card-title'>{handOutcomeText(match, hand)}</Text><Text>{detail}</Text></View>
         {canEdit && <Text className='hand-record-action'>修改</Text>}
       </View>
     })}</ScrollView>
@@ -138,16 +169,16 @@ function HandHistoryModal({ match, canEdit, onEdit, onClose }: {
 }
 
 function PlayerDetailModal({ player, match, onClose }: { player: Player; match: Match; onClose: () => void }) {
-  const wins = match.hands.filter(hand => hand.winner_player_id === player.id)
-  const tsumoHands = wins.filter(hand => hand.result_type === 'tsumo')
-  const ronHands = wins.filter(hand => hand.result_type === 'ron')
-  const bigHands = wins.filter(handHasBigPattern)
+  const wins = playerWinEntries(match, player.id)
+  const tsumoHands = wins.filter(entry => entry.hand.result_type === 'tsumo')
+  const ronHands = wins.filter(entry => entry.hand.result_type === 'ron')
+  const bigHands = wins.filter(entry => outcomeHasBigPattern(entry.outcome))
   const dealInHands = match.hands.filter(hand => hand.result_type === 'ron' && hand.loser_player_id === player.id)
 
-  function noteGroups(hands: Match['hands']) {
+  function noteGroups(outcomes: HandOutcome[]) {
     const counts = new Map<string, number>()
-    hands.forEach(hand => {
-      const notes = (hand.note?.split('、') || []).filter(note => noteOptions.includes(note))
+    outcomes.forEach(outcome => {
+      const notes = (outcome.note?.split('、') || []).filter(note => noteOptions.includes(note))
       if (!notes.length) return
       const label = notes.join('')
       counts.set(label, (counts.get(label) || 0) + 1)
@@ -163,9 +194,9 @@ function PlayerDetailModal({ player, match, onClose }: { player: Player; match: 
       <View><Text>大胡</Text><Text className='detail-number'>{bigHands.length}</Text></View>
       <View><Text>点炮</Text><Text className='detail-number'>{dealInHands.length}</Text></View>
     </View>
-    <DetailGroup title='自摸明细' count={tsumoHands.length} groups={noteGroups(tsumoHands)} />
-    <DetailGroup title='点炮胡明细' count={ronHands.length} groups={noteGroups(ronHands)} />
-    <DetailGroup title='点炮明细' count={dealInHands.length} groups={noteGroups(dealInHands)} />
+    <DetailGroup title='自摸明细' count={tsumoHands.length} groups={noteGroups(tsumoHands.map(entry => entry.outcome))} />
+    <DetailGroup title='点炮胡明细' count={ronHands.length} groups={noteGroups(ronHands.map(entry => entry.outcome))} />
+    <DetailGroup title='点炮明细' count={dealInHands.length} groups={noteGroups(dealInHands.flatMap(handOutcomes))} />
   </View></View>
 }
 
@@ -320,6 +351,12 @@ function TileRecordModal({ record, onCancel, onConfirm }: {
   </View>
 }
 
+type WinnerDraft = {
+  amount: string
+  notes: string[]
+  tileRecord: HandTileRecord
+}
+
 export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }: {
   players: Player[]
   initialHand: Hand | null
@@ -327,38 +364,86 @@ export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }:
   onBack: () => void
   onSubmit: (input: HandInput) => void
 }) {
-  const initialWinner = initialHand?.winner_player_id || players[0].id
-  const initialLoser = initialHand?.loser_player_id || players.find(player => player.id !== initialWinner)?.id || players[1].id
+  const initialOutcomes = initialHand ? handOutcomes(initialHand) : []
+  const initialWinner = initialOutcomes[0]?.winner_player_id || initialHand?.winner_player_id || players[0].id
+  const initialRonWinnerIds = initialHand?.result_type === 'ron' && initialOutcomes.length
+    ? initialOutcomes.map(outcome => outcome.winner_player_id)
+    : [initialWinner]
+  const initialLoser = initialHand?.loser_player_id && !initialRonWinnerIds.includes(initialHand.loser_player_id)
+    ? initialHand.loser_player_id
+    : players.find(player => !initialRonWinnerIds.includes(player.id))?.id || players[1].id
   const initialScores = initialHand?.scores || []
-  const initialWinnerScore = initialScores.find(score => score.playerId === initialWinner)?.change || 0
   const initialTsumoPayment = Math.abs(initialScores.find(score => score.playerId !== initialWinner && score.change < 0)?.change || 50)
+  const initialTsumoOutcome = initialHand?.result_type === 'tsumo' ? initialOutcomes[0] : undefined
   const [type, setType] = useState<'ron' | 'tsumo' | 'draw' | 'custom'>(initialHand?.result_type || 'ron')
   const [winner, setWinner] = useState(initialWinner)
   const [loser, setLoser] = useState(initialLoser)
-  const [amount, setAmount] = useState(String(initialHand?.result_type === 'ron' ? Math.abs(initialWinnerScore || 50) : 50))
+  const [ronWinnerIds, setRonWinnerIds] = useState(initialRonWinnerIds)
+  const [ronDrafts, setRonDrafts] = useState<Record<string, WinnerDraft>>(() => Object.fromEntries(players.map(player => {
+    const outcome = initialHand?.result_type === 'ron'
+      ? initialOutcomes.find(item => item.winner_player_id === player.id)
+      : undefined
+    return [player.id, {
+      amount: String(outcome?.score || 50),
+      notes: outcome?.note?.split('、').filter(Boolean) || [],
+      tileRecord: outcome?.tile_record ? cloneTileRecord(outcome.tile_record) : emptyTileRecord(),
+    }]
+  })))
   const [tsumoPayment, setTsumoPayment] = useState(String(initialHand?.result_type === 'tsumo' ? initialTsumoPayment : 50))
   const [values, setValues] = useState<Record<string, string>>(Object.fromEntries(players.map(player => [
     player.id,
     String(initialScores.find(score => score.playerId === player.id)?.change || 0),
   ])))
-  const [notes, setNotes] = useState<string[]>(initialHand?.note?.split('、').filter(Boolean) || [])
-  const [tileRecord, setTileRecord] = useState<HandTileRecord>(() => initialHand?.tile_record ? cloneTileRecord(initialHand.tile_record) : emptyTileRecord())
-  const [showTileRecord, setShowTileRecord] = useState(false)
-  const canRecordTiles = (type === 'ron' || type === 'tsumo') && notes.some(note => bigHandOptions.has(note))
+  const [notes, setNotes] = useState<string[]>(initialTsumoOutcome?.note?.split('、').filter(Boolean) || [])
+  const [tileRecord, setTileRecord] = useState<HandTileRecord>(() => initialTsumoOutcome?.tile_record ? cloneTileRecord(initialTsumoOutcome.tile_record) : emptyTileRecord())
+  const [tileEditorTarget, setTileEditorTarget] = useState<'tsumo' | string | null>(null)
+  const canRecordTsumoTiles = type === 'tsumo' && notes.some(note => bigHandOptions.has(note))
   const isEditing = Boolean(initialHand)
+  const ronTotal = ronWinnerIds.reduce((sum, id) => sum + Math.max(1, Math.round(Number(ronDrafts[id]?.amount) || 0)), 0)
 
   function changeType(nextType: 'ron' | 'tsumo' | 'draw' | 'custom') {
     setType(nextType)
-    if (nextType !== 'ron' && nextType !== 'tsumo') setShowTileRecord(false)
+    setTileEditorTarget(null)
+  }
+
+  function updateRonDraft(playerId: string, updater: (draft: WinnerDraft) => WinnerDraft) {
+    setRonDrafts(current => ({ ...current, [playerId]: updater(current[playerId] || { amount: '50', notes: [], tileRecord: emptyTileRecord() }) }))
+  }
+
+  function toggleRonWinner(playerId: string) {
+    setRonWinnerIds(current => {
+      if (current.includes(playerId)) {
+        if (current.length === 1) {
+          void Taro.showToast({ title: '至少选择一位胡牌者', icon: 'none' })
+          return current
+        }
+        return current.filter(id => id !== playerId)
+      }
+      if (current.length >= 3) return current
+      const next = [...current, playerId]
+      if (playerId === loser) {
+        const nextLoser = players.find(player => !next.includes(player.id))
+        if (nextLoser) setLoser(nextLoser.id)
+      }
+      return next
+    })
+  }
+
+  function toggleRonNote(playerId: string, option: string) {
+    updateRonDraft(playerId, draft => {
+      const nextNotes = draft.notes.includes(option) ? draft.notes.filter(item => item !== option) : [...draft.notes, option]
+      return {
+        ...draft,
+        notes: nextNotes,
+        tileRecord: nextNotes.some(note => bigHandOptions.has(note)) ? draft.tileRecord : emptyTileRecord(),
+      }
+    })
   }
 
   function toggleNote(option: string) {
     const next = notes.includes(option) ? notes.filter(item => item !== option) : [...notes, option]
     setNotes(next)
-    if (!next.some(note => bigHandOptions.has(note))) {
-      setShowTileRecord(false)
-      setTileRecord(emptyTileRecord())
-    }
+    if (!next.some(note => bigHandOptions.has(note))) setTileRecord(emptyTileRecord())
   }
 
   function adjustScore(current: string, delta: number, onChange: (value: string) => void) {
@@ -369,49 +454,111 @@ export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }:
   function save() {
     let scores: { playerId: string; change: number }[]
     if (type === 'ron') {
-      const value = Math.max(1, Math.round(Number(amount) || 0))
-      scores = players.map(player => ({ playerId: player.id, change: player.id === winner ? value : player.id === loser ? -value : 0 }))
-    } else if (type === 'tsumo') {
+      const outcomes = ronWinnerIds.map(playerId => {
+        const draft = ronDrafts[playerId]
+        const score = Math.max(1, Math.round(Number(draft?.amount) || 0))
+        const canRecord = draft?.notes.some(note => bigHandOptions.has(note))
+        return {
+          winnerPlayerId: playerId,
+          score,
+          note: draft?.notes.length ? draft.notes.join('、') : undefined,
+          tileRecord: canRecord && hasTileRecordContent(draft.tileRecord) ? draft.tileRecord : undefined,
+        }
+      })
+      const scoreByWinner = new Map(outcomes.map(outcome => [outcome.winnerPlayerId, outcome.score]))
+      const total = outcomes.reduce((sum, outcome) => sum + outcome.score, 0)
+      scores = players.map(player => ({
+        playerId: player.id,
+        change: scoreByWinner.get(player.id) || (player.id === loser ? -total : 0),
+      }))
+      onSubmit({
+        type,
+        winnerPlayerId: outcomes[0].winnerPlayerId,
+        loserPlayerId: loser,
+        outcomes,
+        scores,
+        note: outcomes[0].note,
+        tileRecord: outcomes[0].tileRecord,
+      })
+      return
+    }
+    if (type === 'tsumo') {
       const payment = Math.max(1, Math.round(Number(tsumoPayment) || 0))
       const losses = players.filter(player => player.id !== winner).map(player => ({ playerId: player.id, change: -payment }))
-      scores = [...losses, { playerId: winner, change: payment * losses.length }]
-    } else if (type === 'draw') {
+      const winnerScore = payment * losses.length
+      scores = [...losses, { playerId: winner, change: winnerScore }]
+      const canRecord = notes.some(note => bigHandOptions.has(note))
+      const outcome = {
+        winnerPlayerId: winner,
+        score: winnerScore,
+        note: notes.length ? notes.join('、') : undefined,
+        tileRecord: canRecord && hasTileRecordContent(tileRecord) ? tileRecord : undefined,
+      }
+      onSubmit({ type, winnerPlayerId: winner, outcomes: [outcome], scores, note: outcome.note, tileRecord: outcome.tileRecord })
+      return
+    }
+    if (type === 'draw') {
       scores = players.map(player => ({ playerId: player.id, change: 0 }))
     } else {
       scores = players.map(player => ({ playerId: player.id, change: Math.round(Number(values[player.id]) || 0) }))
       if (scores.reduce((sum, item) => sum + item.change, 0) !== 0) {
-        Taro.showToast({ title: '自定义分数之和必须为 0', icon: 'none' })
+        void Taro.showToast({ title: '自定义分数之和必须为 0', icon: 'none' })
         return
       }
     }
-    onSubmit({
-      type,
-      winnerPlayerId: type === 'ron' || type === 'tsumo' ? winner : undefined,
-      loserPlayerId: type === 'ron' ? loser : undefined,
-      scores,
-      note: notes.length ? notes.join('、') : undefined,
-      tileRecord: canRecordTiles && hasTileRecordContent(tileRecord) ? tileRecord : undefined,
-    })
+    onSubmit({ type, scores })
   }
+
+  const activeTileRecord = tileEditorTarget === 'tsumo'
+    ? tileRecord
+    : tileEditorTarget ? ronDrafts[tileEditorTarget]?.tileRecord : null
 
   return <View className='page score-page' style={{ paddingTop: `${getPageTopInset()}px` }}><Header title={isEditing ? '修改本局' : '记一局'} onBack={onBack} />
     {isEditing && <Text className='edit-hand-tip'>正在修改第 {initialHand?.sequence} 局，保存后会自动重新计算当前总分和战况。</Text>}
     <View className='tabs'>{(['ron', 'tsumo', 'draw', 'custom'] as const).map(value => <Button key={value} className={type === value ? 'tab active' : 'tab'} onClick={() => changeType(value)}>{typeName[value]}</Button>)}</View>
-    {(type === 'ron' || type === 'tsumo') && <PlayerPicker title='胡牌者' players={players} selected={winner} onSelect={id => { setWinner(id); if (id === loser) setLoser(players.find(player => player.id !== id)!.id) }} />}
-    {type === 'ron' && <><PlayerPicker title='放炮者' players={players.filter(player => player.id !== winner)} selected={loser} onSelect={setLoser} /><View className='field score-field'><Text>分数</Text><Input type='number' value={amount} cursorSpacing={28} onInput={event => setAmount(event.detail.value)} /><View className='score-presets'><Button className={amount === '50' ? 'score-preset active' : 'score-preset'} onClick={() => setAmount('50')}>50</Button><Button className={amount === '70' ? 'score-preset active' : 'score-preset'} onClick={() => setAmount('70')}>70</Button><Button className='score-preset' onClick={() => adjustScore(amount, 5, setAmount)}>+5</Button><Button className='score-preset' onClick={() => adjustScore(amount, -5, setAmount)}>-5</Button></View></View></>}
-    {type === 'tsumo' && <View className='field score-field'><Text>每人支付</Text><Input type='number' value={tsumoPayment} cursorSpacing={28} onInput={event => setTsumoPayment(event.detail.value)} /><View className='score-presets'><Button className={tsumoPayment === '50' ? 'score-preset active' : 'score-preset'} onClick={() => setTsumoPayment('50')}>50</Button><Button className={tsumoPayment === '70' ? 'score-preset active' : 'score-preset'} onClick={() => setTsumoPayment('70')}>70</Button><Button className='score-preset' onClick={() => adjustScore(tsumoPayment, 5, setTsumoPayment)}>+5</Button><Button className='score-preset' onClick={() => adjustScore(tsumoPayment, -5, setTsumoPayment)}>-5</Button></View></View>}
+
+    {type === 'ron' && <>
+      <PlayerPicker title='放炮者' players={players.filter(player => !ronWinnerIds.includes(player.id))} selected={loser} onSelect={setLoser} />
+      <MultiPlayerPicker title='胡牌者（可多选）' players={players.filter(player => player.id !== loser)} selected={ronWinnerIds} onToggle={toggleRonWinner} />
+      {ronWinnerIds.length > 1 && <View className='multi-ron-summary'><Text>一炮{ronWinnerIds.length === 2 ? '双' : '三'}响</Text><Text>{players.find(player => player.id === loser)?.name || '放炮者'} 合计 -{ronTotal}</Text></View>}
+      {ronWinnerIds.map((playerId, index) => {
+        const player = players.find(item => item.id === playerId)!
+        const draft = ronDrafts[playerId]
+        const canRecord = draft.notes.some(note => bigHandOptions.has(note))
+        return <View className='winner-outcome-card' key={playerId}>
+          <View className='winner-outcome-head'><View><Text className='winner-outcome-index'>胡牌结果 {index + 1}</Text><Text className='card-title'>{player.name}</Text></View><Text className='winner-outcome-score'>+{Math.max(1, Math.round(Number(draft.amount) || 0))}</Text></View>
+          <View className='field score-field compact'><Text>获得分数</Text><Input type='number' value={draft.amount} cursorSpacing={28} onInput={event => updateRonDraft(playerId, current => ({ ...current, amount: event.detail.value }))} /><View className='score-presets'><Button className={draft.amount === '50' ? 'score-preset active' : 'score-preset'} onClick={() => updateRonDraft(playerId, current => ({ ...current, amount: '50' }))}>50</Button><Button className={draft.amount === '70' ? 'score-preset active' : 'score-preset'} onClick={() => updateRonDraft(playerId, current => ({ ...current, amount: '70' }))}>70</Button><Button className='score-preset' onClick={() => adjustScore(draft.amount, 5, value => updateRonDraft(playerId, current => ({ ...current, amount: value })))}>+5</Button><Button className='score-preset' onClick={() => adjustScore(draft.amount, -5, value => updateRonDraft(playerId, current => ({ ...current, amount: value })))}>-5</Button></View></View>
+          <View className='note-field outcome-notes'><Text className='section-title'>牌型（可选）</Text><View className='note-options'>{noteOptions.map(option => <Button key={option} className={draft.notes.includes(option) ? 'note selected' : 'note'} onClick={() => toggleRonNote(playerId, option)}>{option}</Button>)}</View></View>
+          {canRecord && <View className='tile-record-entry'>
+            <View><Text className='card-title'>大胡牌谱</Text><Text>{hasTileRecordContent(draft.tileRecord) ? '牌谱已录入，可继续修改' : '可选录入该赢家的牌谱'}</Text></View>
+            <Button onClick={() => setTileEditorTarget(playerId)}>{hasTileRecordContent(draft.tileRecord) ? '修改' : '录入'}</Button>
+          </View>}
+        </View>
+      })}
+      <View className='loser-total-card'><Text>{players.find(player => player.id === loser)?.name || '放炮者'} 合计扣分</Text><Text>-{ronTotal}</Text></View>
+    </>}
+
+    {type === 'tsumo' && <>
+      <PlayerPicker title='胡牌者' players={players} selected={winner} onSelect={setWinner} />
+      <View className='field score-field'><Text>每人支付</Text><Input type='number' value={tsumoPayment} cursorSpacing={28} onInput={event => setTsumoPayment(event.detail.value)} /><View className='score-presets'><Button className={tsumoPayment === '50' ? 'score-preset active' : 'score-preset'} onClick={() => setTsumoPayment('50')}>50</Button><Button className={tsumoPayment === '70' ? 'score-preset active' : 'score-preset'} onClick={() => setTsumoPayment('70')}>70</Button><Button className='score-preset' onClick={() => adjustScore(tsumoPayment, 5, setTsumoPayment)}>+5</Button><Button className='score-preset' onClick={() => adjustScore(tsumoPayment, -5, setTsumoPayment)}>-5</Button></View></View>
+      <View className='note-field'><Text className='section-title'>牌型（可选）</Text><View className='note-options'>{noteOptions.map(option => <Button key={option} className={notes.includes(option) ? 'note selected' : 'note'} onClick={() => toggleNote(option)}>{option}</Button>)}</View></View>
+      {canRecordTsumoTiles && <View className='tile-record-entry'>
+        <View><Text className='card-title'>大胡牌谱</Text><Text>{hasTileRecordContent(tileRecord) ? '牌谱已录入，可继续修改' : '可选录入，之后会展示在我的战绩中'}</Text></View>
+        <Button onClick={() => setTileEditorTarget('tsumo')}>{hasTileRecordContent(tileRecord) ? '修改' : '录入'}</Button>
+      </View>}
+    </>}
+
     {type === 'custom' && players.map(player => <View className='field' key={player.id}><Text>{player.name}</Text><Input type='number' value={values[player.id]} onInput={event => setValues({ ...values, [player.id]: event.detail.value })} /></View>)}
-    <View className='note-field'><Text className='section-title'>备注（可选）</Text><View className='note-options'>{noteOptions.map(option => <Button key={option} className={notes.includes(option) ? 'note selected' : 'note'} onClick={() => toggleNote(option)}>{option}</Button>)}</View></View>
-    {canRecordTiles && <View className='tile-record-entry'>
-      <View><Text className='card-title'>大胡牌谱</Text><Text>{hasTileRecordContent(tileRecord) ? '牌谱已录入，可继续修改' : '可选录入，之后会展示在我的战绩中'}</Text></View>
-      <Button onClick={() => setShowTileRecord(true)}>{hasTileRecordContent(tileRecord) ? '修改' : '录入'}</Button>
-    </View>}
     <Button className='primary' disabled={loading} onClick={save}>{loading ? '保存中…' : isEditing ? '保存修改' : '确认保存'}</Button>
     <View className='score-bottom-spacer' />
-    {canRecordTiles && showTileRecord && <TileRecordModal
-      record={tileRecord}
-      onCancel={() => setShowTileRecord(false)}
-      onConfirm={record => { setTileRecord(record); setShowTileRecord(false) }}
+    {activeTileRecord && <TileRecordModal
+      record={activeTileRecord}
+      onCancel={() => setTileEditorTarget(null)}
+      onConfirm={record => {
+        if (tileEditorTarget === 'tsumo') setTileRecord(record)
+        else if (tileEditorTarget) updateRonDraft(tileEditorTarget, draft => ({ ...draft, tileRecord: record }))
+        setTileEditorTarget(null)
+      }}
     />}
   </View>
 }
@@ -420,6 +567,23 @@ function PlayerPicker({ title, players, selected, onSelect }: { title: string; p
   return <View><Text className='section-title'>{title}</Text><View className='picker'>{players.map(player => {
     const isSelected = selected === player.id
     return <View className={isSelected ? 'pick selected' : 'pick'} key={player.id} onClick={() => onSelect(player.id)}>
+      {isSelected && <Text className='pick-check'>✓</Text>}
+      <Avatar player={player} selected={isSelected} />
+      <Text className='pick-name'>{player.name}</Text>
+      <Text className='pick-seat'>{seatLabels[player.seat]}家</Text>
+    </View>
+  })}</View></View>
+}
+
+function MultiPlayerPicker({ title, players, selected, onToggle }: {
+  title: string
+  players: Player[]
+  selected: string[]
+  onToggle: (id: string) => void
+}) {
+  return <View><View className='multi-picker-title'><Text className='section-title'>{title}</Text><Text>已选 {selected.length} 人</Text></View><View className='picker'>{players.map(player => {
+    const isSelected = selected.includes(player.id)
+    return <View className={isSelected ? 'pick selected' : 'pick'} key={player.id} onClick={() => onToggle(player.id)}>
       {isSelected && <Text className='pick-check'>✓</Text>}
       <Avatar player={player} selected={isSelected} />
       <Text className='pick-name'>{player.name}</Text>

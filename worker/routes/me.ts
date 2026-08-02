@@ -84,8 +84,14 @@ export function registerMeRoutes(app: Hono<Env>) {
       : await c.env.DB.prepare(`
           SELECT f.id, f.name, f.avatar_seed, f.last_played_at,
             COUNT(DISTINCT p.match_id) joint_matches,
-            SUM(CASE WHEN h.winner_player_id = p.id AND INSTR(COALESCE(h.note, ''), '杠开') > 0 THEN 1 ELSE 0 END) gang_kai_wins,
-            SUM(CASE WHEN h.result_type = 'ron' AND h.loser_player_id = p.id AND INSTR(COALESCE(h.note, ''), '杠开') > 0 THEN 1 ELSE 0 END) gang_kai_against
+            SUM(CASE WHEN EXISTS (
+              SELECT 1 FROM hand_outcomes ho
+              WHERE ho.hand_id = h.id AND ho.winner_player_id = p.id AND INSTR(COALESCE(ho.note, ''), '杠开') > 0
+            ) THEN 1 ELSE 0 END) gang_kai_wins,
+            SUM(CASE WHEN h.result_type = 'ron' AND h.loser_player_id = p.id AND EXISTS (
+              SELECT 1 FROM hand_outcomes ho
+              WHERE ho.hand_id = h.id AND INSTR(COALESCE(ho.note, ''), '杠开') > 0
+            ) THEN 1 ELSE 0 END) gang_kai_against
           FROM friends f
           LEFT JOIN players p ON p.friend_id = f.id
           LEFT JOIN hands h ON h.match_id = p.match_id
@@ -125,12 +131,13 @@ export function registerMeRoutes(app: Hono<Env>) {
 
     const rows = await c.env.DB.prepare(`
       SELECT p.id player_id, p.match_id, h.id hand_id, h.result_type,
-        h.winner_player_id, h.loser_player_id, h.note
+        h.loser_player_id, ho.winner_player_id outcome_winner_player_id, ho.note outcome_note
       FROM players p
       JOIN matches m ON m.id = p.match_id AND m.owner_user_id = ?
       LEFT JOIN hands h ON h.match_id = p.match_id
+      LEFT JOIN hand_outcomes ho ON ho.hand_id = h.id
       WHERE p.friend_id = ?
-      ORDER BY h.created_at ASC
+      ORDER BY h.created_at ASC, ho.outcome_order ASC
     `).bind(user.id, c.req.param('id')).all<Record<string, unknown>>()
 
     const matchIds = new Set<string>()
@@ -143,6 +150,7 @@ export function registerMeRoutes(app: Hono<Env>) {
     let dealIns = 0
     let gangKaiWins = 0
     let gangKaiAgainst = 0
+    const countedDealInHands = new Set<string>()
 
     const addPatterns = (target: Map<string, number>, note: unknown) => {
       if (typeof note !== 'string') return
@@ -158,20 +166,24 @@ export function registerMeRoutes(app: Hono<Env>) {
       matchIds.add(String(row.match_id))
       if (!row.hand_id) continue
       handIds.add(String(row.hand_id))
+      const handId = String(row.hand_id)
       const playerId = String(row.player_id)
-      const isWin = row.winner_player_id === playerId
+      const isWin = row.outcome_winner_player_id === playerId
       const isDealIn = row.result_type === 'ron' && row.loser_player_id === playerId
       if (isWin) {
         wins += 1
         if (row.result_type === 'ron') ronWins += 1
         if (row.result_type === 'tsumo') tsumoWins += 1
-        if (typeof row.note === 'string' && row.note.split('、').includes('杠开')) gangKaiWins += 1
-        addPatterns(winPatterns, row.note)
+        if (typeof row.outcome_note === 'string' && row.outcome_note.split('、').includes('杠开')) gangKaiWins += 1
+        addPatterns(winPatterns, row.outcome_note)
       }
       if (isDealIn) {
-        dealIns += 1
-        if (typeof row.note === 'string' && row.note.split('、').includes('杠开')) gangKaiAgainst += 1
-        addPatterns(dealInPatterns, row.note)
+        if (!countedDealInHands.has(handId)) {
+          countedDealInHands.add(handId)
+          dealIns += 1
+        }
+        if (typeof row.outcome_note === 'string' && row.outcome_note.split('、').includes('杠开')) gangKaiAgainst += 1
+        addPatterns(dealInPatterns, row.outcome_note)
       }
     }
 
@@ -220,10 +232,17 @@ export function registerMeRoutes(app: Hono<Env>) {
           p.user_id IS NULL AND p.friend_id IS NULL AND p.name = ? COLLATE NOCASE
         ) THEN 1 ELSE 0 END) is_self,
         COALESCE(SUM(hs.score_change), 0) score,
-        SUM(CASE WHEN h.winner_player_id = p.id THEN 1 ELSE 0 END) wins,
-        SUM(CASE WHEN h.result_type = 'tsumo' AND h.winner_player_id = p.id THEN 1 ELSE 0 END) tsumo,
+        SUM(CASE WHEN EXISTS (
+          SELECT 1 FROM hand_outcomes ho WHERE ho.hand_id = h.id AND ho.winner_player_id = p.id
+        ) THEN 1 ELSE 0 END) wins,
+        SUM(CASE WHEN h.result_type = 'tsumo' AND EXISTS (
+          SELECT 1 FROM hand_outcomes ho WHERE ho.hand_id = h.id AND ho.winner_player_id = p.id
+        ) THEN 1 ELSE 0 END) tsumo,
         SUM(CASE WHEN h.result_type = 'ron' AND h.loser_player_id = p.id THEN 1 ELSE 0 END) deal_in,
-        SUM(CASE WHEN h.winner_player_id = p.id AND COALESCE(h.note, '') <> '' THEN 1 ELSE 0 END) big_hands
+        SUM(CASE WHEN EXISTS (
+          SELECT 1 FROM hand_outcomes ho
+          WHERE ho.hand_id = h.id AND ho.winner_player_id = p.id AND COALESCE(ho.note, '') <> ''
+        ) THEN 1 ELSE 0 END) big_hands
       FROM matches m
       JOIN players p ON p.match_id = m.id
       LEFT JOIN hand_scores hs ON hs.player_id = p.id
@@ -270,9 +289,11 @@ export function registerMeRoutes(app: Hono<Env>) {
     if (!period) return jsonError(c, '统计时间范围无效')
 
     const rows = await c.env.DB.prepare(`
-      SELECT h.id hand_id, h.match_id, h.result_type, h.winner_player_id,
-        h.loser_player_id, h.note, h.tile_record, h.created_at,
-        p.id player_id, COALESCE(hs.score_change, 0) score_change
+      SELECT h.id hand_id, h.match_id, h.result_type,
+        h.loser_player_id, h.created_at,
+        p.id player_id, COALESCE(hs.score_change, 0) score_change,
+        ho.winner_player_id outcome_winner_player_id,
+        ho.note outcome_note, ho.tile_record outcome_tile_record
       FROM hands h
       JOIN matches m ON m.id = h.match_id AND m.owner_user_id = ?
       JOIN players p ON p.match_id = m.id AND (
@@ -282,6 +303,7 @@ export function registerMeRoutes(app: Hono<Env>) {
         )
       )
       LEFT JOIN hand_scores hs ON hs.hand_id = h.id AND hs.player_id = p.id
+      LEFT JOIN hand_outcomes ho ON ho.hand_id = h.id AND ho.winner_player_id = p.id
       WHERE h.created_at >= ? AND h.created_at < ?
       ORDER BY h.created_at DESC
     `).bind(
@@ -302,9 +324,9 @@ export function registerMeRoutes(app: Hono<Env>) {
 
     for (const row of rows.results) {
       const playerId = String(row.player_id)
-      const isWin = row.winner_player_id === playerId
+      const isWin = row.outcome_winner_player_id === playerId
       const isDealIn = row.result_type === 'ron' && row.loser_player_id === playerId
-      const patterns = bigHandPatterns(row.note)
+      const patterns = bigHandPatterns(row.outcome_note)
 
       if (isWin) {
         wins += 1
@@ -313,14 +335,14 @@ export function registerMeRoutes(app: Hono<Env>) {
           bigHands += 1
           const patternLabel = [...new Set(patterns)].join('')
           patternCounts.set(patternLabel, (patternCounts.get(patternLabel) ?? 0) + 1)
-          const tileRecord = parseStoredTileRecord(row.tile_record)
+          const tileRecord = parseStoredTileRecord(row.outcome_tile_record)
           const score = Number(row.score_change ?? 0)
           if (tileRecord && (row.result_type === 'ron' || row.result_type === 'tsumo')) {
             const candidate = {
               handId: String(row.hand_id),
               matchId: String(row.match_id),
               resultType: row.result_type,
-              note: typeof row.note === 'string' ? row.note : '',
+              note: typeof row.outcome_note === 'string' ? row.outcome_note : '',
               score,
               createdAt: String(row.created_at),
               tileRecord,
