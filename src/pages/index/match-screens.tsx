@@ -335,7 +335,7 @@ function TileRecordModal({ record, onCancel, onConfirm }: {
   return <View className='modal-backdrop tile-record-modal-backdrop' onClick={onCancel}>
     <View className='tile-record-modal' style={{ height: `${modalHeight}px` }} onClick={event => event.stopPropagation()}>
       <View className='tile-record-modal-header'>
-        <View><Text className='eyebrow'>BIG HAND RECORD · v1.7.19</Text><Text className='title-small'>录入大胡牌谱</Text></View>
+        <View><Text className='eyebrow'>BIG HAND RECORD · v1.7.20</Text><Text className='title-small'>录入大胡牌谱</Text></View>
         <Button className='close-button' onClick={onCancel}>×</Button>
       </View>
       <Text className='tile-record-modal-tip'>先选择碰、明杠、暗杠、手牌或胡的牌，再点击下方麻将牌；已录入的牌可点击删除。</Text>
@@ -379,6 +379,7 @@ export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }:
   const [winner, setWinner] = useState(initialWinner)
   const [loser, setLoser] = useState(initialLoser)
   const [ronWinnerIds, setRonWinnerIds] = useState(initialRonWinnerIds)
+  const [activeRonWinnerId, setActiveRonWinnerId] = useState(initialRonWinnerIds[0])
   const [ronDrafts, setRonDrafts] = useState<Record<string, WinnerDraft>>(() => Object.fromEntries(players.map(player => {
     const outcome = initialHand?.result_type === 'ron'
       ? initialOutcomes.find(item => item.winner_player_id === player.id)
@@ -414,9 +415,16 @@ export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }:
     setLoser(playerId)
     setRonWinnerIds(current => {
       const remaining = current.filter(id => id !== playerId)
-      if (remaining.length) return remaining
+      if (remaining.length) {
+        if (activeRonWinnerId === playerId) setActiveRonWinnerId(remaining[0])
+        return remaining
+      }
       const replacement = players.find(player => player.id !== playerId)?.id
-      return replacement ? [replacement] : current
+      if (replacement) {
+        setActiveRonWinnerId(replacement)
+        return [replacement]
+      }
+      return current
     })
   }
 
@@ -427,10 +435,13 @@ export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }:
           void Taro.showToast({ title: '至少选择一位胡牌者', icon: 'none' })
           return current
         }
-        return current.filter(id => id !== playerId)
+        const next = current.filter(id => id !== playerId)
+        if (activeRonWinnerId === playerId) setActiveRonWinnerId(next[0])
+        return next
       }
       if (current.length >= 3) return current
       const next = [...current, playerId]
+      setActiveRonWinnerId(playerId)
       if (playerId === loser) {
         const nextLoser = players.find(player => !next.includes(player.id))
         if (nextLoser) setLoser(nextLoser.id)
@@ -522,8 +533,12 @@ export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }:
   const activeTileRecord = tileEditorTarget === 'tsumo'
     ? tileRecord
     : tileEditorTarget ? ronDrafts[tileEditorTarget]?.tileRecord : null
+  const displayedRonWinnerId = ronWinnerIds.includes(activeRonWinnerId) ? activeRonWinnerId : ronWinnerIds[0]
+  const displayedRonWinner = players.find(player => player.id === displayedRonWinnerId)
+  const displayedRonDraft = displayedRonWinnerId ? ronDrafts[displayedRonWinnerId] : undefined
+  const canRecordDisplayedRonTiles = Boolean(displayedRonDraft?.notes.some(note => bigHandOptions.has(note)))
 
-  return <><View className='page score-page' style={{ paddingTop: `${getPageTopInset()}px` }}><Header title={isEditing ? '修改本局' : '记一局'} onBack={onBack} />
+  return <><ScrollView scrollY className='score-page-scroll' showScrollbar={false}><View className='page score-page' style={{ paddingTop: `${getPageTopInset()}px` }}><Header title={isEditing ? '修改本局' : '记一局'} onBack={onBack} />
     {isEditing && <Text className='edit-hand-tip'>正在修改第 {initialHand?.sequence} 局，保存后会自动重新计算当前总分和战况。</Text>}
     <View className='tabs'>{(['ron', 'tsumo', 'draw', 'custom'] as const).map(value => <Button key={value} className={type === value ? 'tab active' : 'tab'} onClick={() => changeType(value)}>{typeName[value]}</Button>)}</View>
 
@@ -531,20 +546,25 @@ export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }:
       <PlayerPicker title='放炮者' players={players} selected={loser} onSelect={selectRonLoser} />
       <MultiPlayerPicker title='胡牌者（可多选）' players={players.filter(player => player.id !== loser)} selected={ronWinnerIds} onToggle={toggleRonWinner} />
       {ronWinnerIds.length > 1 && <View className='multi-ron-summary'><Text>一炮{ronWinnerIds.length === 2 ? '双' : '三'}响</Text><Text>{players.find(player => player.id === loser)?.name || '放炮者'} 合计 -{ronTotal}</Text></View>}
-      {ronWinnerIds.map((playerId, index) => {
+      {ronWinnerIds.length > 1 && <View className='winner-result-tabs'>{ronWinnerIds.map((playerId, index) => {
         const player = players.find(item => item.id === playerId)!
         const draft = ronDrafts[playerId]
-        const canRecord = draft.notes.some(note => bigHandOptions.has(note))
-        return <View className='winner-outcome-card' key={playerId}>
-          <View className='winner-outcome-head'><View><Text className='winner-outcome-index'>胡牌结果 {index + 1}</Text><Text className='card-title'>{player.name}</Text></View><Text className='winner-outcome-score'>+{Math.max(1, Math.round(Number(draft.amount) || 0))}</Text></View>
-          <View className='field score-field compact'><Text>获得分数</Text><Input type='number' value={draft.amount} cursorSpacing={28} onInput={event => updateRonDraft(playerId, current => ({ ...current, amount: event.detail.value }))} /><View className='score-presets'><Button className={draft.amount === '50' ? 'score-preset active' : 'score-preset'} onClick={() => updateRonDraft(playerId, current => ({ ...current, amount: '50' }))}>50</Button><Button className={draft.amount === '70' ? 'score-preset active' : 'score-preset'} onClick={() => updateRonDraft(playerId, current => ({ ...current, amount: '70' }))}>70</Button><Button className='score-preset' onClick={() => adjustScore(draft.amount, 5, value => updateRonDraft(playerId, current => ({ ...current, amount: value })))}>+5</Button><Button className='score-preset' onClick={() => adjustScore(draft.amount, -5, value => updateRonDraft(playerId, current => ({ ...current, amount: value })))}>-5</Button></View></View>
-          <View className='note-field outcome-notes'><Text className='section-title'>牌型（可选）</Text><View className='note-options'>{noteOptions.map(option => <Button key={option} className={draft.notes.includes(option) ? 'note selected' : 'note'} onClick={() => toggleRonNote(playerId, option)}>{option}</Button>)}</View></View>
-          {canRecord && <View className='tile-record-entry'>
-            <View><Text className='card-title'>大胡牌谱</Text><Text>{hasTileRecordContent(draft.tileRecord) ? '牌谱已录入，可继续修改' : '可选录入该赢家的牌谱'}</Text></View>
-            <Button onClick={() => setTileEditorTarget(playerId)}>{hasTileRecordContent(draft.tileRecord) ? '修改' : '录入'}</Button>
-          </View>}
+        const isActive = displayedRonWinnerId === playerId
+        return <View className={isActive ? 'winner-result-tab active' : 'winner-result-tab'} key={playerId} onClick={() => setActiveRonWinnerId(playerId)}>
+          <Text className='winner-result-tab-index'>结果 {index + 1}</Text>
+          <Text className='winner-result-tab-name'>{player.name}</Text>
+          <Text className='winner-result-tab-score'>+{Math.max(1, Math.round(Number(draft.amount) || 0))}</Text>
         </View>
-      })}
+      })}</View>}
+      {displayedRonWinner && displayedRonDraft && <View className='winner-outcome-card'>
+        <View className='winner-outcome-head'><View><Text className='winner-outcome-index'>胡牌结果 {ronWinnerIds.indexOf(displayedRonWinner.id) + 1}{ronWinnerIds.length > 1 ? ` / ${ronWinnerIds.length}` : ''}</Text><Text className='card-title'>{displayedRonWinner.name}</Text></View><Text className='winner-outcome-score'>+{Math.max(1, Math.round(Number(displayedRonDraft.amount) || 0))}</Text></View>
+        <View className='field score-field compact'><Text>获得分数</Text><Input type='number' value={displayedRonDraft.amount} cursorSpacing={28} onInput={event => updateRonDraft(displayedRonWinner.id, current => ({ ...current, amount: event.detail.value }))} /><View className='score-presets'><Button className={displayedRonDraft.amount === '50' ? 'score-preset active' : 'score-preset'} onClick={() => updateRonDraft(displayedRonWinner.id, current => ({ ...current, amount: '50' }))}>50</Button><Button className={displayedRonDraft.amount === '70' ? 'score-preset active' : 'score-preset'} onClick={() => updateRonDraft(displayedRonWinner.id, current => ({ ...current, amount: '70' }))}>70</Button><Button className='score-preset' onClick={() => adjustScore(displayedRonDraft.amount, 5, value => updateRonDraft(displayedRonWinner.id, current => ({ ...current, amount: value })))}>+5</Button><Button className='score-preset' onClick={() => adjustScore(displayedRonDraft.amount, -5, value => updateRonDraft(displayedRonWinner.id, current => ({ ...current, amount: value })))}>-5</Button></View></View>
+        <View className='note-field outcome-notes'><Text className='section-title'>牌型（可选）</Text><View className='note-options'>{noteOptions.map(option => <Button key={option} className={displayedRonDraft.notes.includes(option) ? 'note selected' : 'note'} onClick={() => toggleRonNote(displayedRonWinner.id, option)}>{option}</Button>)}</View></View>
+        {canRecordDisplayedRonTiles && <View className='tile-record-entry'>
+          <View><Text className='card-title'>大胡牌谱</Text><Text>{hasTileRecordContent(displayedRonDraft.tileRecord) ? '牌谱已录入，可继续修改' : '可选录入该赢家的牌谱'}</Text></View>
+          <Button onClick={() => setTileEditorTarget(displayedRonWinner.id)}>{hasTileRecordContent(displayedRonDraft.tileRecord) ? '修改' : '录入'}</Button>
+        </View>}
+      </View>}
       <View className='loser-total-card'><Text>{players.find(player => player.id === loser)?.name || '放炮者'} 合计扣分</Text><Text>-{ronTotal}</Text></View>
     </>}
 
@@ -560,7 +580,7 @@ export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }:
 
     {type === 'custom' && players.map(player => <View className='field' key={player.id}><Text>{player.name}</Text><Input type='number' value={values[player.id]} onInput={event => setValues({ ...values, [player.id]: event.detail.value })} /></View>)}
     <View className='score-bottom-spacer' />
-  </View>
+  </View></ScrollView>
   <View className='score-save-bar'><Button className='primary' disabled={loading} onClick={save}>{loading ? '保存中…' : isEditing ? '保存修改' : '确认保存'}</Button></View>
   {activeTileRecord && <TileRecordModal
     record={activeTileRecord}
