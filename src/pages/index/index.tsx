@@ -448,10 +448,11 @@ export default function Index() {
         : current)
       setPersonalStats(null)
       setEditingHandId(null)
-      setScreen('match')
+      const keepRecordingCurrentHand = input.type === 'event' && !handId
+      if (!keepRecordingCurrentHand) setScreen('match')
       await Taro.showToast({
         title: input.type === 'event'
-          ? handId ? '事件已修改' : '事件已记录'
+          ? handId ? '事件已修改' : '事件已记录，可继续录入'
           : handId ? '本局已修改' : '计分已保存',
         icon: 'success',
       })

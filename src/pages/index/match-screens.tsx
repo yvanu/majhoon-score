@@ -353,7 +353,7 @@ function TileRecordModal({ record, onCancel, onConfirm }: {
   return <View className='modal-backdrop tile-record-modal-backdrop' onClick={onCancel}>
     <View className='tile-record-modal' style={{ height: `${modalHeight}px` }} onClick={event => event.stopPropagation()}>
       <View className='tile-record-modal-header'>
-        <View><Text className='eyebrow'>BIG HAND RECORD · v1.7.22</Text><Text className='title-small'>录入大胡牌谱</Text></View>
+        <View><Text className='eyebrow'>BIG HAND RECORD · v1.7.23</Text><Text className='title-small'>录入大胡牌谱</Text></View>
         <Button className='close-button' onClick={onCancel}>×</Button>
       </View>
       <Text className='tile-record-modal-tip'>先选择碰、明杠、暗杠、手牌或胡的牌，再点击下方麻将牌；已录入的牌可点击删除。</Text>
@@ -696,7 +696,7 @@ export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }:
       <View className='event-preview-card'>
         <View className='event-preview-head'><Text>本次分数变化</Text><Text>{eventType}</Text></View>
         <View className='event-preview-grid'>{eventScores.map(score => <View key={score.playerId}><Text>{players.find(player => player.id === score.playerId)?.name}</Text><Text className={score.change > 0 ? 'positive' : score.change < 0 ? 'negative' : ''}>{score.change > 0 ? '+' : ''}{score.change}</Text></View>)}</View>
-        <Text className='event-preview-tip'>记录后立即更新当前比分，但不会推进风圈和局数。</Text>
+        <Text className='event-preview-tip'>记录后立即更新比分并留在当前局，可继续记录其他事件，或切换到点炮、自摸、流局完成本局。</Text>
       </View>
     </>}
 
