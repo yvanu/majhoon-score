@@ -1,7 +1,8 @@
 import type { Hand, Match, Player, PlayerStat, Stats } from '../src/shared/types'
 import { parseStoredTileRecord } from './validation'
 
-type StoredHand = Omit<Hand, 'tile_record'> & { tile_record: string | null }
+type StoredHand = Omit<Hand, 'tile_record' | 'scores'> & { tile_record: string | null }
+type StoredHandScore = { hand_id: string; player_id: string; score_change: number | string }
 type StoredPlayer = Player & { score: number | string }
 type StoredPlayerStat = PlayerStat & Record<string, number | string>
 type MatchBase = Omit<Match, 'players' | 'hands'>
@@ -81,6 +82,13 @@ export async function getMatchBundle(
       WHERE match_id = ${matchIdSelector}
       ORDER BY sequence DESC
     `).bind(key, code),
+    db.prepare(`
+      SELECT hs.hand_id, hs.player_id, hs.score_change
+      FROM hand_scores hs
+      JOIN hands h ON h.id = hs.hand_id
+      WHERE h.match_id = ${matchIdSelector}
+      ORDER BY h.sequence DESC, hs.player_id
+    `).bind(key, code),
   ]
   if (includeStatistics) statements.push(...statisticsStatements(db, idOrCode))
 
@@ -89,17 +97,28 @@ export async function getMatchBundle(
   if (!match) return null
   const players = results[1] as D1Result<StoredPlayer>
   const hands = results[2] as D1Result<StoredHand>
+  const handScores = results[3] as D1Result<StoredHandScore>
+  const scoresByHand = new Map<string, Array<{ playerId: string; change: number }>>()
+  handScores.results.forEach(score => {
+    const current = scoresByHand.get(score.hand_id) || []
+    current.push({ playerId: score.player_id, change: Number(score.score_change) })
+    scoresByHand.set(score.hand_id, current)
+  })
   const response: { match: Match; stats?: Stats } = {
     match: {
       ...match,
       players: players.results.map(player => ({ ...player, score: Number(player.score) })),
-      hands: hands.results.map(hand => ({ ...hand, tile_record: parseStoredTileRecord(hand.tile_record) })),
+      hands: hands.results.map(hand => ({
+        ...hand,
+        tile_record: parseStoredTileRecord(hand.tile_record),
+        scores: scoresByHand.get(hand.id) || [],
+      })),
     },
   }
   if (includeStatistics) {
     response.stats = buildStats(
-      results[3] as D1Result<{ count: number }>,
-      results[4] as D1Result<StoredPlayerStat>,
+      results[4] as D1Result<{ count: number }>,
+      results[5] as D1Result<StoredPlayerStat>,
     )
   }
   return response

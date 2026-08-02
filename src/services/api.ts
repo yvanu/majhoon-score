@@ -50,6 +50,8 @@ export const api = {
   ),
   addHand: (matchId: string, input: HandInput, token: string) =>
     request<{ match: Match }>(`/api/matches/${matchId}/hands`, 'POST', input, token),
+  updateHand: (matchId: string, handId: string, input: HandInput, token: string) =>
+    request<{ match: Match }>(`/api/matches/${matchId}/hands/${handId}`, 'PUT', input, token),
   undo: (matchId: string, token: string) => request<{ match: Match }>(`/api/matches/${matchId}/hands/last`, 'DELETE', undefined, token),
   finish: (matchId: string, token: string) => request<{ match: Match }>(`/api/matches/${matchId}/finish`, 'POST', undefined, token),
   statistics: (matchId: string) => request<Stats>(`/api/matches/${matchId}/statistics`),

@@ -1,5 +1,5 @@
 import type { Hono } from 'hono'
-import type { Wind } from '../../src/shared/types'
+import type { HandInput, Wind } from '../../src/shared/types'
 import { canWrite, currentUser } from '../auth-service'
 import {
   avatarSeed,
@@ -16,6 +16,29 @@ import type { Env } from '../env'
 import { getMatch, getMatchBundle, getMatchStatistics } from '../match-service'
 import { ensureFriendSchema, ensurePersonalStatisticsSchema } from '../schema'
 import { bigHandPatterns, validateHand, validatePlayers } from '../validation'
+
+function handInputError(input: HandInput, validPlayerIds: Set<string>) {
+  if (new Set(input.scores.map(score => score.playerId)).size !== 4 ||
+      input.scores.some(score => !validPlayerIds.has(score.playerId))) {
+    return '必须为本桌四位玩家各提交一条分数'
+  }
+  if (input.scores.reduce((sum, score) => sum + score.change, 0) !== 0) {
+    return '四人分数变化之和必须为 0'
+  }
+  if (input.type === 'tsumo' && (!input.winnerPlayerId || input.loserPlayerId)) {
+    return '自摸需要且只能指定胡牌者'
+  }
+  if (input.type === 'ron' && (!input.winnerPlayerId || !input.loserPlayerId ||
+      input.winnerPlayerId === input.loserPlayerId)) {
+    return '点炮需要指定不同的胡牌者和放炮者'
+  }
+  if (input.winnerPlayerId && !validPlayerIds.has(input.winnerPlayerId)) return '胡牌者无效'
+  if (input.loserPlayerId && !validPlayerIds.has(input.loserPlayerId)) return '放炮者无效'
+  if (input.tileRecord && ((input.type !== 'ron' && input.type !== 'tsumo') || !bigHandPatterns(input.note).length)) {
+    return '牌谱只能记录在带大胡标签的胡牌局中'
+  }
+  return null
+}
 
 export function registerMatchRoutes(app: Hono<Env>) {
   app.post('/api/matches', async c => {
@@ -116,25 +139,8 @@ export function registerMatchRoutes(app: Hono<Env>) {
 
     const playerRows = await c.env.DB.prepare('SELECT id FROM players WHERE match_id = ?').bind(id).all<{ id: string }>()
     const validPlayerIds = new Set(playerRows.results.map(player => player.id))
-    if (new Set(input.scores.map(score => score.playerId)).size !== 4 ||
-        input.scores.some(score => !validPlayerIds.has(score.playerId))) {
-      return jsonError(c, '必须为本桌四位玩家各提交一条分数')
-    }
-    if (input.scores.reduce((sum, score) => sum + score.change, 0) !== 0) {
-      return jsonError(c, '四人分数变化之和必须为 0')
-    }
-    if (input.type === 'tsumo' && (!input.winnerPlayerId || input.loserPlayerId)) {
-      return jsonError(c, '自摸需要且只能指定胡牌者')
-    }
-    if (input.type === 'ron' && (!input.winnerPlayerId || !input.loserPlayerId ||
-        input.winnerPlayerId === input.loserPlayerId)) {
-      return jsonError(c, '点炮需要指定不同的胡牌者和放炮者')
-    }
-    if (input.winnerPlayerId && !validPlayerIds.has(input.winnerPlayerId)) return jsonError(c, '胡牌者无效')
-    if (input.loserPlayerId && !validPlayerIds.has(input.loserPlayerId)) return jsonError(c, '放炮者无效')
-    if (input.tileRecord && ((input.type !== 'ron' && input.type !== 'tsumo') || !bigHandPatterns(input.note).length)) {
-      return jsonError(c, '牌谱只能记录在带大胡标签的胡牌局中')
-    }
+    const inputError = handInputError(input, validPlayerIds)
+    if (inputError) return jsonError(c, inputError)
 
     const sequence = await c.env.DB.prepare(
       'SELECT COALESCE(MAX(sequence), 0) + 1 next FROM hands WHERE match_id = ?',
@@ -168,6 +174,52 @@ export function registerMatchRoutes(app: Hono<Env>) {
       ).bind(next.wind, next.hand, createdAt, id),
     ])
     return c.json({ match: await getMatch(c.env.DB, id) }, 201)
+  })
+
+  app.put('/api/matches/:id/hands/:handId', async c => {
+    const id = c.req.param('id')
+    const handId = c.req.param('handId')
+    if (!await canWrite(c, id)) return jsonError(c, '没有该牌局的修改权限', 401)
+    await ensurePersonalStatisticsSchema(c.env.DB)
+    const input = validateHand(await c.req.json().catch(() => null))
+    if (!input) return jsonError(c, '计分数据格式无效')
+
+    const match = await c.env.DB.prepare('SELECT id, status FROM matches WHERE id = ?')
+      .bind(id).first<{ id: string; status: string }>()
+    if (!match) return jsonError(c, '牌局不存在', 404)
+    if (match.status !== 'active') return jsonError(c, '本将已经结束，不能再修改计分', 409)
+
+    const hand = await c.env.DB.prepare('SELECT id FROM hands WHERE id = ? AND match_id = ?')
+      .bind(handId, id).first<{ id: string }>()
+    if (!hand) return jsonError(c, '该局记录不存在', 404)
+
+    const playerRows = await c.env.DB.prepare('SELECT id FROM players WHERE match_id = ?').bind(id).all<{ id: string }>()
+    const validPlayerIds = new Set(playerRows.results.map(player => player.id))
+    const inputError = handInputError(input, validPlayerIds)
+    if (inputError) return jsonError(c, inputError)
+
+    const updatedAt = now()
+    await c.env.DB.batch([
+      c.env.DB.prepare(`
+        UPDATE hands
+        SET result_type = ?, winner_player_id = ?, loser_player_id = ?, note = ?, tile_record = ?
+        WHERE id = ? AND match_id = ?
+      `).bind(
+        input.type,
+        input.winnerPlayerId ?? null,
+        input.loserPlayerId ?? null,
+        input.note ?? null,
+        input.tileRecord ? JSON.stringify(input.tileRecord) : null,
+        handId,
+        id,
+      ),
+      c.env.DB.prepare('DELETE FROM hand_scores WHERE hand_id = ?').bind(handId),
+      ...input.scores.map(score => c.env.DB.prepare(
+        'INSERT INTO hand_scores(hand_id, player_id, score_change) VALUES(?, ?, ?)',
+      ).bind(handId, score.playerId, score.change)),
+      c.env.DB.prepare('UPDATE matches SET updated_at = ? WHERE id = ?').bind(updatedAt, id),
+    ])
+    return c.json({ match: await getMatch(c.env.DB, id) })
   })
 
   app.delete('/api/matches/:id/hands/last', async c => {

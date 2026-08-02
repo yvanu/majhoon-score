@@ -68,6 +68,7 @@ export interface Hand {
   loser_player_id: string | null
   note: string | null
   tile_record: HandTileRecord | null
+  scores: ScoreChange[]
   created_at: string
 }
 
