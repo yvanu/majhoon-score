@@ -9,7 +9,7 @@ import type {
 import { isRecord } from './core'
 
 const handTypes: HandType[] = ['tsumo', 'ron', 'draw', 'custom']
-export const recordedPatterns = new Set(['对对胡', '混一色', '清一色', '七对', '全球独钓', '龙七', '花开', '杠开', '外包'])
+export const recordedPatterns = new Set(['对对胡', '混一色', '清一色', '七对', '全球独钓', '龙七', '花开', '杠开', '抢杠', '压绝', '天胡', '地听', '外包'])
 const mahjongTiles = new Set<MahjongTile>([
   '1m', '2m', '3m', '4m', '5m', '6m', '7m', '8m', '9m',
   '1p', '2p', '3p', '4p', '5p', '6p', '7p', '8p', '9p',

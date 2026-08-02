@@ -25,7 +25,7 @@ import './index.scss'
 const animals = ['🐼', '🐯', '🦊', '🐸', '🐧', '🐵', '🦁', '🐨', '🐰', '🐲', '🦄', '🐙']
 const windName: Record<string, string> = { east: '东', south: '南', west: '西', north: '北' }
 const typeName: Record<string, string> = { tsumo: '自摸', ron: '点炮', draw: '流局', custom: '自定义' }
-const noteOptions = ['无花果', '对对胡', '混一色', '清一色', '七对', '全球独钓', '龙七', '花开', '杠开', '外包']
+const noteOptions = ['无花果', '对对胡', '混一色', '清一色', '七对', '全球独钓', '龙七', '花开', '杠开', '抢杠', '压绝', '天胡', '地听', '外包']
 const bigHandOptions = new Set(noteOptions.filter(option => option !== '无花果'))
 const tileGroups: Array<{ name: string; tiles: MahjongTile[] }> = [
   { name: '万', tiles: ['1m', '2m', '3m', '4m', '5m', '6m', '7m', '8m', '9m'] },
