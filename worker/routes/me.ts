@@ -299,7 +299,8 @@ export function registerMeRoutes(app: Hono<Env>) {
         if (row.result_type === 'tsumo') tsumoWins += 1
         if (patterns.length) {
           bigHands += 1
-          patterns.forEach(pattern => patternCounts.set(pattern, (patternCounts.get(pattern) ?? 0) + 1))
+          const patternLabel = [...new Set(patterns)].join('')
+          patternCounts.set(patternLabel, (patternCounts.get(patternLabel) ?? 0) + 1)
           const tileRecord = parseStoredTileRecord(row.tile_record)
           const score = Number(row.score_change ?? 0)
           if (tileRecord && (row.result_type === 'ron' || row.result_type === 'tsumo')) {
