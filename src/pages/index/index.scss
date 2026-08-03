@@ -645,6 +645,7 @@ page { background: var(--page-bg); color: var(--text); }
 .ron-role-panel { margin-top: 16px; padding: 16px; border: 1px solid #eadfca; border-radius: 24px; background: #fffdf8; box-shadow: 0 10px 26px rgba(91,72,37,.06); }
 .ron-role-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
 .score-page .ron-role-head .section-title { margin: 0; }
+.event-role-type { flex: 0 0 auto; padding: 7px 12px; border-radius: 999px; background: #fff1bd; color: #805900; font-size: 16px; font-weight: 900; }
 .ron-multi-switch { flex: 0 0 auto; display: flex; align-items: center; gap: 9px; color: var(--text-muted); font-size: 17px; font-weight: 800; }
 .ron-multi-switch-track { position: relative; width: 56px; height: 31px; border-radius: 999px; background: #ddd8cf; transition: background-color .16s ease; }
 .ron-multi-switch-thumb { position: absolute; left: 3px; top: 3px; width: 25px; height: 25px; border-radius: 50%; background: #fff; box-shadow: 0 3px 9px rgba(66,54,34,.18); transition: transform .16s ease; }
@@ -652,6 +653,7 @@ page { background: var(--page-bg); color: var(--text); }
 .ron-multi-switch.active .ron-multi-switch-track { background: #e4ad20; }
 .ron-multi-switch.active .ron-multi-switch-thumb { transform: translateX(25px); }
 .ron-role-tabs { margin-top: 13px; display: grid; grid-template-columns: repeat(2,1fr); gap: 9px; }
+.event-role-tabs.single { grid-template-columns: 1fr; }
 .ron-role-tab { min-width: 0; padding: 11px 13px; border: 1px solid var(--line); border-radius: 16px; background: #f8f5ef; }
 .ron-role-tab text { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ron-role-tab > text:first-child { color: var(--text-secondary); font-size: 20px; font-weight: 900; }

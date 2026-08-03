@@ -1,7 +1,7 @@
 {
   "name": "mahjong-score-taro",
   "private": true,
-  "version": "1.7.31",
+  "version": "1.7.32",
   "scripts": {
     "dev:weapp": "taro build --type weapp --watch",
     "build:weapp": "taro build --type weapp",
