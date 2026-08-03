@@ -58,6 +58,8 @@ function applyHandMutation(current: Match, result: HandMutationResult, replacedH
     ...current,
     current_wind: result.current_wind,
     current_hand: result.current_hand,
+    status: result.status ?? current.status,
+    finished_at: result.finished_at !== undefined ? result.finished_at : current.finished_at,
     players: current.players.map(player => ({
       ...player,
       score: player.score + (scoreDelta.get(player.id) || 0),
@@ -448,12 +450,20 @@ export default function Index() {
         : current)
       setPersonalStats(null)
       setEditingHandId(null)
+      if (data.status === 'finished') {
+        setStats(await api.statistics(match.id))
+        Taro.removeStorageSync(CURRENT_KEY)
+        if (user) await refreshDashboard()
+        setScreen('stats')
+        await Taro.showToast({ title: '北4过庄，本将结束', icon: 'success' })
+        return
+      }
       const keepRecordingCurrentHand = input.type === 'event' && !handId
       if (!keepRecordingCurrentHand) setScreen('match')
       await Taro.showToast({
         title: input.type === 'event'
           ? handId ? '事件已修改' : '事件已记录，可继续录入'
-          : handId ? '本局已修改' : '计分已保存',
+          : handId ? '本局已修改' : data.retained_dealer ? '已保存，庄家连庄' : '计分已保存',
         icon: 'success',
       })
     })

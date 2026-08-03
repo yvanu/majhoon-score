@@ -119,6 +119,9 @@ export interface HandMutationResult {
   hand: Hand
   current_wind: Wind
   current_hand: number
+  status?: MatchStatus
+  finished_at?: string | null
+  retained_dealer?: boolean
 }
 
 export interface PersonalPatternStat {

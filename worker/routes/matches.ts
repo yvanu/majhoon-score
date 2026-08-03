@@ -18,6 +18,26 @@ import { ensureFriendSchema, ensurePersonalStatisticsSchema } from '../schema'
 import { bigHandPatterns, validateHand, validatePlayers } from '../validation'
 
 const inHandEventTypes = new Set(['明杠', '暗杠', '花杠', '被跟圈', '四风归一'])
+const northFourRetentionEvents = new Set(['被跟圈', '花杠', '四风归一'])
+
+export function shouldRetainDealer(
+  input: HandInput,
+  dealerPlayerId: string | undefined,
+  isNorthFour: boolean,
+  currentHandEventNotes: Array<string | null>,
+) {
+  if (input.type === 'event') return true
+  if (input.type === 'draw') return true
+
+  const outcomes = input.outcomes || []
+  if (outcomes.length > 1) return true
+  if (dealerPlayerId && outcomes.some(outcome => outcome.winnerPlayerId === dealerPlayerId)) return true
+  if (outcomes.some(outcome => bigHandPatterns(outcome.note).includes('外包'))) return true
+
+  if (!isNorthFour) return false
+  if (outcomes.some(outcome => bigHandPatterns(outcome.note).length > 0)) return true
+  return currentHandEventNotes.some(note => note !== null && northFourRetentionEvents.has(note))
+}
 
 function responseOutcomes(input: HandInput): Hand['outcomes'] {
   return (input.outcomes || []).map(outcome => ({
@@ -194,14 +214,23 @@ export function registerMatchRoutes(app: Hono<Env>) {
     const input = validateHand(await c.req.json().catch(() => null))
     if (!input) return jsonError(c, '计分数据格式无效')
 
-    const [matchResult, playerResult, sequenceResult] = await c.env.DB.batch([
+    const [matchResult, playerResult, sequenceResult, currentHandEventsResult] = await c.env.DB.batch([
       c.env.DB.prepare(
         'SELECT id, status, current_wind, current_hand FROM matches WHERE id = ?',
       ).bind(id),
-      c.env.DB.prepare('SELECT id FROM players WHERE match_id = ?').bind(id),
+      c.env.DB.prepare('SELECT id, seat FROM players WHERE match_id = ?').bind(id),
       c.env.DB.prepare(
         'SELECT COALESCE(MAX(sequence), 0) + 1 next FROM hands WHERE match_id = ?',
       ).bind(id),
+      c.env.DB.prepare(`
+        SELECT note FROM hands
+        WHERE match_id = ? AND result_type = 'event'
+          AND sequence > COALESCE((
+            SELECT MAX(sequence) FROM hands
+            WHERE match_id = ? AND result_type <> 'event'
+          ), 0)
+        ORDER BY sequence ASC
+      `).bind(id, id),
     ])
     const match = (matchResult as D1Result<{
       id: string
@@ -212,17 +241,24 @@ export function registerMatchRoutes(app: Hono<Env>) {
     if (!match) return jsonError(c, '牌局不存在', 404)
     if (match.status !== 'active') return jsonError(c, '本将已经结束', 409)
 
-    const playerRows = playerResult as D1Result<{ id: string }>
+    const playerRows = playerResult as D1Result<{ id: string; seat: number }>
     const validPlayerIds = new Set(playerRows.results.map(player => player.id))
     const inputError = handInputError(input, validPlayerIds)
     if (inputError) return jsonError(c, inputError)
 
     const sequence = Number((sequenceResult as D1Result<{ next: number | string }>).results[0]?.next ?? 1)
     const handId = uid()
-    const next = input.type === 'event'
+    const isNorthFour = match.current_wind === 'north' && match.current_hand === 4
+    const dealerPlayerId = playerRows.results.find(player => Number(player.seat) === match.current_hand - 1)?.id
+    const currentHandEventNotes = (currentHandEventsResult as D1Result<{ note: string | null }>).results.map(row => row.note)
+    const retainDealer = shouldRetainDealer(input, dealerPlayerId, isNorthFour, currentHandEventNotes)
+    const finishesMatch = input.type !== 'event' && isNorthFour && !retainDealer
+    const next = input.type === 'event' || retainDealer || finishesMatch
       ? { wind: match.current_wind, hand: match.current_hand }
       : nextPosition(match.current_wind, match.current_hand)
     const createdAt = now()
+    const nextStatus = finishesMatch ? 'finished' : 'active'
+    const finishedAt = finishesMatch ? createdAt : null
     const outcomes = responseOutcomes(input)
     const primaryOutcome = outcomes[0]
     const hand: Hand = {
@@ -272,9 +308,11 @@ export function registerMatchRoutes(app: Hono<Env>) {
         outcome.tile_record ? JSON.stringify(outcome.tile_record) : null,
         index,
       )),
-      c.env.DB.prepare(
-        'UPDATE matches SET current_wind = ?, current_hand = ?, updated_at = ? WHERE id = ?',
-      ).bind(next.wind, next.hand, createdAt, id),
+      c.env.DB.prepare(`
+        UPDATE matches
+        SET current_wind = ?, current_hand = ?, status = ?, finished_at = ?, updated_at = ?
+        WHERE id = ?
+      `).bind(next.wind, next.hand, nextStatus, finishedAt, createdAt, id),
     ])
     const completedAt = performance.now()
     c.header('Server-Timing', [
@@ -283,7 +321,14 @@ export function registerMatchRoutes(app: Hono<Env>) {
       `write;dur=${(completedAt - preparedAt).toFixed(1)}`,
       `total;dur=${(completedAt - startedAt).toFixed(1)}`,
     ].join(', '))
-    const response = { hand, current_wind: next.wind, current_hand: next.hand }
+    const response = {
+      hand,
+      current_wind: next.wind,
+      current_hand: next.hand,
+      status: nextStatus,
+      finished_at: finishedAt,
+      retained_dealer: retainDealer,
+    }
     if (c.req.header('x-match-response') === 'hand-delta-v1') return c.json(response, 201)
     return c.json({ ...response, match: await getMatch(c.env.DB, id) }, 201)
   })
