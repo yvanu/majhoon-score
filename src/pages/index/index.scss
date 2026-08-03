@@ -525,12 +525,13 @@ page { background: var(--page-bg); color: var(--text); }
 .tile-record-entry > view text { display: block; }
 .tile-record-entry > view > text:last-child { margin-top: 6px; color: var(--text-secondary); font-size: 19px; }
 .tile-record-entry button { width: 108px; height: 58px; line-height: 58px; margin: 0; padding: 0; border: 1px solid #e3bd53; border-radius: 17px; background: #fff; color: #946800; font-size: 20px; }
-.tile-record-modal-backdrop { align-items: flex-end; padding: 0 0 24px; box-sizing: border-box; z-index: 82; }
-.tile-record-modal { position: relative; width: 100%; max-height: none; padding: 28px 26px 24px; box-sizing: border-box; overflow: hidden; border: 1px solid #eadfc9; border-radius: 34px; background: #fffdf8; box-shadow: 0 -24px 80px rgba(66,49,20,.2); animation: tile-record-sheet-enter .28s cubic-bezier(.2,.82,.3,1) both; }
-.tile-record-modal-header { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.tile-record-modal-backdrop { align-items: flex-end; padding: 0; box-sizing: border-box; z-index: 82; }
+.tile-record-modal { position: relative; width: 100%; max-height: none; padding: 24px 26px 20px; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #eadfc9; border-radius: 34px; background: #fffdf8; box-shadow: 0 -24px 80px rgba(66,49,20,.2); animation: tile-record-sheet-enter .28s cubic-bezier(.2,.82,.3,1) both; }
+.tile-record-modal-header { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.tile-record-modal-header .close-button { flex: 0 0 auto; position: relative; z-index: 2; }
 .tile-record-modal-header .title-small { margin-top: 4px; font-size: 34px; }
-.tile-record-modal-tip { display: block; margin: 15px 2px 18px; color: var(--text-secondary); font-size: 19px; line-height: 1.5; }
-.tile-record-modal-scroll { width: 100%; min-height: 0; }
+.tile-record-modal-tip { flex: 0 0 auto; display: block; margin: 13px 2px 15px; color: var(--text-secondary); font-size: 19px; line-height: 1.5; }
+.tile-record-modal-scroll { width: 100%; height: 0; min-height: 0; flex: 1 1 auto; }
 .tile-record-editor { padding-bottom: 16px; }
 .tile-record-section-tabs { display: grid; grid-template-columns: repeat(5,1fr); gap: 7px; margin-bottom: 14px; }
 .tile-record-section-tab { min-width: 0; padding: 13px 3px; border: 1px solid var(--line); border-radius: 17px; background: #fff; text-align: center; }
@@ -557,7 +558,7 @@ page { background: var(--page-bg); color: var(--text); }
 .tile-palette-item:active { transform: translateY(2px); opacity: .78; }
 .tile-record-modal .record-tile.compact { width: 48px; height: 66px; }
 .tile-record-modal .record-tile.compact .mahjong-tile-image { width: 91%; height: 91%; }
-.tile-record-modal-actions { display: grid; grid-template-columns: 1fr .72fr 1fr; gap: 12px; margin-top: 12px; padding: 16px 0 0; border-top: 1px solid var(--line); background: #fffdf8; }
+.tile-record-modal-actions { flex: 0 0 auto; display: grid; grid-template-columns: 1fr .72fr 1fr; gap: 12px; margin-top: 10px; padding: 14px 0 0; border-top: 1px solid var(--line); background: #fffdf8; }
 .tile-record-modal-actions button { height: 68px; line-height: 68px; margin: 0; border-radius: 20px; font-size: 22px; }
 @keyframes tile-record-sheet-enter { from { opacity: 0; transform: translate3d(0,36px,0); } to { opacity: 1; transform: translate3d(0,0,0); } }
 

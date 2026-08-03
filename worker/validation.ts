@@ -45,7 +45,7 @@ export function validateTileRecord(value: unknown): HandTileRecord | null {
   const pongs = readTiles(value.pongs, 4)
   const exposedKongs = readTiles(value.exposedKongs, 4)
   const concealedKongs = readTiles(value.concealedKongs, 4)
-  const hand = readTiles(value.hand, 14)
+  const hand = readTiles(value.hand, 13)
   const winningTile = value.winningTile === null
     ? null
     : typeof value.winningTile === 'string' && mahjongTiles.has(value.winningTile as MahjongTile)
