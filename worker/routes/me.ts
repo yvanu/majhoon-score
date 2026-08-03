@@ -24,6 +24,8 @@ export function registerMeRoutes(app: Hono<Env>) {
     const user = await currentUser(c)
     const authenticatedAt = performance.now()
     if (!user) return jsonError(c, '请先登录', 401)
+    const requestedLimit = Number(c.req.query('limit') || 100)
+    const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(100, Math.round(requestedLimit))) : 100
     const result = await c.env.DB.prepare(`
       SELECT m.id, m.share_code, m.status, m.current_wind, m.current_hand,
              m.created_at, m.finished_at,
@@ -40,8 +42,8 @@ export function registerMeRoutes(app: Hono<Env>) {
       FROM matches m
       WHERE m.owner_user_id = ?
       ORDER BY m.created_at DESC
-      LIMIT 100
-    `).bind(user.id).all<Record<string, unknown>>()
+      LIMIT ?
+    `).bind(user.id, limit).all<Record<string, unknown>>()
     const queriedAt = performance.now()
 
     const matches: MatchSummary[] = result.results.map(row => ({

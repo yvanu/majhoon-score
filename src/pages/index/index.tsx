@@ -43,6 +43,19 @@ import { MatchScreen, ScoreScreen, StatsScreen } from './match-screens'
 import './index.scss'
 
 const TAB_CACHE_TTL = 60_000
+const DASHBOARD_CACHE_KEY = 'mahjong-dashboard-cache-v1'
+
+type DashboardSnapshot = {
+  user: AuthUser
+  recentMatch: MatchSummary | null
+  dailyStats: DailyStats | null
+}
+
+function readDashboardSnapshot(): DashboardSnapshot | null {
+  if (!Taro.getStorageSync<string>(AUTH_KEY)) return null
+  const snapshot = Taro.getStorageSync<DashboardSnapshot>(DASHBOARD_CACHE_KEY)
+  return snapshot?.user?.id ? snapshot : null
+}
 
 function applyHandMutation(current: Match, result: HandMutationResult, replacedHandId?: string | null): Match {
   const previous = replacedHandId
@@ -73,15 +86,16 @@ function applyHandMutation(current: Match, result: HandMutationResult, replacedH
 }
 
 export default function Index() {
+  const [dashboardSnapshot] = useState(() => readDashboardSnapshot())
   const [screen, setScreenState] = useState<Screen>('home')
   const screenRef = useRef<Screen>('home')
   const screenHistory = useRef<Screen[]>(['home'])
   const [backTrapOpen, setBackTrapOpen] = useState(false)
   const [match, setMatch] = useState<Match | null>(null)
   const [stats, setStats] = useState<Stats | null>(null)
-  const [dailyStats, setDailyStats] = useState<DailyStats | null>(null)
-  const [user, setUser] = useState<AuthUser | null>(null)
-  const [history, setHistory] = useState<MatchSummary[]>([])
+  const [dailyStats, setDailyStats] = useState<DailyStats | null>(dashboardSnapshot?.dailyStats ?? null)
+  const [user, setUser] = useState<AuthUser | null>(dashboardSnapshot?.user ?? null)
+  const [history, setHistory] = useState<MatchSummary[]>(dashboardSnapshot?.recentMatch ? [dashboardSnapshot.recentMatch] : [])
   const [friends, setFriends] = useState<Friend[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [friendsLoading, setFriendsLoading] = useState(false)
@@ -103,6 +117,15 @@ export default function Index() {
   useEffect(() => {
     void restoreSession()
   }, [])
+
+  useEffect(() => {
+    if (!user || !Taro.getStorageSync<string>(AUTH_KEY)) return
+    Taro.setStorageSync(DASHBOARD_CACHE_KEY, {
+      user,
+      recentMatch: history[0] ?? null,
+      dailyStats,
+    })
+  }, [user, history, dailyStats])
 
   function setScreen(next: Screen) {
     const history = screenHistory.current
@@ -147,49 +170,59 @@ export default function Index() {
     if (screenRef.current !== 'home') setBackTrapOpen(true)
   }
 
+  function updateRecentMatch(recentMatch: MatchSummary | null) {
+    setHistory(current => {
+      if (!recentMatch) return current.length <= 1 ? [] : current
+      if (current.length <= 1) return [recentMatch]
+      return [recentMatch, ...current.filter(item => item.id !== recentMatch.id)]
+    })
+  }
+
   async function restoreSession() {
     setSyncStatus('syncing')
     const token = Taro.getStorageSync<string>(AUTH_KEY)
     const saved = Taro.getStorageSync<{ id: string; token: string }>(CURRENT_KEY)
-    let syncFailed = false
+    const tasks: Promise<void>[] = []
 
     if (token) {
-      try {
-        const currentUser = await api.me()
+      tasks.push(api.me().then(currentUser => {
         setUser(currentUser.user)
-        const [historyData, today] = await Promise.all([api.history(), api.dailyStatistics()])
-        setHistory(historyData.matches)
-        historyLoadedAt.current = Date.now()
-        setDailyStats(today)
-        void loadFriends(true).catch(error => {
-          console.error('Prefetch friends failed:', error)
-        })
         if (needsNickname(currentUser.user)) {
           setNicknameReturn('home')
           setScreen('nickname')
         }
-      } catch (error) {
-        syncFailed = true
-        console.error('Restore account failed:', error)
-      }
+      }))
+      tasks.push(api.recentMatch().then(data => {
+        updateRecentMatch(data.matches[0] ?? null)
+      }))
+      tasks.push(api.dailyStatistics().then(setDailyStats))
+    } else {
+      Taro.removeStorageSync(DASHBOARD_CACHE_KEY)
     }
 
     if (saved?.id) {
-      try {
-        const data = await api.getMatch(saved.id)
+      tasks.push(api.getMatch(saved.id).then(data => {
         if (data.match.status === 'active') {
           setMatch(data.match)
           setAdminToken(saved.token || '')
         } else {
           Taro.removeStorageSync(CURRENT_KEY)
         }
-      } catch (error) {
-        syncFailed = true
-        console.error('Restore current match failed:', error)
-      }
+      }))
     }
 
+    const results = await Promise.allSettled(tasks)
+    const syncFailed = results.some(result => result.status === 'rejected')
+    results.forEach(result => {
+      if (result.status === 'rejected') console.error('Restore session task failed:', result.reason)
+    })
     setSyncStatus(syncFailed ? 'offline' : 'synced')
+
+    if (token) {
+      void loadFriends(true).catch(error => {
+        console.error('Prefetch friends failed:', error)
+      })
+    }
   }
 
   function showDialog(options: DialogOptions): Promise<boolean> {
@@ -368,6 +401,9 @@ export default function Index() {
   function showProfile() {
     setScreen('profile')
     if (!user) return
+    void loadHistory().catch(error => {
+      console.error('Refresh history for profile failed:', error)
+    })
     const dimension: StatisticsDimension = 'month'
     const value = statisticsValue(dimension)
     if (personalStats?.dimension === dimension && personalStats.value === value) return
@@ -456,6 +492,7 @@ export default function Index() {
   async function logout() {
     await api.logout().catch(() => undefined)
     Taro.removeStorageSync(AUTH_KEY)
+    Taro.removeStorageSync(DASHBOARD_CACHE_KEY)
     setUser(null)
     setHistory([])
     setFriends([])

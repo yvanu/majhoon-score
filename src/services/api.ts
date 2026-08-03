@@ -39,6 +39,7 @@ export const api = {
   logout: () => request('/api/auth/logout', 'POST'),
   updateProfile: (displayName: string) => request<{ user: AuthUser }>('/api/me/profile', 'PUT', { displayName }),
   history: () => request<{ matches: MatchSummary[] }>('/api/me/matches'),
+  recentMatch: () => request<{ matches: MatchSummary[] }>('/api/me/matches', 'GET', { limit: 1 }),
   dailyStatistics: () => request<DailyStats>('/api/me/daily-statistics'),
   personalStatistics: (dimension: StatisticsDimension, value: string, timezoneOffset: number) =>
     request<PersonalStatistics>(`/api/me/statistics?dimension=${dimension}&value=${encodeURIComponent(value)}&timezoneOffset=${timezoneOffset}`),

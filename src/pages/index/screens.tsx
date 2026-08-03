@@ -108,7 +108,9 @@ export function Home({ user, currentMatch, recentMatch, dailyStats, syncStatus, 
         <View className='dashboard-icon'>局</View>
         <View className='grow'><Text className='card-title'>{recentMatch.player_names.join(' · ') || '四人牌局'}</Text><Text>{formatMatchTime(recentMatch.created_at)} · {recentMatch.hand_count} 局</Text><Text>{recentMatch.status === 'finished' ? '已结束' : '进行中'} · 分享码 {recentMatch.share_code}</Text></View>
         <Text className='card-arrow'>›</Text>
-      </View> : <View className='mini-empty' onClick={onStart}><Text>还没有牌局，开启第一将吧</Text><Text>去创建 ›</Text></View>}
+      </View> : syncStatus === 'syncing'
+        ? <View className='mini-empty'><Text>正在加载最近牌局…</Text></View>
+        : <View className='mini-empty' onClick={onStart}><Text>还没有牌局，开启第一将吧</Text><Text>去创建 ›</Text></View>}
 
       <View className='section-head'><Text>今日战绩</Text><Text className='section-more' onClick={onDaily}>详情 ›</Text></View>
       {selfStats ? <View className='dashboard-card daily-card' onClick={onDaily}>
