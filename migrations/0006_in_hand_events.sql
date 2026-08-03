@@ -1,5 +1,13 @@
 PRAGMA foreign_keys = OFF;
 
+-- Keep child rows safe even when D1 applies this migration inside a transaction,
+-- where changing PRAGMA foreign_keys may not prevent ON DELETE CASCADE.
+CREATE TABLE hand_scores_backup_0006 AS
+SELECT hand_id, player_id, score_change FROM hand_scores;
+
+CREATE TABLE hand_outcomes_backup_0006 AS
+SELECT hand_id, winner_player_id, score_gain, note, tile_record, outcome_order FROM hand_outcomes;
+
 CREATE TABLE hands_new (
   id TEXT PRIMARY KEY,
   match_id TEXT NOT NULL,
@@ -30,5 +38,17 @@ FROM hands;
 DROP TABLE hands;
 ALTER TABLE hands_new RENAME TO hands;
 CREATE INDEX idx_hands_match_sequence ON hands(match_id, sequence DESC);
+
+INSERT OR IGNORE INTO hand_scores(hand_id, player_id, score_change)
+SELECT hand_id, player_id, score_change FROM hand_scores_backup_0006;
+
+INSERT OR IGNORE INTO hand_outcomes(
+  hand_id, winner_player_id, score_gain, note, tile_record, outcome_order
+)
+SELECT hand_id, winner_player_id, score_gain, note, tile_record, outcome_order
+FROM hand_outcomes_backup_0006;
+
+DROP TABLE hand_scores_backup_0006;
+DROP TABLE hand_outcomes_backup_0006;
 
 PRAGMA foreign_keys = ON;

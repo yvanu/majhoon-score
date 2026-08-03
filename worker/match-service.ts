@@ -47,12 +47,28 @@ function statisticsStatements(db: D1Database, idOrCode: string) {
     db.prepare(`
       SELECT p.id, p.name, p.avatar_seed, p.friend_id, p.user_id, p.seat,
         (SELECT COALESCE(SUM(hs.score_change), 0) FROM hand_scores hs WHERE hs.player_id = p.id) score,
-        (SELECT COUNT(*) FROM hand_outcomes ho
-          JOIN hands h ON h.id = ho.hand_id
-          WHERE ho.winner_player_id = p.id AND h.match_id = p.match_id) wins,
-        (SELECT COUNT(*) FROM hand_outcomes ho
-          JOIN hands h ON h.id = ho.hand_id
-          WHERE ho.winner_player_id = p.id AND h.match_id = p.match_id AND h.result_type = 'tsumo') tsumo,
+        (SELECT COUNT(*) FROM hands h
+          WHERE h.match_id = p.match_id AND h.result_type IN ('ron', 'tsumo') AND (
+            EXISTS (
+              SELECT 1 FROM hand_outcomes ho
+              WHERE ho.hand_id = h.id AND ho.winner_player_id = p.id
+            ) OR (
+              h.winner_player_id = p.id AND NOT EXISTS (
+                SELECT 1 FROM hand_outcomes existing_outcome WHERE existing_outcome.hand_id = h.id
+              )
+            )
+          )) wins,
+        (SELECT COUNT(*) FROM hands h
+          WHERE h.match_id = p.match_id AND h.result_type = 'tsumo' AND (
+            EXISTS (
+              SELECT 1 FROM hand_outcomes ho
+              WHERE ho.hand_id = h.id AND ho.winner_player_id = p.id
+            ) OR (
+              h.winner_player_id = p.id AND NOT EXISTS (
+                SELECT 1 FROM hand_outcomes existing_outcome WHERE existing_outcome.hand_id = h.id
+              )
+            )
+          )) tsumo,
         (SELECT COUNT(*) FROM hands h
           WHERE h.match_id = p.match_id AND h.result_type = 'ron' AND h.loser_player_id = p.id) deal_in,
         (SELECT COALESCE(MAX(hs.score_change), 0) FROM hand_scores hs

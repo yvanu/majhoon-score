@@ -266,21 +266,39 @@ export function registerMeRoutes(app: Hono<Env>) {
             p.user_id IS NULL AND p.friend_id IS NULL AND p.name = ? COLLATE NOCASE
           ) THEN 1 ELSE 0 END) is_self,
           COALESCE(SUM(hs.score_change), 0) score,
-          SUM(CASE WHEN EXISTS (
-            SELECT 1 FROM hand_outcomes ho WHERE ho.hand_id = h.id AND ho.winner_player_id = p.id
+          SUM(CASE WHEN h.result_type IN ('ron', 'tsumo') AND (
+            EXISTS (
+              SELECT 1 FROM hand_outcomes ho WHERE ho.hand_id = h.id AND ho.winner_player_id = p.id
+            ) OR (
+              h.winner_player_id = p.id AND NOT EXISTS (
+                SELECT 1 FROM hand_outcomes existing_outcome WHERE existing_outcome.hand_id = h.id
+              )
+            )
           ) THEN 1 ELSE 0 END) wins,
-          SUM(CASE WHEN h.result_type = 'tsumo' AND EXISTS (
-            SELECT 1 FROM hand_outcomes ho WHERE ho.hand_id = h.id AND ho.winner_player_id = p.id
+          SUM(CASE WHEN h.result_type = 'tsumo' AND (
+            EXISTS (
+              SELECT 1 FROM hand_outcomes ho WHERE ho.hand_id = h.id AND ho.winner_player_id = p.id
+            ) OR (
+              h.winner_player_id = p.id AND NOT EXISTS (
+                SELECT 1 FROM hand_outcomes existing_outcome WHERE existing_outcome.hand_id = h.id
+              )
+            )
           ) THEN 1 ELSE 0 END) tsumo,
           SUM(CASE WHEN h.result_type = 'ron' AND h.loser_player_id = p.id THEN 1 ELSE 0 END) deal_in,
-          SUM(CASE WHEN EXISTS (
-            SELECT 1 FROM hand_outcomes ho
-            WHERE ho.hand_id = h.id AND ho.winner_player_id = p.id AND COALESCE(ho.note, '') <> ''
+          SUM(CASE WHEN (
+            EXISTS (
+              SELECT 1 FROM hand_outcomes ho
+              WHERE ho.hand_id = h.id AND ho.winner_player_id = p.id AND COALESCE(ho.note, '') <> ''
+            ) OR (
+              h.winner_player_id = p.id AND COALESCE(h.note, '') <> '' AND NOT EXISTS (
+                SELECT 1 FROM hand_outcomes existing_outcome WHERE existing_outcome.hand_id = h.id
+              )
+            )
           ) THEN 1 ELSE 0 END) big_hands
         FROM matches m
         JOIN players p ON p.match_id = m.id
-        LEFT JOIN hand_scores hs ON hs.player_id = p.id
-        LEFT JOIN hands h ON h.id = hs.hand_id
+        LEFT JOIN hands h ON h.match_id = m.id
+        LEFT JOIN hand_scores hs ON hs.hand_id = h.id AND hs.player_id = p.id
         WHERE m.owner_user_id = ? AND m.created_at BETWEEN ? AND ?
         GROUP BY p.name
         ORDER BY score DESC, wins DESC, p.name ASC
