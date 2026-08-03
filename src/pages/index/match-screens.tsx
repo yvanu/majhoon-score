@@ -350,22 +350,23 @@ function TileRecordModal({ record, onCancel, onConfirm }: {
   } catch (error) {
     console.warn('Unable to read window safe area:', error)
   }
-  const bottomGap = Math.max(12, safeBottom + 8)
+  const actionBottomPadding = Math.max(12, safeBottom + 12)
   const desiredTop = getPageTopInset()
-  const modalTop = Math.min(desiredTop, Math.max(56, windowHeight - bottomGap - 360))
-  const modalHeight = Math.max(360, windowHeight - modalTop - bottomGap)
+  const modalTop = Math.min(desiredTop, Math.max(56, windowHeight - 360))
+  const modalHeight = Math.max(360, windowHeight - modalTop)
 
-  return <View className='modal-backdrop tile-record-modal-backdrop' style={{ paddingBottom: `${bottomGap}px` }} onClick={onCancel}>
+  return <View className='modal-backdrop tile-record-modal-backdrop' onClick={onCancel}>
     <View className='tile-record-modal' style={{ height: `${modalHeight}px` }} onClick={event => event.stopPropagation()}>
       <View className='tile-record-modal-header'>
-        <View><Text className='eyebrow'>BIG HAND RECORD · v1.7.29</Text><Text className='title-small'>录入大胡牌谱</Text></View>
+        <View><Text className='eyebrow'>BIG HAND RECORD · v1.7.30</Text><Text className='title-small'>录入大胡牌谱</Text></View>
         <Button className='close-button' onClick={onCancel}>×</Button>
       </View>
       <Text className='tile-record-modal-tip'>先选择碰、明杠、暗杠、手牌或胡的牌，再点击下方麻将牌；已录入的牌可点击删除。</Text>
       <ScrollView scrollY className='tile-record-modal-scroll'>
         <TileRecordEditor record={draft} onChange={setDraft} />
+        <View className='tile-record-modal-scroll-spacer' style={{ paddingBottom: `${actionBottomPadding}px` }} />
       </ScrollView>
-      <View className='tile-record-modal-actions'>
+      <View className='tile-record-modal-actions' style={{ paddingBottom: `${actionBottomPadding}px` }}>
         <Button className='secondary' onClick={onCancel}>取消</Button>
         <Button className='tile-record-clear' disabled={!hasTileRecordContent(draft)} onClick={() => setDraft(emptyTileRecord())}>清空</Button>
         <Button className='primary' onClick={() => onConfirm(cloneTileRecord(draft))}>完成</Button>
