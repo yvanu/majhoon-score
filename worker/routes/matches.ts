@@ -14,7 +14,6 @@ import {
 } from '../core'
 import type { Env } from '../env'
 import { getMatch, getMatchBundle, getMatchStatistics } from '../match-service'
-import { ensureFriendSchema, ensurePersonalStatisticsSchema } from '../schema'
 import { bigHandPatterns, validateHand, validatePlayers } from '../validation'
 
 const inHandEventTypes = new Set(['明杠', '暗杠', '花杠', '被跟圈', '四风归一'])
@@ -123,62 +122,99 @@ function handInputError(input: HandInput, validPlayerIds: Set<string>) {
 
 export function registerMatchRoutes(app: Hono<Env>) {
   app.post('/api/matches', async c => {
+    const startedAt = performance.now()
     const inputs = validatePlayers(await c.req.json().catch(() => null))
     if (!inputs) return jsonError(c, '请输入四个不重复的玩家姓名')
-    await ensureFriendSchema(c.env.DB)
-    await ensurePersonalStatisticsSchema(c.env.DB)
+    const parsedAt = performance.now()
     const matchId = uid()
     const adminToken = randomHex(24)
     const createdAt = now()
     const user = await currentUser(c)
+    const authenticatedAt = performance.now()
     let code = shareCode()
     for (let attempt = 0; attempt < 5; attempt++) {
       if (!await c.env.DB.prepare('SELECT 1 FROM matches WHERE share_code = ?').bind(code).first()) break
       code = shareCode()
     }
 
-    const resolved: Array<{ name: string; avatarSeed: number; friendId: string | null; userId: string | null }> = []
-    for (const input of inputs) {
-      if (!user) {
-        resolved.push({ name: input.name, avatarSeed: avatarSeed(input.name), friendId: null, userId: null })
-        continue
-      }
-      if (input.isSelf) {
-        resolved.push({ name: input.name, avatarSeed: avatarSeed(input.name), friendId: null, userId: user.id })
-        continue
-      }
+    type ResolvedPlayer = { name: string; avatarSeed: number; friendId: string | null; userId: string | null }
+    type StoredFriend = { id: string; name: string; avatar_seed: number }
+    const resolved: Array<ResolvedPlayer | null> = inputs.map(input => {
+      if (!user) return { name: input.name, avatarSeed: avatarSeed(input.name), friendId: null, userId: null }
+      if (input.isSelf) return { name: input.name, avatarSeed: avatarSeed(input.name), friendId: null, userId: user.id }
+      return null
+    })
 
-      let friend = input.friendId
-        ? await c.env.DB.prepare('SELECT id, name, avatar_seed FROM friends WHERE id = ? AND user_id = ?')
-          .bind(input.friendId, user.id).first<{ id: string; name: string; avatar_seed: number }>()
-        : null
-      if (!friend) {
-        const friendId = uid()
-        await c.env.DB.prepare(`
+    if (user) {
+      const friendStatements: D1PreparedStatement[] = []
+      const friendSelections: Array<{ seat: number; resultIndex: number }> = []
+      inputs.forEach((input, seat) => {
+        if (input.isSelf) return
+        const generatedFriendId = uid()
+        friendStatements.push(c.env.DB.prepare(`
           INSERT OR IGNORE INTO friends(id, user_id, name, avatar_seed, created_at, updated_at, last_played_at)
           VALUES(?, ?, ?, ?, ?, ?, ?)
-        `).bind(friendId, user.id, input.name, avatarSeed(input.name), createdAt, createdAt, createdAt).run()
-        friend = await c.env.DB.prepare(`
-          SELECT id, name, avatar_seed FROM friends WHERE user_id = ? AND name = ? COLLATE NOCASE
-        `).bind(user.id, input.name).first<{ id: string; name: string; avatar_seed: number }>()
+        `).bind(
+          generatedFriendId,
+          user.id,
+          input.name,
+          avatarSeed(input.name),
+          createdAt,
+          createdAt,
+          createdAt,
+        ))
+        const resultIndex = friendStatements.length
+        friendStatements.push(c.env.DB.prepare(`
+          SELECT id, name, avatar_seed
+          FROM friends
+          WHERE user_id = ? AND (id = ? OR name = ? COLLATE NOCASE)
+          ORDER BY CASE WHEN id = ? THEN 0 ELSE 1 END
+          LIMIT 1
+        `).bind(user.id, input.friendId ?? '', input.name, input.friendId ?? ''))
+        friendSelections.push({ seat, resultIndex })
+      })
+
+      const friendResults = friendStatements.length ? await c.env.DB.batch(friendStatements) : []
+      for (const selection of friendSelections) {
+        const friend = (friendResults[selection.resultIndex] as D1Result<StoredFriend>).results[0]
+        if (!friend) return jsonError(c, '保存牌友失败，请重试', 500)
+        resolved[selection.seat] = {
+          name: friend.name,
+          avatarSeed: Number(friend.avatar_seed),
+          friendId: friend.id,
+          userId: null,
+        }
       }
-      if (!friend) return jsonError(c, '保存牌友失败，请重试', 500)
-      await c.env.DB.prepare('UPDATE friends SET last_played_at = ?, updated_at = ? WHERE id = ?')
-        .bind(createdAt, createdAt, friend.id).run()
-      resolved.push({ name: friend.name, avatarSeed: friend.avatar_seed, friendId: friend.id, userId: null })
     }
+    const friendsResolvedAt = performance.now()
+    const players = resolved as ResolvedPlayer[]
+    const adminTokenHash = await sha256(adminToken)
 
     await c.env.DB.batch([
+      ...players.flatMap(player => player.friendId
+        ? [c.env.DB.prepare('UPDATE friends SET last_played_at = ?, updated_at = ? WHERE id = ?')
+          .bind(createdAt, createdAt, player.friendId)]
+        : []),
       c.env.DB.prepare(`
         INSERT INTO matches(id, share_code, admin_token_hash, owner_user_id, created_at, updated_at)
         VALUES(?, ?, ?, ?, ?, ?)
-      `).bind(matchId, code, await sha256(adminToken), user?.id ?? null, createdAt, createdAt),
-      ...resolved.map((player, seat) => c.env.DB.prepare(`
+      `).bind(matchId, code, adminTokenHash, user?.id ?? null, createdAt, createdAt),
+      ...players.map((player, seat) => c.env.DB.prepare(`
         INSERT INTO players(id, match_id, name, avatar_seed, friend_id, user_id, seat, created_at)
         VALUES(?, ?, ?, ?, ?, ?, ?, ?)
       `).bind(uid(), matchId, player.name, player.avatarSeed, player.friendId, player.userId, seat, createdAt)),
     ])
-    return c.json({ match: await getMatch(c.env.DB, matchId), adminToken }, 201)
+    const writtenAt = performance.now()
+    const match = await getMatch(c.env.DB, matchId)
+    const completedAt = performance.now()
+    c.header('Server-Timing', [
+      `parse;dur=${(parsedAt - startedAt).toFixed(1)}`,
+      `auth;dur=${(authenticatedAt - parsedAt).toFixed(1)}`,
+      `friends;dur=${(friendsResolvedAt - authenticatedAt).toFixed(1)}`,
+      `write;dur=${(writtenAt - friendsResolvedAt).toFixed(1)}`,
+      `match;dur=${(completedAt - writtenAt).toFixed(1)}`,
+    ].join(', '))
+    return c.json({ match, adminToken }, 201)
   })
 
   app.get('/api/matches/:id', async c => {

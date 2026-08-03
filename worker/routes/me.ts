@@ -244,56 +244,63 @@ export function registerMeRoutes(app: Hono<Env>) {
   })
 
   app.get('/api/me/daily-statistics', async c => {
+    const startedAt = performance.now()
     const user = await currentUser(c)
+    const authenticatedAt = performance.now()
     if (!user) return jsonError(c, '请先登录', 401)
     const date = c.req.query('date') || now().slice(0, 10)
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return jsonError(c, '日期格式无效')
     const start = `${date}T00:00:00.000Z`
     const end = `${date}T23:59:59.999Z`
-    const summary = await c.env.DB.prepare(`
-      SELECT COUNT(DISTINCT m.id) match_count,
-        COUNT(DISTINCT CASE WHEN h.result_type <> 'event' THEN h.id END) hand_count
-      FROM matches m
-      LEFT JOIN hands h ON h.match_id = m.id
-      WHERE m.owner_user_id = ? AND m.created_at BETWEEN ? AND ?
-    `).bind(user.id, start, end).first<{ match_count: number; hand_count: number }>()
-    const result = await c.env.DB.prepare(`
-      SELECT p.name,
-        MAX(CASE WHEN p.user_id = ? OR (
-          p.user_id IS NULL AND p.friend_id IS NULL AND p.name = ? COLLATE NOCASE
-        ) THEN 1 ELSE 0 END) is_self,
-        COALESCE(SUM(hs.score_change), 0) score,
-        SUM(CASE WHEN EXISTS (
-          SELECT 1 FROM hand_outcomes ho WHERE ho.hand_id = h.id AND ho.winner_player_id = p.id
-        ) THEN 1 ELSE 0 END) wins,
-        SUM(CASE WHEN h.result_type = 'tsumo' AND EXISTS (
-          SELECT 1 FROM hand_outcomes ho WHERE ho.hand_id = h.id AND ho.winner_player_id = p.id
-        ) THEN 1 ELSE 0 END) tsumo,
-        SUM(CASE WHEN h.result_type = 'ron' AND h.loser_player_id = p.id THEN 1 ELSE 0 END) deal_in,
-        SUM(CASE WHEN EXISTS (
-          SELECT 1 FROM hand_outcomes ho
-          WHERE ho.hand_id = h.id AND ho.winner_player_id = p.id AND COALESCE(ho.note, '') <> ''
-        ) THEN 1 ELSE 0 END) big_hands
-      FROM matches m
-      JOIN players p ON p.match_id = m.id
-      LEFT JOIN hand_scores hs ON hs.player_id = p.id
-      LEFT JOIN hands h ON h.id = hs.hand_id
-      WHERE m.owner_user_id = ? AND m.created_at BETWEEN ? AND ?
-      GROUP BY p.name
-      ORDER BY score DESC, wins DESC, p.name ASC
-    `).bind(
-      user.id,
-      user.display_name?.trim() || user.username,
-      user.id,
-      start,
-      end,
-    ).all<Record<string, unknown>>()
+    const [summaryResult, playersResult] = await c.env.DB.batch([
+      c.env.DB.prepare(`
+        SELECT COUNT(DISTINCT m.id) match_count,
+          COUNT(DISTINCT CASE WHEN h.result_type <> 'event' THEN h.id END) hand_count
+        FROM matches m
+        LEFT JOIN hands h ON h.match_id = m.id
+        WHERE m.owner_user_id = ? AND m.created_at BETWEEN ? AND ?
+      `).bind(user.id, start, end),
+      c.env.DB.prepare(`
+        SELECT p.name,
+          MAX(CASE WHEN p.user_id = ? OR (
+            p.user_id IS NULL AND p.friend_id IS NULL AND p.name = ? COLLATE NOCASE
+          ) THEN 1 ELSE 0 END) is_self,
+          COALESCE(SUM(hs.score_change), 0) score,
+          SUM(CASE WHEN EXISTS (
+            SELECT 1 FROM hand_outcomes ho WHERE ho.hand_id = h.id AND ho.winner_player_id = p.id
+          ) THEN 1 ELSE 0 END) wins,
+          SUM(CASE WHEN h.result_type = 'tsumo' AND EXISTS (
+            SELECT 1 FROM hand_outcomes ho WHERE ho.hand_id = h.id AND ho.winner_player_id = p.id
+          ) THEN 1 ELSE 0 END) tsumo,
+          SUM(CASE WHEN h.result_type = 'ron' AND h.loser_player_id = p.id THEN 1 ELSE 0 END) deal_in,
+          SUM(CASE WHEN EXISTS (
+            SELECT 1 FROM hand_outcomes ho
+            WHERE ho.hand_id = h.id AND ho.winner_player_id = p.id AND COALESCE(ho.note, '') <> ''
+          ) THEN 1 ELSE 0 END) big_hands
+        FROM matches m
+        JOIN players p ON p.match_id = m.id
+        LEFT JOIN hand_scores hs ON hs.player_id = p.id
+        LEFT JOIN hands h ON h.id = hs.hand_id
+        WHERE m.owner_user_id = ? AND m.created_at BETWEEN ? AND ?
+        GROUP BY p.name
+        ORDER BY score DESC, wins DESC, p.name ASC
+      `).bind(
+        user.id,
+        user.display_name?.trim() || user.username,
+        user.id,
+        start,
+        end,
+      ),
+    ])
+    const queriedAt = performance.now()
+    const summary = (summaryResult as D1Result<{ match_count: number; hand_count: number }>).results[0]
+    const players = playersResult as D1Result<Record<string, unknown>>
 
     const stats: DailyStats = {
       date,
       matchCount: Number(summary?.match_count ?? 0),
       handCount: Number(summary?.hand_count ?? 0),
-      players: result.results.map(row => ({
+      players: players.results.map(row => ({
         name: String(row.name),
         score: Number(row.score ?? 0),
         wins: Number(row.wins ?? 0),
@@ -303,6 +310,12 @@ export function registerMeRoutes(app: Hono<Env>) {
         isSelf: Number(row.is_self ?? 0) === 1,
       })),
     }
+    const mappedAt = performance.now()
+    c.header('Server-Timing', [
+      `auth;dur=${(authenticatedAt - startedAt).toFixed(1)}`,
+      `query;dur=${(queriedAt - authenticatedAt).toFixed(1)}`,
+      `map;dur=${(mappedAt - queriedAt).toFixed(1)}`,
+    ].join(', '))
     return c.json(stats)
   })
 
@@ -319,32 +332,48 @@ export function registerMeRoutes(app: Hono<Env>) {
     )
     if (!period) return jsonError(c, '统计时间范围无效')
 
-    const rows = await c.env.DB.prepare(`
-      SELECT h.id hand_id, h.match_id, h.result_type,
-        h.loser_player_id, h.created_at,
-        p.id player_id, COALESCE(hs.score_change, 0) score_change,
-        ho.winner_player_id outcome_winner_player_id,
-        ho.note outcome_note, ho.tile_record outcome_tile_record
-      FROM hands h
-      JOIN matches m ON m.id = h.match_id AND m.owner_user_id = ?
-      JOIN players p ON p.match_id = m.id AND (
-        p.user_id = ? OR (
-          p.user_id IS NULL AND p.friend_id IS NULL AND
-          p.name = ? COLLATE NOCASE
+    const playerName = user.display_name?.trim() || user.username
+    const [rowsResult, featuredResult] = await c.env.DB.batch([
+      c.env.DB.prepare(`
+        SELECT h.id hand_id, h.result_type, h.loser_player_id,
+          p.id player_id,
+          ho.winner_player_id outcome_winner_player_id,
+          ho.note outcome_note
+        FROM hands h
+        JOIN matches m ON m.id = h.match_id AND m.owner_user_id = ?
+        JOIN players p ON p.match_id = m.id AND (
+          p.user_id = ? OR (
+            p.user_id IS NULL AND p.friend_id IS NULL AND
+            p.name = ? COLLATE NOCASE
+          )
         )
-      )
-      LEFT JOIN hand_scores hs ON hs.hand_id = h.id AND hs.player_id = p.id
-      LEFT JOIN hand_outcomes ho ON ho.hand_id = h.id AND ho.winner_player_id = p.id
-      WHERE h.created_at >= ? AND h.created_at < ?
-      ORDER BY h.created_at DESC
-    `).bind(
-      user.id,
-      user.id,
-      user.display_name?.trim() || user.username,
-      period.startAt,
-      period.endAt,
-    ).all<Record<string, unknown>>()
+        LEFT JOIN hand_outcomes ho ON ho.hand_id = h.id AND ho.winner_player_id = p.id
+        WHERE h.created_at >= ? AND h.created_at < ?
+        ORDER BY h.created_at DESC
+      `).bind(user.id, user.id, playerName, period.startAt, period.endAt),
+      c.env.DB.prepare(`
+        SELECT h.id hand_id, h.match_id, h.result_type, h.created_at,
+          COALESCE(hs.score_change, 0) score_change,
+          ho.note outcome_note, ho.tile_record outcome_tile_record
+        FROM hands h
+        JOIN matches m ON m.id = h.match_id AND m.owner_user_id = ?
+        JOIN players p ON p.match_id = m.id AND (
+          p.user_id = ? OR (
+            p.user_id IS NULL AND p.friend_id IS NULL AND
+            p.name = ? COLLATE NOCASE
+          )
+        )
+        JOIN hand_outcomes ho ON ho.hand_id = h.id AND ho.winner_player_id = p.id
+        LEFT JOIN hand_scores hs ON hs.hand_id = h.id AND hs.player_id = p.id
+        WHERE h.created_at >= ? AND h.created_at < ?
+          AND ho.tile_record IS NOT NULL AND ho.tile_record <> ''
+        ORDER BY COALESCE(hs.score_change, 0) DESC, h.created_at DESC
+        LIMIT 1
+      `).bind(user.id, user.id, playerName, period.startAt, period.endAt),
+    ])
     const queriedAt = performance.now()
+    const rows = rowsResult as D1Result<Record<string, unknown>>
+    const featuredRow = (featuredResult as D1Result<Record<string, unknown>>).results[0]
 
     let wins = 0
     let dealIns = 0
@@ -366,26 +395,24 @@ export function registerMeRoutes(app: Hono<Env>) {
           bigHands += 1
           const patternLabel = [...new Set(patterns)].join('')
           patternCounts.set(patternLabel, (patternCounts.get(patternLabel) ?? 0) + 1)
-          const tileRecord = parseStoredTileRecord(row.outcome_tile_record)
-          const score = Number(row.score_change ?? 0)
-          if (tileRecord && (row.result_type === 'ron' || row.result_type === 'tsumo')) {
-            const candidate = {
-              handId: String(row.hand_id),
-              matchId: String(row.match_id),
-              resultType: row.result_type,
-              note: typeof row.outcome_note === 'string' ? row.outcome_note : '',
-              score,
-              createdAt: String(row.created_at),
-              tileRecord,
-            } as const
-            if (!featuredBigHand || candidate.score > featuredBigHand.score ||
-                (candidate.score === featuredBigHand.score && candidate.createdAt > featuredBigHand.createdAt)) {
-              featuredBigHand = candidate
-            }
-          }
         }
       }
       if (isDealIn) dealIns += 1
+    }
+
+    if (featuredRow) {
+      const tileRecord = parseStoredTileRecord(featuredRow.outcome_tile_record)
+      if (tileRecord && (featuredRow.result_type === 'ron' || featuredRow.result_type === 'tsumo')) {
+        featuredBigHand = {
+          handId: String(featuredRow.hand_id),
+          matchId: String(featuredRow.match_id),
+          resultType: featuredRow.result_type,
+          note: typeof featuredRow.outcome_note === 'string' ? featuredRow.outcome_note : '',
+          score: Number(featuredRow.score_change ?? 0),
+          createdAt: String(featuredRow.created_at),
+          tileRecord,
+        }
+      }
     }
 
     const response: PersonalStatistics = {

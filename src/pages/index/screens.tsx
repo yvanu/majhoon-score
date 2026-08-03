@@ -15,7 +15,7 @@ import type {
   PersonalStatistics,
   StatisticsDimension,
 } from '@shared/types'
-import { API_BASE_URL, api } from '../../services/api'
+import { API_BASE_URL } from '../../services/api'
 import {
   FriendAvatar,
   Header,
@@ -159,26 +159,18 @@ export function DailyStatsScreen({ stats, onBack }: { stats: DailyStats; onBack:
   </View>
 }
 
-export function Create({ user, onBack, onCreate, loading }: {
+export function Create({ user, friends, friendsLoading, onBack, onCreate, loading }: {
   user: AuthUser | null
+  friends: Friend[]
+  friendsLoading: boolean
   onBack: () => void
   onCreate: (players: MatchPlayerInput[]) => void
   loading: boolean
 }) {
   const [players, setPlayers] = useState<MatchPlayerInput[]>(Array.from({ length: 4 }, () => ({ name: '' })))
-  const [friends, setFriends] = useState<Friend[]>([])
   const [pickerSeat, setPickerSeat] = useState<number | null>(null)
-  const [friendsLoading, setFriendsLoading] = useState(false)
   const names = players.map(player => player.name.trim())
   const valid = names.every(Boolean) && new Set(names.map(name => name.toLocaleLowerCase())).size === 4
-
-  useEffect(() => {
-    if (!user) return
-    setFriendsLoading(true)
-    api.friends().then(result => setFriends(result.friends)).catch(error => {
-      console.error('Load friends failed:', error)
-    }).finally(() => setFriendsLoading(false))
-  }, [user?.id])
 
   function updateName(index: number, name: string) {
     setPlayers(current => current.map((player, seat) => seat === index ? { name } : player))

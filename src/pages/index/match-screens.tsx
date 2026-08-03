@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Taro from '@tarojs/taro'
 import { Button, Input, ScrollView, Text, View } from '@tarojs/components'
 import type {
@@ -161,7 +161,12 @@ function HandHistoryModal({ match, canEdit, onEdit, onClose }: {
   onEdit: (hand: Hand) => void
   onClose: () => void
 }) {
+  const [visibleCount, setVisibleCount] = useState(20)
   const hands = [...match.hands].sort((first, second) => second.sequence - first.sequence)
+  const visibleHands = hands.slice(0, visibleCount)
+  useEffect(() => {
+    setVisibleCount(20)
+  }, [match.id, match.hands.length])
   const completedNumber = new Map(
     [...match.hands]
       .sort((first, second) => first.sequence - second.sequence)
@@ -171,7 +176,12 @@ function HandHistoryModal({ match, canEdit, onEdit, onClose }: {
   return <View className='modal-backdrop' onClick={onClose}><View className='detail-modal match-detail-modal' onClick={event => event.stopPropagation()}>
     <View className='detail-header'><View><Text className='eyebrow'>HAND HISTORY</Text><Text className='title-small'>本将记录</Text></View><Button className='close-button' onClick={onClose}>×</Button></View>
     <Text className='hand-history-tip'>{canEdit ? '点击任意记录即可修改录入内容和分数。' : '当前为只读记录。'}</Text>
-    <ScrollView scrollY className='match-modal-scroll hand-history-scroll'>{hands.map(hand => {
+    <ScrollView
+      scrollY
+      lowerThreshold={120}
+      className='match-modal-scroll hand-history-scroll'
+      onScrollToLower={() => setVisibleCount(current => Math.min(hands.length, current + 20))}
+    >{visibleHands.map(hand => {
       const outcomes = handOutcomes(hand)
       const detail = hand.result_type === 'event'
         ? hand.scores.filter(score => score.change !== 0).map(score => `${handPlayerName(match, score.playerId)} ${score.change > 0 ? '+' : ''}${score.change}`).join(' · ')
@@ -183,7 +193,7 @@ function HandHistoryModal({ match, canEdit, onEdit, onClose }: {
         <View className='hand-record-main'><Text className='card-title'>{handOutcomeText(match, hand)}</Text><Text>{detail}</Text></View>
         {canEdit && <Text className='hand-record-action'>修改</Text>}
       </View>
-    })}</ScrollView>
+    })}{visibleCount < hands.length && <Text className='tab-list-more'>继续上滑加载更多</Text>}</ScrollView>
   </View></View>
 }
 
@@ -359,7 +369,7 @@ function TileRecordModal({ record, onCancel, onConfirm }: {
   return <View className='modal-backdrop tile-record-modal-backdrop' onClick={onCancel}>
     <View className='tile-record-modal' style={{ height: `${modalHeight}px` }} onClick={event => event.stopPropagation()}>
       <View className='tile-record-modal-header'>
-        <View><Text className='eyebrow'>BIG HAND RECORD · v1.7.39</Text><Text className='title-small'>录入大胡牌谱</Text></View>
+        <View><Text className='eyebrow'>BIG HAND RECORD · v1.7.40</Text><Text className='title-small'>录入大胡牌谱</Text></View>
         <Button className='close-button' onClick={onCancel}>×</Button>
       </View>
       <Text className='tile-record-modal-tip'>先选择碰、明杠、暗杠、手牌或胡的牌，再点击下方麻将牌；已录入的牌可点击删除。</Text>

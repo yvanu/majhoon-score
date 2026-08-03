@@ -44,6 +44,7 @@ import './index.scss'
 
 const TAB_CACHE_TTL = 60_000
 const FRIEND_STATS_CACHE_TTL = 5 * 60_000
+const PERSONAL_STATS_CACHE_TTL = 5 * 60_000
 const DASHBOARD_CACHE_KEY = 'mahjong-dashboard-cache-v1'
 
 type DashboardSnapshot = {
@@ -105,6 +106,7 @@ export default function Index() {
   const [activeFriend, setActiveFriend] = useState<Friend | null>(null)
   const [friendStatsLoadingId, setFriendStatsLoadingId] = useState('')
   const [personalStats, setPersonalStats] = useState<PersonalStatistics | null>(null)
+  const [personalStatsLoadingKey, setPersonalStatsLoadingKey] = useState('')
   const [adminToken, setAdminToken] = useState('')
   const [editingHandId, setEditingHandId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -112,7 +114,10 @@ export default function Index() {
   const [dialog, setDialog] = useState<DialogState | null>(null)
   const [nicknameReturn, setNicknameReturn] = useState<'home' | 'profile'>('home')
   const dialogResolver = useRef<((confirmed: boolean) => void) | null>(null)
-  const personalStatsRequest = useRef<{ key: string; promise: Promise<PersonalStatistics> } | null>(null)
+  const activePersonalStatsKey = useRef('')
+  const personalStatsCache = useRef(new Map<string, { value: PersonalStatistics; loadedAt: number }>())
+  const personalStatsRequests = useRef(new Map<string, Promise<PersonalStatistics>>())
+  const personalStatsGeneration = useRef(0)
   const historyLoadedAt = useRef(0)
   const friendsLoadedAt = useRef(0)
   const dailyStatsLoadedAt = useRef(dashboardSnapshot?.dailyStats ? Date.now() : 0)
@@ -188,6 +193,11 @@ export default function Index() {
   }
 
   function invalidateStatisticsCaches() {
+    personalStatsGeneration.current += 1
+    activePersonalStatsKey.current = ''
+    personalStatsCache.current.clear()
+    personalStatsRequests.current.clear()
+    setPersonalStatsLoadingKey('')
     setPersonalStats(null)
     friendStatsCache.current.clear()
   }
@@ -375,6 +385,14 @@ export default function Index() {
     return request
   }
 
+  function showCreate() {
+    setScreen('create')
+    if (!user) return
+    void loadFriends().catch(error => {
+      console.error('Prefetch friends for match creation failed:', error)
+    })
+  }
+
   function showHistory() {
     if (!user) {
       setScreen('auth')
@@ -446,15 +464,32 @@ export default function Index() {
     })
   }
 
-  function loadPersonalStatistics(dimension: StatisticsDimension, value: string) {
+  function personalStatisticsKey(dimension: StatisticsDimension, value: string) {
+    return `${dimension}:${value}:${new Date().getTimezoneOffset()}`
+  }
+
+  function loadPersonalStatistics(dimension: StatisticsDimension, value: string, force = false) {
     const timezoneOffset = new Date().getTimezoneOffset()
     const key = `${dimension}:${value}:${timezoneOffset}`
-    if (personalStatsRequest.current?.key === key) return personalStatsRequest.current.promise
-    const promise = api.personalStatistics(dimension, value, timezoneOffset).finally(() => {
-      if (personalStatsRequest.current?.key === key) personalStatsRequest.current = null
+    const cached = personalStatsCache.current.get(key)
+    if (!force && cached && Date.now() - cached.loadedAt < PERSONAL_STATS_CACHE_TTL) {
+      return Promise.resolve(cached.value)
+    }
+    const pending = personalStatsRequests.current.get(key)
+    if (pending) return pending
+    const generation = personalStatsGeneration.current
+    setPersonalStatsLoadingKey(key)
+    const request = api.personalStatistics(dimension, value, timezoneOffset).then(result => {
+      if (personalStatsGeneration.current === generation) {
+        personalStatsCache.current.set(key, { value: result, loadedAt: Date.now() })
+      }
+      return result
+    }).finally(() => {
+      personalStatsRequests.current.delete(key)
+      setPersonalStatsLoadingKey(current => current === key ? '' : current)
     })
-    personalStatsRequest.current = { key, promise }
-    return promise
+    personalStatsRequests.current.set(key, request)
+    return request
   }
 
   function showProfile() {
@@ -465,13 +500,21 @@ export default function Index() {
     })
     const dimension: StatisticsDimension = 'month'
     const value = statisticsValue(dimension)
-    if (personalStats?.dimension === dimension && personalStats.value === value) return
-    void loadPersonalStatistics(dimension, value).then(setPersonalStats).catch(error => {
+    const key = personalStatisticsKey(dimension, value)
+    const generation = personalStatsGeneration.current
+    const cached = personalStatsCache.current.get(key)?.value
+    if (cached) setPersonalStats(cached)
+    void loadPersonalStatistics(dimension, value).then(result => {
+      if (personalStatsGeneration.current === generation &&
+          (screenRef.current === 'profile' || activePersonalStatsKey.current === key)) {
+        setPersonalStats(result)
+      }
+    }).catch(error => {
       console.error('Prefetch personal statistics failed:', error)
     })
   }
 
-  async function showPersonalStatistics(
+  function showPersonalStatistics(
     dimension: StatisticsDimension = 'month',
     value: string = statisticsValue('month'),
   ) {
@@ -479,13 +522,23 @@ export default function Index() {
       setScreen('auth')
       return
     }
-    const previousScreen = screenRef.current
-    const hadStatistics = Boolean(personalStats)
+    const key = personalStatisticsKey(dimension, value)
+    const generation = personalStatsGeneration.current
+    activePersonalStatsKey.current = key
+    const cached = personalStatsCache.current.get(key)?.value ?? null
+    setPersonalStats(cached)
     if (screenRef.current !== 'personal') setScreen('personal')
-    const succeeded = await run(async () => {
-      setPersonalStats(await loadPersonalStatistics(dimension, value))
+    void loadPersonalStatistics(dimension, value).then(result => {
+      if (personalStatsGeneration.current === generation &&
+          activePersonalStatsKey.current === key && screenRef.current === 'personal') {
+        setPersonalStats(result)
+      }
+    }).catch(error => {
+      console.error('Load personal statistics failed:', error)
+      if (activePersonalStatsKey.current === key && !personalStatsCache.current.has(key)) {
+        void Taro.showToast({ title: '战绩加载失败，请稍后重试', icon: 'none' })
+      }
     })
-    if (!succeeded && !hadStatistics && screenRef.current === 'personal') replaceScreen(previousScreen)
   }
 
   async function createMatch(players: MatchPlayerInput[]) {
@@ -498,7 +551,14 @@ export default function Index() {
       friendsLoadedAt.current = 0
       invalidateStatisticsCaches()
       await Taro.showToast({ title: '牌局已创建', icon: 'success' })
-      if (user) await refreshDashboard()
+      if (user) {
+        void refreshDashboard().catch(error => {
+          console.error('Refresh dashboard after creating match failed:', error)
+        })
+        void loadFriends(true).catch(error => {
+          console.error('Refresh friends after creating match failed:', error)
+        })
+      }
     })
   }
 
@@ -550,7 +610,9 @@ export default function Index() {
   }
 
   async function logout() {
-    await api.logout().catch(() => undefined)
+    const logoutRequest = api.logout().catch(error => {
+      console.error('Remote logout failed:', error)
+    })
     Taro.removeStorageSync(AUTH_KEY)
     Taro.removeStorageSync(DASHBOARD_CACHE_KEY)
     setUser(null)
@@ -569,10 +631,16 @@ export default function Index() {
     friendStatsCache.current.clear()
     friendStatsRequests.current.clear()
     setFriendStatsLoadingId('')
+    personalStatsGeneration.current += 1
+    activePersonalStatsKey.current = ''
+    personalStatsCache.current.clear()
+    personalStatsRequests.current.clear()
+    setPersonalStatsLoadingKey('')
     setPersonalStats(null)
     setDailyStats(null)
     setScreen('home')
-    await Taro.showToast({ title: '已退出登录', icon: 'none' })
+    void Taro.showToast({ title: '已退出登录', icon: 'none' })
+    void logoutRequest
   }
 
   async function deleteHistoryMatch(id: string) {
@@ -606,10 +674,15 @@ export default function Index() {
       invalidateStatisticsCaches()
       setEditingHandId(null)
       if (data.status === 'finished') {
-        setStats(await api.statistics(match.id))
+        setStats(null)
+        replaceScreen('stats')
         Taro.removeStorageSync(CURRENT_KEY)
-        if (user) await refreshDashboard()
-        setScreen('stats')
+        setStats(await api.statistics(match.id))
+        if (user) {
+          void refreshDashboard().catch(error => {
+            console.error('Refresh dashboard after automatic finish failed:', error)
+          })
+        }
         await Taro.showToast({ title: '北4过庄，本将结束', icon: 'success' })
         return
       }
@@ -656,15 +729,25 @@ export default function Index() {
       variant: 'danger',
     })
     if (!confirmed) return
-    await run(async () => {
+    const previousMatch = match
+    setStats(null)
+    setScreen('stats')
+    const succeeded = await run(async () => {
       const data = await api.finish(match.id, adminToken)
       setMatch(data.match)
       invalidateStatisticsCaches()
-      setStats(await api.statistics(match.id))
       Taro.removeStorageSync(CURRENT_KEY)
-      if (user) await refreshDashboard()
-      setScreen('stats')
+      setStats(await api.statistics(match.id))
+      if (user) {
+        void refreshDashboard().catch(error => {
+          console.error('Refresh dashboard after finishing match failed:', error)
+        })
+      }
     })
+    if (!succeeded && screenRef.current === 'stats') {
+      setMatch(previousMatch)
+      replaceScreen('match')
+    }
   }
 
   function reset() {
@@ -674,7 +757,11 @@ export default function Index() {
     setAdminToken('')
     setEditingHandId(null)
     setScreen('home')
-    if (user) void run(refreshDashboard)
+    if (user) {
+      void refreshDashboard().catch(error => {
+        console.error('Refresh dashboard after reset failed:', error)
+      })
+    }
   }
 
   const activeTab = screen === 'history'
@@ -696,14 +783,21 @@ export default function Index() {
       dailyStats={dailyStats}
       syncStatus={syncStatus}
       onContinue={() => setScreen('match')}
-      onStart={() => setScreen('create')}
+      onStart={showCreate}
       onJoin={() => setScreen('join')}
       onOpen={(code, statusHint) => openMatch(code, code !== match?.id, statusHint)}
       onHistory={showHistory}
       onDaily={showDailyStats}
       onLogin={() => setScreen('auth')}
     />}
-    {screen === 'create' && <Create user={user} onBack={() => setScreen('home')} onCreate={createMatch} loading={loading} />}
+    {screen === 'create' && <Create
+      user={user}
+      friends={friends}
+      friendsLoading={friendsLoading}
+      onBack={() => setScreen('home')}
+      onCreate={createMatch}
+      loading={loading}
+    />}
     {screen === 'join' && <Join onBack={() => setScreen('home')} onOpen={code => openMatch(code)} loading={loading} />}
     {screen === 'auth' && <Auth onBack={() => setScreen('home')} onWechatLogin={wechatLogin} loading={loading} />}
     {screen === 'nickname' && user && <NicknameScreen
@@ -736,7 +830,7 @@ export default function Index() {
         />)}
     {screen === 'personal' && (personalStats ? <PersonalStatisticsScreen
       statistics={personalStats}
-      loading={loading}
+      loading={personalStatsLoadingKey === activePersonalStatsKey.current}
       onBack={() => setScreen('profile')}
       onChange={showPersonalStatistics}
     /> : <LoadingScreen title='我的战绩' message='正在汇总牌局与大胡记录…' onBack={goBack} />)}
@@ -770,7 +864,9 @@ export default function Index() {
       onBack={() => { setEditingHandId(null); setScreen('match') }}
       onSubmit={submitHand}
     />}
-    {screen === 'stats' && match && stats && <StatsScreen match={match} stats={stats} currentUserId={user?.id || null} onReset={reset} />}
+    {screen === 'stats' && match && (stats
+      ? <StatsScreen match={match} stats={stats} currentUserId={user?.id || null} onReset={reset} />
+      : <LoadingScreen title='最终战绩' message='正在生成本将最终战绩…' onBack={goBack} />)}
     </View>
     {activeTab && <BottomNav
       active={activeTab}
