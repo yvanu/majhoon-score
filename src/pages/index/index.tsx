@@ -277,9 +277,7 @@ export default function Index() {
 
   async function refreshDashboard() {
     if (!Taro.getStorageSync<string>(AUTH_KEY)) return
-    const [historyData, today] = await Promise.all([api.history(), api.dailyStatistics()])
-    setHistory(historyData.matches)
-    historyLoadedAt.current = Date.now()
+    const [, today] = await Promise.all([loadHistory(true), api.dailyStatistics()])
     setDailyStats(today)
   }
 
@@ -408,29 +406,40 @@ export default function Index() {
     })
   }
 
-  async function finishLogin(data: AuthResult) {
+  async function syncAfterLogin(saved: { id: string; token: string } | null) {
+    const friendsPromise = loadFriends(true).catch(error => {
+      console.error('Prefetch friends failed:', error)
+    })
+    if (saved?.id && saved?.token) {
+      await api.claim(saved.id, saved.token).catch(error => {
+        console.error('Claim local match after login failed:', error)
+      })
+    }
+    await refreshDashboard().catch(error => {
+      console.error('Refresh dashboard after login failed:', error)
+    })
+    await friendsPromise
+  }
+
+  function finishLogin(data: AuthResult) {
     Taro.setStorageSync(AUTH_KEY, data.token)
     setUser(data.user)
     const saved = Taro.getStorageSync<{ id: string; token: string }>(CURRENT_KEY)
-    if (saved?.id && saved?.token) await api.claim(saved.id, saved.token).catch(() => undefined)
-    await refreshDashboard()
-    void loadFriends(true).catch(error => {
-      console.error('Prefetch friends failed:', error)
-    })
     if (needsNickname(data.user)) {
       setNicknameReturn('home')
       setScreen('nickname')
     } else {
       setScreen('home')
     }
-    await Taro.showToast({ title: '登录成功', icon: 'success' })
+    void Taro.showToast({ title: '登录成功', icon: 'success' })
+    void syncAfterLogin(saved?.id && saved?.token ? saved : null)
   }
 
   async function wechatLogin() {
     await run(async () => {
       const result = await Taro.login()
       if (!result.code) throw new Error('未获取到微信登录凭证，请重试')
-      await finishLogin(await api.wechatLogin(result.code))
+      finishLogin(await api.wechatLogin(result.code))
     })
   }
 

@@ -11,14 +11,26 @@ import type { Env } from '../env'
 
 export function registerAuthRoutes(app: Hono<Env>) {
   app.post('/api/auth/wechat', async c => {
+    const startedAt = performance.now()
     const body = await c.req.json().catch(() => null) as { code?: unknown } | null
     const code = typeof body?.code === 'string' ? body.code.trim() : ''
     if (!code || code.length > 256) return jsonError(c, '微信登录凭证无效')
+    const parsedAt = performance.now()
 
     try {
       const identity = await exchangeWechatCode(c, code)
+      const exchangedAt = performance.now()
       const user = await findOrCreateWechatUser(c, identity.openid, identity.unionid)
+      const userResolvedAt = performance.now()
       const session = await createSession(c, user.id)
+      const sessionCreatedAt = performance.now()
+      c.header('Server-Timing', [
+        `parse;dur=${(parsedAt - startedAt).toFixed(1)}`,
+        `wechat;dur=${(exchangedAt - parsedAt).toFixed(1)}`,
+        `user;dur=${(userResolvedAt - exchangedAt).toFixed(1)}`,
+        `session;dur=${(sessionCreatedAt - userResolvedAt).toFixed(1)}`,
+        `total;dur=${(sessionCreatedAt - startedAt).toFixed(1)}`,
+      ].join(', '))
       return c.json({ user, ...session })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)

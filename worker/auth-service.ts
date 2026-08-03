@@ -2,7 +2,6 @@ import type { Context } from 'hono'
 import type { AuthResult, AuthUser } from '../src/shared/types'
 import { now, randomHex, safeEqual, sha256, uid } from './core'
 import type { Env, WechatSessionResponse } from './env'
-import { ensureUserProfileSchema } from './schema'
 
 export function bearer(c: Context<Env>) {
   const value = c.req.header('authorization') ?? ''
@@ -23,13 +22,16 @@ export async function currentUser(c: Context<Env>): Promise<AuthUser | null> {
 export async function createSession(c: Context<Env>, userId: string): Promise<Omit<AuthResult, 'user'>> {
   const token = randomHex(32)
   const expiresAt = new Date(Date.now() + 30 * 86_400_000).toISOString()
-  await c.env.DB.batch([
-    c.env.DB.prepare('DELETE FROM sessions WHERE expires_at <= ?').bind(now()),
-    c.env.DB.prepare(`
-      INSERT INTO sessions(id, user_id, token_hash, expires_at, created_at)
-      VALUES(?, ?, ?, ?, ?)
-    `).bind(uid(), userId, await sha256(token), expiresAt, now()),
-  ])
+  const createdAt = now()
+  await c.env.DB.prepare(`
+    INSERT INTO sessions(id, user_id, token_hash, expires_at, created_at)
+    VALUES(?, ?, ?, ?, ?)
+  `).bind(uid(), userId, await sha256(token), expiresAt, createdAt).run()
+  c.executionCtx.waitUntil(
+    c.env.DB.prepare('DELETE FROM sessions WHERE expires_at <= ?').bind(createdAt).run().catch(error => {
+      console.error(JSON.stringify({ event: 'expired_session_cleanup_failed', message: error instanceof Error ? error.message : String(error) }))
+    }),
+  )
   return { token, expiresAt }
 }
 
@@ -84,7 +86,6 @@ export async function exchangeWechatCode(c: Context<Env>, code: string) {
 }
 
 export async function findOrCreateWechatUser(c: Context<Env>, openid: string, unionid: string | null) {
-  await ensureUserProfileSchema(c.env.DB)
   const existing = await c.env.DB.prepare(`
     SELECT id, username, display_name, created_at FROM users WHERE wechat_openid = ?
   `).bind(openid).first<AuthUser>()
