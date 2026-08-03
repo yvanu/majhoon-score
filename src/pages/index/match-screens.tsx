@@ -353,7 +353,7 @@ function TileRecordModal({ record, onCancel, onConfirm }: {
   return <View className='modal-backdrop tile-record-modal-backdrop' onClick={onCancel}>
     <View className='tile-record-modal' style={{ height: `${modalHeight}px` }} onClick={event => event.stopPropagation()}>
       <View className='tile-record-modal-header'>
-        <View><Text className='eyebrow'>BIG HAND RECORD · v1.7.26</Text><Text className='title-small'>录入大胡牌谱</Text></View>
+        <View><Text className='eyebrow'>BIG HAND RECORD · v1.7.27</Text><Text className='title-small'>录入大胡牌谱</Text></View>
         <Button className='close-button' onClick={onCancel}>×</Button>
       </View>
       <Text className='tile-record-modal-tip'>先选择碰、明杠、暗杠、手牌或胡的牌，再点击下方麻将牌；已录入的牌可点击删除。</Text>
@@ -404,10 +404,11 @@ export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }:
   const initialWinner = initialOutcomes[0]?.winner_player_id || initialHand?.winner_player_id || players[0].id
   const initialRonWinnerIds = initialHand?.result_type === 'ron' && initialOutcomes.length
     ? initialOutcomes.map(outcome => outcome.winner_player_id)
-    : [initialWinner]
-  const initialLoser = initialHand?.loser_player_id && !initialRonWinnerIds.includes(initialHand.loser_player_id)
+    : []
+  const initialLoser = initialHand?.result_type === 'ron' && initialHand.loser_player_id &&
+    !initialRonWinnerIds.includes(initialHand.loser_player_id)
     ? initialHand.loser_player_id
-    : players.find(player => !initialRonWinnerIds.includes(player.id))?.id || players[1].id
+    : ''
   const initialScores = initialHand?.scores || []
   const initialTsumoPayment = Math.abs(initialScores.find(score => score.playerId !== initialWinner && score.change < 0)?.change || 50)
   const initialTsumoOutcome = initialHand?.result_type === 'tsumo' ? initialOutcomes[0] : undefined
@@ -431,8 +432,8 @@ export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }:
   const [loser, setLoser] = useState(initialLoser)
   const [ronWinnerIds, setRonWinnerIds] = useState(initialRonWinnerIds)
   const [multiRonEnabled, setMultiRonEnabled] = useState(initialRonWinnerIds.length > 1)
-  const [ronSelectionRole, setRonSelectionRole] = useState<'loser' | 'winner'>('loser')
-  const [activeRonWinnerId, setActiveRonWinnerId] = useState(initialRonWinnerIds[0])
+  const [ronSelectionRole, setRonSelectionRole] = useState<'loser' | 'winner'>(initialLoser ? 'winner' : 'loser')
+  const [activeRonWinnerId, setActiveRonWinnerId] = useState(initialRonWinnerIds[0] || '')
   const [ronDrafts, setRonDrafts] = useState<Record<string, WinnerDraft>>(() => Object.fromEntries(players.map(player => {
     const outcome = initialHand?.result_type === 'ron'
       ? initialOutcomes.find(item => item.winner_player_id === player.id)
