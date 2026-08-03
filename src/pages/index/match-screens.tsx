@@ -359,7 +359,7 @@ function TileRecordModal({ record, onCancel, onConfirm }: {
   return <View className='modal-backdrop tile-record-modal-backdrop' onClick={onCancel}>
     <View className='tile-record-modal' style={{ height: `${modalHeight}px` }} onClick={event => event.stopPropagation()}>
       <View className='tile-record-modal-header'>
-        <View><Text className='eyebrow'>BIG HAND RECORD · v1.7.32</Text><Text className='title-small'>录入大胡牌谱</Text></View>
+        <View><Text className='eyebrow'>BIG HAND RECORD · v1.7.33</Text><Text className='title-small'>录入大胡牌谱</Text></View>
         <Button className='close-button' onClick={onCancel}>×</Button>
       </View>
       <Text className='tile-record-modal-tip'>先选择碰、明杠、暗杠、手牌或胡的牌，再点击下方麻将牌；已录入的牌可点击删除。</Text>
@@ -460,7 +460,9 @@ export function ScoreScreen({ players, currentUserId, initialHand, loading, onBa
   const [eventType, setEventType] = useState<InHandEventType>(initialEventType)
   const [eventPlayer, setEventPlayer] = useState(initialEventPlayer)
   const [eventPayer, setEventPayer] = useState(initialEventPayer)
-  const [eventSelectionRole, setEventSelectionRole] = useState<'player' | 'payer'>(initialEventType === '明杠' && initialEventPlayer ? 'payer' : 'player')
+  const [eventSelectionRole, setEventSelectionRole] = useState<'player' | 'payer'>(initialEventType === '明杠'
+    ? initialEventPayer ? 'player' : 'payer'
+    : 'player')
   const [eventAmount, setEventAmount] = useState(String(initialEventAmount))
   const [values, setValues] = useState<Record<string, string>>(Object.fromEntries(players.map(player => [
     player.id,
@@ -594,7 +596,7 @@ export function ScoreScreen({ players, currentUserId, initialHand, loading, onBa
     const nextOption = inHandEventOptionMap.get(nextType)!
     setEventType(nextType)
     setEventAmount(String(nextOption.defaultAmount))
-    setEventSelectionRole('player')
+    setEventSelectionRole(nextType === '明杠' ? 'payer' : 'player')
     if (nextType !== '明杠') setEventPayer('')
     else if (eventPayer === eventPlayer) setEventPayer('')
   }
@@ -606,7 +608,6 @@ export function ScoreScreen({ players, currentUserId, initialHand, loading, onBa
     }
     setEventPlayer(playerId)
     if (playerId === eventPayer) setEventPayer('')
-    if (eventType === '明杠') setEventSelectionRole('payer')
   }
 
   function selectGangPlayer(playerId: string) {
@@ -614,11 +615,13 @@ export function ScoreScreen({ players, currentUserId, initialHand, loading, onBa
       selectEventPlayer(playerId)
       return
     }
-    if (playerId === eventPlayer) {
-      void Taro.showToast({ title: '杠牌者不能同时是放杠者', icon: 'none' })
+    if (eventPayer === playerId) {
+      setEventPayer('')
       return
     }
-    setEventPayer(current => current === playerId ? '' : playerId)
+    setEventPayer(playerId)
+    if (playerId === eventPlayer) setEventPlayer('')
+    setEventSelectionRole('player')
   }
 
   function save() {
@@ -939,12 +942,12 @@ function GangRolePicker({
       <Text className='event-role-type'>{eventType}</Text>
     </View>
     <View className={needsPayer ? 'ron-role-tabs event-role-tabs' : 'ron-role-tabs event-role-tabs single'}>
-      <View className={activeRole === 'player' ? 'ron-role-tab active winner' : 'ron-role-tab winner'} onClick={() => onRoleChange('player')}>
-        <Text>{playerLabel}</Text><Text>{playerId ? '已选择' : '未选择'}</Text>
-      </View>
       {needsPayer && <View className={activeRole === 'payer' ? 'ron-role-tab active loser' : 'ron-role-tab loser'} onClick={() => onRoleChange('payer')}>
         <Text>放杠者</Text><Text>{payerId ? '已选择' : '未选择'}</Text>
       </View>}
+      <View className={activeRole === 'player' ? 'ron-role-tab active winner' : 'ron-role-tab winner'} onClick={() => onRoleChange('player')}>
+        <Text>{playerLabel}</Text><Text>{playerId ? '已选择' : '未选择'}</Text>
+      </View>
     </View>
     <Text className='ron-role-guide'>{guide}</Text>
     <View className='picker ron-role-player-grid'>{players.map(player => {
