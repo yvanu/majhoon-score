@@ -31,8 +31,9 @@ import {
 import type { TileRecordSection } from './shared'
 
 function handOutcomes(hand: Hand): HandOutcome[] {
+  if (hand.result_type !== 'ron' && hand.result_type !== 'tsumo') return []
   if (hand.outcomes?.length) return hand.outcomes
-  if ((hand.result_type !== 'ron' && hand.result_type !== 'tsumo') || !hand.winner_player_id) return []
+  if (!hand.winner_player_id) return []
   return [{
     winner_player_id: hand.winner_player_id,
     score: hand.scores.find(score => score.playerId === hand.winner_player_id)?.change || 0,

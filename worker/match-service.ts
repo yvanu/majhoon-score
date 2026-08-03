@@ -158,12 +158,15 @@ export async function getMatchBundle(
       hands: hands.results.map(hand => {
         const scores = scoresByHand.get(hand.id) || []
         const primaryTileRecord = parseStoredTileRecord(hand.tile_record)
-        const outcomes = outcomesByHand.get(hand.id) || (hand.winner_player_id ? [{
-          winner_player_id: hand.winner_player_id,
-          score: scores.find(score => score.playerId === hand.winner_player_id)?.change || 0,
-          note: hand.note,
-          tile_record: primaryTileRecord,
-        }] : [])
+        const canHaveOutcomes = hand.result_type === 'ron' || hand.result_type === 'tsumo'
+        const outcomes = canHaveOutcomes
+          ? outcomesByHand.get(hand.id) || (hand.winner_player_id ? [{
+            winner_player_id: hand.winner_player_id,
+            score: scores.find(score => score.playerId === hand.winner_player_id)?.change || 0,
+            note: hand.note,
+            tile_record: primaryTileRecord,
+          }] : [])
+          : []
         return {
           ...hand,
           tile_record: primaryTileRecord,
