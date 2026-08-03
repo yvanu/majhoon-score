@@ -110,6 +110,7 @@ export default function Index() {
   const [personalStatsLoadingKey, setPersonalStatsLoadingKey] = useState('')
   const [adminToken, setAdminToken] = useState('')
   const [editingHandId, setEditingHandId] = useState<string | null>(null)
+  const [lastSaveNotice, setLastSaveNotice] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle')
   const [dialog, setDialog] = useState<DialogState | null>(null)
@@ -141,6 +142,12 @@ export default function Index() {
       dailyStats,
     })
   }, [user, history, dailyStats])
+
+  useEffect(() => {
+    if (!lastSaveNotice) return
+    const timer = setTimeout(() => setLastSaveNotice(null), 8000)
+    return () => clearTimeout(timer)
+  }, [lastSaveNotice])
 
   function setScreen(next: Screen) {
     const history = screenHistory.current
@@ -673,7 +680,7 @@ export default function Index() {
     })
   }
 
-  async function submitHand(input: HandInput) {
+  async function submitHand(input: HandInput, summary: string) {
     if (!match) return
     const handId = editingHandId
     await run(async () => {
@@ -699,7 +706,10 @@ export default function Index() {
         return
       }
       const keepRecordingCurrentHand = input.type === 'event' && !handId
-      if (!keepRecordingCurrentHand) setScreen('match')
+      if (!keepRecordingCurrentHand) {
+        if (!handId) setLastSaveNotice(summary)
+        setScreen('match')
+      }
       await Taro.showToast({
         title: input.type === 'event'
           ? handId ? '事件已修改' : '事件已记录，可继续录入'
@@ -710,8 +720,20 @@ export default function Index() {
   }
 
   function editHand(hand: Hand) {
+    setLastSaveNotice(null)
     setEditingHandId(hand.id)
     setScreen('score')
+  }
+
+  async function undoLatestRecord() {
+    if (!match) return
+    const latestIsEvent = match.hands[0]?.result_type === 'event'
+    await run(async () => {
+      setMatch((await api.undo(match.id, adminToken)).match)
+      setLastSaveNotice(null)
+      invalidateStatisticsCaches()
+      await Taro.showToast({ title: latestIsEvent ? '局内事件已撤销' : '已撤销上一局', icon: 'success' })
+    })
   }
 
   async function undo() {
@@ -724,12 +746,7 @@ export default function Index() {
         : '上一局的分数和战绩记录会被移除，之后仍可重新录入。',
       confirmText: '确认撤销',
     })
-    if (!confirmed) return
-    await run(async () => {
-      setMatch((await api.undo(match.id, adminToken)).match)
-      invalidateStatisticsCaches()
-      await Taro.showToast({ title: latestIsEvent ? '局内事件已撤销' : '已撤销上一局', icon: 'success' })
-    })
+    if (confirmed) await undoLatestRecord()
   }
 
   async function finish() {
@@ -864,9 +881,11 @@ export default function Index() {
       currentUserId={user?.id || null}
       canEdit={matchCanEdit}
       loading={loading}
-      onAdd={() => { setEditingHandId(null); setScreen('score') }}
+      undoNotice={lastSaveNotice}
+      onAdd={() => { setLastSaveNotice(null); setEditingHandId(null); setScreen('score') }}
       onEdit={editHand}
       onUndo={undo}
+      onUndoNotice={undoLatestRecord}
       onFinish={finish}
     /> : <LoadingScreen title='牌局详情' message='正在加载玩家、计分和牌局记录…' onBack={goBack} />)}
     {screen === 'score' && match && <ScoreScreen

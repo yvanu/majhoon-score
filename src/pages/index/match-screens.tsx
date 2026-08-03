@@ -76,14 +76,16 @@ function handOutcomeText(match: Match, hand: Hand) {
   return '自定义计分'
 }
 
-export function MatchScreen({ match, currentUserId, canEdit, loading, onAdd, onEdit, onUndo, onFinish }: {
+export function MatchScreen({ match, currentUserId, canEdit, loading, undoNotice, onAdd, onEdit, onUndo, onUndoNotice, onFinish }: {
   match: Match
   currentUserId: string | null
   canEdit: boolean
   loading: boolean
+  undoNotice: string | null
   onAdd: () => void
   onEdit: (hand: Hand) => void
   onUndo: () => void
+  onUndoNotice: () => void
   onFinish: () => void
 }) {
   const ranked = useMemo(() => [...match.players].sort((first, second) => second.score - first.score), [match.players])
@@ -103,6 +105,7 @@ export function MatchScreen({ match, currentUserId, canEdit, loading, onAdd, onE
       <Text className='rank'>{index + 1}</Text><Avatar player={player} isSelf={player.user_id === currentUserId} /><View className='grow'><Text className='card-title'>{player.name}</Text><Text>{['东', '南', '西', '北'][player.seat]}家 · 点击看个人战况</Text></View><Text className={player.score >= 0 ? 'positive' : 'negative'}>{player.score > 0 ? '+' : ''}{player.score}</Text>
     </View>)}
     <View className='match-progress-row'><Text>已完成 {completedHands.length} 局{inHandEvents.length ? ` · ${inHandEvents.length} 项局内事件` : ''}</Text><Text>{completedHands.filter(handHasBigPattern).length} 局大胡</Text></View>
+    {undoNotice && <View className='recent-save-notice'><Text>已记录：{undoNotice}</Text><Button disabled={loading} onClick={onUndoNotice}>撤销</Button></View>}
     <View className='match-insight-actions'>
       <Button className='secondary half' disabled={!match.hands.length} onClick={() => setShowLiveStats(true)}>实时战况</Button>
       <Button className='secondary half' disabled={!match.hands.length} onClick={() => setShowHandHistory(true)}>本将记录</Button>
@@ -416,7 +419,7 @@ export function ScoreScreen({ players, currentUserId, initialHand, loading, onBa
   initialHand: Hand | null
   loading: boolean
   onBack: () => void
-  onSubmit: (input: HandInput) => void
+  onSubmit: (input: HandInput, summary: string) => void
 }) {
   const loggedPlayerId = currentUserId
     ? players.find(player => player.user_id === currentUserId)?.id || null
@@ -453,7 +456,9 @@ export function ScoreScreen({ players, currentUserId, initialHand, loading, onBa
   const [loser, setLoser] = useState(initialLoser)
   const [ronWinnerIds, setRonWinnerIds] = useState(initialRonWinnerIds)
   const [multiRonEnabled, setMultiRonEnabled] = useState(initialRonWinnerIds.length > 1)
-  const [ronSelectionRole, setRonSelectionRole] = useState<'loser' | 'winner'>(initialLoser ? 'winner' : 'loser')
+  const [ronSelectionRole, setRonSelectionRole] = useState<'loser' | 'winner' | null>(initialLoser
+    ? initialRonWinnerIds.length ? null : 'winner'
+    : 'loser')
   const [activeRonWinnerId, setActiveRonWinnerId] = useState(initialRonWinnerIds[0] || '')
   const [ronDrafts, setRonDrafts] = useState<Record<string, WinnerDraft>>(() => Object.fromEntries(players.map(player => {
     const outcome = initialHand?.result_type === 'ron'
@@ -469,9 +474,11 @@ export function ScoreScreen({ players, currentUserId, initialHand, loading, onBa
   const [eventType, setEventType] = useState<InHandEventType>(initialEventType)
   const [eventPlayer, setEventPlayer] = useState(initialEventPlayer)
   const [eventPayer, setEventPayer] = useState(initialEventPayer)
-  const [eventSelectionRole, setEventSelectionRole] = useState<'player' | 'payer'>(initialEventType === '明杠'
-    ? initialEventPayer ? 'player' : 'payer'
-    : 'player')
+  const [eventSelectionRole, setEventSelectionRole] = useState<'player' | 'payer' | null>(initialEventType === '明杠'
+    ? initialEventPayer
+      ? initialEventPlayer ? null : 'player'
+      : 'payer'
+    : initialEventPlayer ? null : 'player')
   const [eventAmount, setEventAmount] = useState(String(initialEventAmount))
   const [values, setValues] = useState<Record<string, string>>(Object.fromEntries(players.map(player => [
     player.id,
@@ -518,52 +525,47 @@ export function ScoreScreen({ players, currentUserId, initialHand, loading, onBa
   }
 
   function selectRonPlayer(playerId: string) {
-    if (ronSelectionRole === 'loser') {
-      if (loser === playerId) {
-        setLoser('')
-        return
-      }
-      setLoser(playerId)
-      setRonWinnerIds(current => {
-        if (!current.includes(playerId)) return current
-        const next = current.filter(id => id !== playerId)
-        if (activeRonWinnerId === playerId) setActiveRonWinnerId(next[0] || '')
-        return next
-      })
+    if (playerId === loser) {
+      setLoser('')
+      setRonSelectionRole('loser')
+      return
+    }
+
+    if (ronWinnerIds.includes(playerId)) {
+      const next = ronWinnerIds.filter(id => id !== playerId)
+      setRonWinnerIds(next)
+      if (activeRonWinnerId === playerId) setActiveRonWinnerId(next[0] || '')
       setRonSelectionRole('winner')
       return
     }
 
-    if (playerId === loser) {
-      void Taro.showToast({ title: '放炮者不能同时胡牌', icon: 'none' })
+    if (ronSelectionRole === null) {
+      void Taro.showToast({ title: '请先点击上方角色栏再修改', icon: 'none' })
+      return
+    }
+
+    if (ronSelectionRole === 'loser') {
+      setLoser(playerId)
+      const winnersComplete = multiRonEnabled ? ronWinnerIds.length >= 2 : ronWinnerIds.length === 1
+      setRonSelectionRole(winnersComplete ? null : 'winner')
       return
     }
 
     if (!multiRonEnabled) {
-      if (ronWinnerIds.length === 1 && ronWinnerIds[0] === playerId) {
-        setRonWinnerIds([])
-        setActiveRonWinnerId('')
-      } else {
-        setRonWinnerIds([playerId])
-        setActiveRonWinnerId(playerId)
-      }
+      setRonWinnerIds([playerId])
+      setActiveRonWinnerId(playerId)
+      setRonSelectionRole(loser ? null : 'loser')
       return
     }
 
-    setRonWinnerIds(current => {
-      if (current.includes(playerId)) {
-        const next = current.filter(id => id !== playerId)
-        if (activeRonWinnerId === playerId) setActiveRonWinnerId(next[0] || '')
-        return next
-      }
-      if (current.length >= 3) {
-        void Taro.showToast({ title: '一炮多响最多选择三位胡牌者', icon: 'none' })
-        return current
-      }
-      const next = [...current, playerId]
-      setActiveRonWinnerId(playerId)
-      return next
-    })
+    if (ronWinnerIds.length >= 3) {
+      void Taro.showToast({ title: '一炮多响最多选择三位胡牌者', icon: 'none' })
+      return
+    }
+    const next = [...ronWinnerIds, playerId]
+    setRonWinnerIds(next)
+    setActiveRonWinnerId(playerId)
+    setRonSelectionRole(loser && next.length >= 2 ? null : loser ? 'winner' : 'loser')
   }
 
   function toggleMultiRonMode() {
@@ -573,9 +575,11 @@ export function ScoreScreen({ players, currentUserId, initialHand, loading, onBa
         : ronWinnerIds[0]
       setRonWinnerIds(retainedWinnerId ? [retainedWinnerId] : [])
       setActiveRonWinnerId(retainedWinnerId || '')
+      setRonSelectionRole(loser && retainedWinnerId ? null : loser ? 'winner' : 'loser')
+    } else {
+      setRonSelectionRole('winner')
     }
     setMultiRonEnabled(current => !current)
-    setRonSelectionRole('winner')
   }
 
   function toggleRonNote(playerId: string, option: string) {
@@ -610,26 +614,33 @@ export function ScoreScreen({ players, currentUserId, initialHand, loading, onBa
   }
 
   function selectEventPlayer(playerId: string) {
-    if (eventPlayer === playerId) {
-      setEventPlayer('')
-      return
-    }
     setEventPlayer(playerId)
     if (playerId === eventPayer) setEventPayer('')
+    const hasPayer = Boolean(eventPayer && eventPayer !== playerId)
+    setEventSelectionRole(eventType === '明杠' && !hasPayer ? 'payer' : null)
   }
 
   function selectEventRolePlayer(playerId: string) {
+    if (playerId === eventPayer) {
+      setEventPayer('')
+      setEventSelectionRole('payer')
+      return
+    }
+    if (playerId === eventPlayer) {
+      setEventPlayer('')
+      setEventSelectionRole('player')
+      return
+    }
+    if (eventSelectionRole === null) {
+      void Taro.showToast({ title: '请先点击上方角色栏再修改', icon: 'none' })
+      return
+    }
     if (eventSelectionRole === 'player' || eventType !== '明杠') {
       selectEventPlayer(playerId)
       return
     }
-    if (eventPayer === playerId) {
-      setEventPayer('')
-      return
-    }
     setEventPayer(playerId)
-    if (playerId === eventPlayer) setEventPlayer('')
-    setEventSelectionRole('player')
+    setEventSelectionRole(eventPlayer ? null : 'player')
   }
 
   function save() {
@@ -672,7 +683,7 @@ export function ScoreScreen({ players, currentUserId, initialHand, loading, onBa
         scores,
         note: outcomes[0].note,
         tileRecord: outcomes[0].tileRecord,
-      })
+      }, saveSummary)
       return
     }
     if (type === 'tsumo') {
@@ -687,7 +698,7 @@ export function ScoreScreen({ players, currentUserId, initialHand, loading, onBa
         note: notes.length ? notes.join('、') : undefined,
         tileRecord: canRecord && hasTileRecordContent(tileRecord) ? tileRecord : undefined,
       }
-      onSubmit({ type, winnerPlayerId: winner, outcomes: [outcome], scores, note: outcome.note, tileRecord: outcome.tileRecord })
+      onSubmit({ type, winnerPlayerId: winner, outcomes: [outcome], scores, note: outcome.note, tileRecord: outcome.tileRecord }, saveSummary)
       return
     }
     if (type === 'event') {
@@ -705,7 +716,7 @@ export function ScoreScreen({ players, currentUserId, initialHand, loading, onBa
         loserPlayerId: eventOption.allPay ? undefined : eventPayer,
         scores: eventScores,
         note: eventType,
-      })
+      }, saveSummary)
       return
     }
     if (type === 'draw') {
@@ -717,7 +728,7 @@ export function ScoreScreen({ players, currentUserId, initialHand, loading, onBa
         return
       }
     }
-    onSubmit({ type, scores })
+    onSubmit({ type, scores }, saveSummary)
   }
 
   const activeTileRecord = tileEditorTarget === 'tsumo'
@@ -727,6 +738,24 @@ export function ScoreScreen({ players, currentUserId, initialHand, loading, onBa
   const displayedRonWinner = players.find(player => player.id === displayedRonWinnerId)
   const displayedRonDraft = displayedRonWinnerId ? ronDrafts[displayedRonWinnerId] : undefined
   const canRecordDisplayedRonTiles = Boolean(displayedRonWinnerId === loggedPlayerId && displayedRonDraft?.notes.some(note => bigHandOptions.has(note)))
+  const playerName = (playerId: string) => players.find(player => player.id === playerId)?.name || '未选择'
+  const saveSummary = type === 'ron'
+    ? canSaveRon
+      ? `${playerName(loser)}放炮 → ${ronWinnerIds.map(playerName).join('、')}胡牌 · ${ronTotal}分`
+      : '请先确认放炮者和胡牌者'
+    : type === 'tsumo'
+      ? `${playerName(winner)}自摸 · 每家支付${Math.max(1, Math.round(Number(tsumoPayment) || 0))}分`
+      : type === 'event'
+        ? canSaveEvent
+          ? eventNeedsPayer
+            ? `${playerName(eventPayer)}放杠 → ${playerName(eventPlayer)}明杠 · ${eventAmountValue}分`
+            : eventOption.playerPaysAll
+              ? `${playerName(eventPlayer)}被跟圈 · 向每家支付${eventAmountValue}分`
+              : `${playerName(eventPlayer)}${eventType} · 每家支付${eventAmountValue}分`
+          : `请先确认${eventOption.playerLabel}${eventNeedsPayer ? '和放杠者' : ''}`
+        : type === 'draw'
+          ? '确认记录本局流局'
+          : '确认自定义分数无误'
 
   const screenTitle = type === 'event'
     ? isEditing ? '修改局内事件' : '记录局内事件'
@@ -815,7 +844,10 @@ export function ScoreScreen({ players, currentUserId, initialHand, loading, onBa
     {type === 'custom' && players.map(player => <View className='field' key={player.id}><Text>{player.name}</Text><Input type='number' value={values[player.id]} onInput={event => setValues({ ...values, [player.id]: event.detail.value })} /></View>)}
     <View className='score-bottom-spacer' />
   </View></ScrollView>
-  <View className='score-save-bar'><Button className='primary' disabled={loading || (type === 'ron' && !canSaveRon) || (type === 'event' && !canSaveEvent)} onClick={save}>{loading ? '保存中…' : isEditing ? '保存修改' : saveLabel}</Button></View>
+  <View className='score-save-bar'>
+    <Text className='score-save-summary'>{saveSummary}</Text>
+    <Button className='primary' disabled={loading || (type === 'ron' && !canSaveRon) || (type === 'event' && !canSaveEvent)} onClick={save}>{loading ? '保存中…' : isEditing ? '保存修改' : saveLabel}</Button>
+  </View>
   {activeTileRecord && <TileRecordModal
     record={activeTileRecord}
     onCancel={() => setTileEditorTarget(null)}
@@ -855,23 +887,26 @@ function RonRolePicker({
   currentUserId: string | null
   loserId: string
   winnerIds: string[]
-  activeRole: 'loser' | 'winner'
+  activeRole: 'loser' | 'winner' | null
   multiRonEnabled: boolean
   onRoleChange: (role: 'loser' | 'winner') => void
   onPlayerSelect: (id: string) => void
   onToggleMulti: () => void
 }) {
-  const guide = activeRole === 'loser'
-    ? loserId
-      ? '点击当前放炮者可取消，点击其他玩家直接替换'
-      : '请选择放炮者'
-    : multiRonEnabled
-      ? winnerIds.length < 2
-        ? `还需选择 ${2 - winnerIds.length} 位胡牌者`
-        : '可继续追加，最多三位；再次点击可取消'
-      : winnerIds.length
-        ? '点击其他玩家直接切换胡牌者，再次点击当前玩家可取消'
-        : '请选择胡牌者'
+  const guide = activeRole === null
+    ? '角色已确认；修改时先点上方角色栏，或点击已选玩家直接取消'
+    : activeRole === 'loser'
+      ? loserId
+        ? '点击其他玩家可替换；点击已选玩家或 × 可取消'
+        : '请选择放炮者'
+      : multiRonEnabled
+        ? winnerIds.length < 2
+          ? `还需选择 ${2 - winnerIds.length} 位胡牌者`
+          : '可继续追加，最多三位；点击已选玩家或 × 可取消'
+        : winnerIds.length
+          ? '点击其他玩家可替换；点击已选玩家或 × 可取消'
+          : '请选择胡牌者'
+  const loserName = players.find(player => player.id === loserId)?.name
 
   return <View className='ron-role-panel'>
     <View className='ron-role-head'>
@@ -883,10 +918,14 @@ function RonRolePicker({
     </View>
     <View className='ron-role-tabs'>
       <View className={activeRole === 'loser' ? 'ron-role-tab active loser' : 'ron-role-tab loser'} onClick={() => onRoleChange('loser')}>
-        <Text>放炮者</Text><Text>{loserId ? '已选择' : '未选择'}</Text>
+        <View className='role-slot-head'><Text>放炮者</Text>{loserId && <Text className='role-slot-clear' onClick={event => { event.stopPropagation(); onPlayerSelect(loserId) }}>×</Text>}</View>
+        <Text className={loserName ? 'role-slot-name' : 'role-slot-empty'}>{loserName || '点击后选择'}</Text>
       </View>
       <View className={activeRole === 'winner' ? 'ron-role-tab active winner' : 'ron-role-tab winner'} onClick={() => onRoleChange('winner')}>
-        <Text>胡牌者</Text><Text>{winnerIds.length ? `已选 ${winnerIds.length} 人` : '未选择'}</Text>
+        <View className='role-slot-head'><Text>胡牌者</Text><Text className='role-slot-count'>{winnerIds.length ? `${winnerIds.length}人` : '未选'}</Text></View>
+        {winnerIds.length
+          ? <View className='role-slot-chips'>{winnerIds.map(playerId => <View className='role-slot-chip' key={playerId} onClick={event => { event.stopPropagation(); onPlayerSelect(playerId) }}><Text>{players.find(player => player.id === playerId)?.name}</Text><Text>×</Text></View>)}</View>
+          : <Text className='role-slot-empty'>点击后选择</Text>}
       </View>
     </View>
     <Text className='ron-role-guide'>{guide}</Text>
@@ -904,8 +943,8 @@ function RonRolePicker({
         activeRole === 'winner' && isLoser ? 'role-conflict' : '',
       ].filter(Boolean).join(' ')
       return <View className={className} key={player.id} onClick={() => onPlayerSelect(player.id)}>
-        {isLoser && <Text className='ron-role-badge loser' onClick={event => { event.stopPropagation(); onRoleChange('loser') }}>放</Text>}
-        {isWinner && <Text className='ron-role-badge winner'>胡{multiRonEnabled ? winnerIndex + 1 : ''}</Text>}
+        {isLoser && <Text className='ron-role-badge loser' onClick={event => { event.stopPropagation(); onPlayerSelect(player.id) }}>放</Text>}
+        {isWinner && <Text className='ron-role-badge winner' onClick={event => { event.stopPropagation(); onPlayerSelect(player.id) }}>胡{multiRonEnabled ? winnerIndex + 1 : ''}</Text>}
         <Avatar player={player} selected={isLoser || isWinner} isSelf={player.user_id === currentUserId} />
         <Text className='pick-name'>{player.name}</Text>
       </View>
@@ -928,20 +967,24 @@ function EventRolePicker({
   eventType: InHandEventType
   playerId: string
   payerId: string
-  activeRole: 'player' | 'payer'
+  activeRole: 'player' | 'payer' | null
   onRoleChange: (role: 'player' | 'payer') => void
   onPlayerSelect: (id: string) => void
 }) {
   const needsPayer = eventType === '明杠'
   const playerLabel = inHandEventOptionMap.get(eventType)?.playerLabel || '事件相关玩家'
   const playerBadge = eventType === '被跟圈' ? '跟' : eventType === '四风归一' ? '获' : '杠'
-  const guide = activeRole === 'payer' && needsPayer
-    ? payerId
-      ? '点击当前放杠者可取消，点击其他玩家直接替换'
-      : '请选择放杠者'
-    : playerId
-      ? `点击当前${playerLabel}可取消，点击其他玩家直接替换`
-      : `请选择${playerLabel}`
+  const guide = activeRole === null
+    ? '角色已确认；修改时先点上方角色栏，或点击已选玩家直接取消'
+    : activeRole === 'payer' && needsPayer
+      ? payerId
+        ? '点击其他玩家可替换；点击已选玩家或 × 可取消'
+        : '请选择放杠者'
+      : playerId
+        ? '点击其他玩家可替换；点击已选玩家或 × 可取消'
+        : `请选择${playerLabel}`
+  const payerName = players.find(player => player.id === payerId)?.name
+  const selectedPlayerName = players.find(player => player.id === playerId)?.name
 
   return <View className='ron-role-panel event-role-panel'>
     <View className='ron-role-head'>
@@ -950,10 +993,12 @@ function EventRolePicker({
     </View>
     <View className={needsPayer ? 'ron-role-tabs event-role-tabs' : 'ron-role-tabs event-role-tabs single'}>
       {needsPayer && <View className={activeRole === 'payer' ? 'ron-role-tab active loser' : 'ron-role-tab loser'} onClick={() => onRoleChange('payer')}>
-        <Text>放杠者</Text><Text>{payerId ? '已选择' : '未选择'}</Text>
+        <View className='role-slot-head'><Text>放杠者</Text>{payerId && <Text className='role-slot-clear' onClick={event => { event.stopPropagation(); onPlayerSelect(payerId) }}>×</Text>}</View>
+        <Text className={payerName ? 'role-slot-name' : 'role-slot-empty'}>{payerName || '点击后选择'}</Text>
       </View>}
       <View className={activeRole === 'player' ? 'ron-role-tab active winner' : 'ron-role-tab winner'} onClick={() => onRoleChange('player')}>
-        <Text>{playerLabel}</Text><Text>{playerId ? '已选择' : '未选择'}</Text>
+        <View className='role-slot-head'><Text>{playerLabel}</Text>{playerId && <Text className='role-slot-clear' onClick={event => { event.stopPropagation(); onPlayerSelect(playerId) }}>×</Text>}</View>
+        <Text className={selectedPlayerName ? 'role-slot-name' : 'role-slot-empty'}>{selectedPlayerName || '点击后选择'}</Text>
       </View>
     </View>
     <Text className='ron-role-guide'>{guide}</Text>
@@ -971,8 +1016,8 @@ function EventRolePicker({
         activeRole === 'player' && isPayer ? 'role-conflict' : '',
       ].filter(Boolean).join(' ')
       return <View className={className} key={player.id} onClick={() => onPlayerSelect(player.id)}>
-        {isPayer && <Text className='ron-role-badge loser' onClick={event => { event.stopPropagation(); onRoleChange('payer') }}>放</Text>}
-        {isPlayer && <Text className='ron-role-badge winner' onClick={event => { event.stopPropagation(); onRoleChange('player') }}>{playerBadge}</Text>}
+        {isPayer && <Text className='ron-role-badge loser' onClick={event => { event.stopPropagation(); onPlayerSelect(player.id) }}>放</Text>}
+        {isPlayer && <Text className='ron-role-badge winner' onClick={event => { event.stopPropagation(); onPlayerSelect(player.id) }}>{playerBadge}</Text>}
         <Avatar player={player} selected={isPlayer || isPayer} isSelf={player.user_id === currentUserId} />
         <Text className='pick-name'>{player.name}</Text>
       </View>
