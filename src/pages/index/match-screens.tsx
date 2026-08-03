@@ -353,7 +353,7 @@ function TileRecordModal({ record, onCancel, onConfirm }: {
   return <View className='modal-backdrop tile-record-modal-backdrop' onClick={onCancel}>
     <View className='tile-record-modal' style={{ height: `${modalHeight}px` }} onClick={event => event.stopPropagation()}>
       <View className='tile-record-modal-header'>
-        <View><Text className='eyebrow'>BIG HAND RECORD · v1.7.24</Text><Text className='title-small'>录入大胡牌谱</Text></View>
+        <View><Text className='eyebrow'>BIG HAND RECORD · v1.7.25</Text><Text className='title-small'>录入大胡牌谱</Text></View>
         <Button className='close-button' onClick={onCancel}>×</Button>
       </View>
       <Text className='tile-record-modal-tip'>先选择碰、明杠、暗杠、手牌或胡的牌，再点击下方麻将牌；已录入的牌可点击删除。</Text>
@@ -430,6 +430,7 @@ export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }:
   const [winner, setWinner] = useState(initialWinner)
   const [loser, setLoser] = useState(initialLoser)
   const [ronWinnerIds, setRonWinnerIds] = useState(initialRonWinnerIds)
+  const [multiRonEnabled, setMultiRonEnabled] = useState(initialRonWinnerIds.length > 1)
   const [activeRonWinnerId, setActiveRonWinnerId] = useState(initialRonWinnerIds[0])
   const [ronDrafts, setRonDrafts] = useState<Record<string, WinnerDraft>>(() => Object.fromEntries(players.map(player => {
     const outcome = initialHand?.result_type === 'ron'
@@ -504,6 +505,24 @@ export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }:
     })
   }
 
+  function selectSingleRonWinner(playerId: string) {
+    setRonWinnerIds([playerId])
+    setActiveRonWinnerId(playerId)
+  }
+
+  function toggleMultiRonMode() {
+    if (multiRonEnabled) {
+      const retainedWinnerId = ronWinnerIds.includes(activeRonWinnerId)
+        ? activeRonWinnerId
+        : ronWinnerIds[0]
+      if (retainedWinnerId) {
+        setRonWinnerIds([retainedWinnerId])
+        setActiveRonWinnerId(retainedWinnerId)
+      }
+    }
+    setMultiRonEnabled(current => !current)
+  }
+
   function toggleRonWinner(playerId: string) {
     setRonWinnerIds(current => {
       if (current.includes(playerId)) {
@@ -518,10 +537,6 @@ export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }:
       if (current.length >= 3) return current
       const next = [...current, playerId]
       setActiveRonWinnerId(playerId)
-      if (playerId === loser) {
-        const nextLoser = players.find(player => !next.includes(player.id))
-        if (nextLoser) setLoser(nextLoser.id)
-      }
       return next
     })
   }
@@ -565,6 +580,10 @@ export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }:
   function save() {
     let scores: { playerId: string; change: number }[]
     if (type === 'ron') {
+      if (multiRonEnabled && ronWinnerIds.length < 2) {
+        void Taro.showToast({ title: '一炮多响至少选择两位胡牌者', icon: 'none' })
+        return
+      }
       const outcomes = ronWinnerIds.map(playerId => {
         const draft = ronDrafts[playerId]
         const score = Math.max(1, Math.round(Number(draft?.amount) || 0))
@@ -649,7 +668,13 @@ export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }:
 
     {type === 'ron' && <>
       <PlayerPicker title='放炮者' players={players} selected={loser} onSelect={selectRonLoser} />
-      <MultiPlayerPicker title='胡牌者（可多选）' players={players.filter(player => player.id !== loser)} selected={ronWinnerIds} onToggle={toggleRonWinner} />
+      <View className={multiRonEnabled ? 'ron-multi-option active' : 'ron-multi-option'} onClick={toggleMultiRonMode}>
+        <View className='ron-multi-option-copy'><Text className='ron-multi-option-title'>一炮多响</Text><Text className='ron-multi-option-tip'>开启后可选择 2–3 位胡牌者</Text></View>
+        <Text className='ron-multi-option-state'>{multiRonEnabled ? '已开启' : '开启'}</Text>
+      </View>
+      {multiRonEnabled
+        ? <MultiPlayerPicker title='胡牌者（可多选）' players={players.filter(player => player.id !== loser)} selected={ronWinnerIds} onToggle={toggleRonWinner} />
+        : <PlayerPicker title='胡牌者' players={players.filter(player => player.id !== loser)} selected={ronWinnerIds[0]} onSelect={selectSingleRonWinner} />}
       {ronWinnerIds.length > 1 && <View className='multi-ron-summary'><Text>一炮{ronWinnerIds.length === 2 ? '双' : '三'}响</Text><Text>{players.find(player => player.id === loser)?.name || '放炮者'} 合计 -{ronTotal}</Text></View>}
       {ronWinnerIds.length > 1 && <View className='winner-result-tabs'>{ronWinnerIds.map((playerId, index) => {
         const player = players.find(item => item.id === playerId)!

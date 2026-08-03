@@ -640,6 +640,15 @@ page { background: var(--page-bg); color: var(--text); }
 .score-preset.active { border-color: #e6b32f; background: #fff1bd; color: #855e00; font-weight: 850; }
 .multi-picker-title { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
 .multi-picker-title > text:last-child { color: var(--text-muted); font-size: 18px; }
+.ron-multi-option { margin: 17px 0 4px; padding: 16px 18px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border: 1px solid var(--line); border-radius: 20px; background: #fffdf8; box-shadow: 0 8px 20px rgba(91,72,37,.05); transition: border-color .16s ease, background-color .16s ease, transform .16s ease; }
+.ron-multi-option:active { transform: scale(.99); }
+.ron-multi-option-copy text { display: block; }
+.ron-multi-option-title { color: var(--text); font-size: 22px; font-weight: 900; }
+.ron-multi-option-tip { margin-top: 4px; color: var(--text-muted); font-size: 17px; }
+.ron-multi-option-state { min-width: 74px; padding: 9px 13px; box-sizing: border-box; border-radius: 999px; background: #f2eee6; color: #787168; font-size: 17px; font-weight: 850; text-align: center; }
+.ron-multi-option.active { border-color: #e4b22f; background: #fff7d9; box-shadow: 0 0 0 2px rgba(228,178,47,.12), 0 10px 24px rgba(166,112,0,.08); }
+.ron-multi-option.active .ron-multi-option-title { color: #765200; }
+.ron-multi-option.active .ron-multi-option-state { background: #e7ae1f; color: #fff; }
 .multi-ron-summary { margin: 14px 0 10px; padding: 14px 17px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid #edcf7a; border-radius: 19px; background: linear-gradient(135deg,#fff8db,#fff0b9); color: #825b00; font-size: 19px; font-weight: 850; }
 .winner-result-tabs { margin: 10px 0 2px; padding: 7px; display: flex; gap: 7px; border: 1px solid #eadfca; border-radius: 22px; background: #f6f2ea; }
 .winner-result-tab { min-width: 0; flex: 1; padding: 11px 8px; border: 1px solid transparent; border-radius: 16px; background: transparent; text-align: center; }
