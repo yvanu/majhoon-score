@@ -137,25 +137,32 @@ export function registerMeRoutes(app: Hono<Env>) {
   })
 
   app.get('/api/me/friends/:id/statistics', async c => {
+    const startedAt = performance.now()
     const user = await currentUser(c)
+    const authenticatedAt = performance.now()
     if (!user) return jsonError(c, '请先登录', 401)
 
-    const friend = await c.env.DB.prepare(`
-      SELECT id, name, avatar_seed, last_played_at
-      FROM friends WHERE id = ? AND user_id = ?
-    `).bind(c.req.param('id'), user.id).first<Record<string, unknown>>()
+    const friendId = c.req.param('id')
+    const [friendResult, rowsResult] = await c.env.DB.batch([
+      c.env.DB.prepare(`
+        SELECT id, name, avatar_seed, last_played_at
+        FROM friends WHERE id = ? AND user_id = ?
+      `).bind(friendId, user.id),
+      c.env.DB.prepare(`
+        SELECT p.id player_id, p.match_id, h.id hand_id, h.result_type,
+          h.loser_player_id, ho.winner_player_id outcome_winner_player_id, ho.note outcome_note
+        FROM players p
+        JOIN matches m ON m.id = p.match_id AND m.owner_user_id = ?
+        LEFT JOIN hands h ON h.match_id = p.match_id
+        LEFT JOIN hand_outcomes ho ON ho.hand_id = h.id
+        WHERE p.friend_id = ?
+        ORDER BY h.created_at ASC, ho.outcome_order ASC
+      `).bind(user.id, friendId),
+    ])
+    const queriedAt = performance.now()
+    const friend = (friendResult as D1Result<Record<string, unknown>>).results[0]
     if (!friend) return jsonError(c, '牌友不存在', 404)
-
-    const rows = await c.env.DB.prepare(`
-      SELECT p.id player_id, p.match_id, h.id hand_id, h.result_type,
-        h.loser_player_id, ho.winner_player_id outcome_winner_player_id, ho.note outcome_note
-      FROM players p
-      JOIN matches m ON m.id = p.match_id AND m.owner_user_id = ?
-      LEFT JOIN hands h ON h.match_id = p.match_id
-      LEFT JOIN hand_outcomes ho ON ho.hand_id = h.id
-      WHERE p.friend_id = ?
-      ORDER BY h.created_at ASC, ho.outcome_order ASC
-    `).bind(user.id, c.req.param('id')).all<Record<string, unknown>>()
+    const rows = rowsResult as D1Result<Record<string, unknown>>
 
     const matchIds = new Set<string>()
     const handIds = new Set<string>()
@@ -227,6 +234,12 @@ export function registerMeRoutes(app: Hono<Env>) {
       winPatterns: sortPatterns(winPatterns),
       dealInPatterns: sortPatterns(dealInPatterns),
     }
+    const mappedAt = performance.now()
+    c.header('Server-Timing', [
+      `auth;dur=${(authenticatedAt - startedAt).toFixed(1)}`,
+      `query;dur=${(queriedAt - authenticatedAt).toFixed(1)}`,
+      `map;dur=${(mappedAt - queriedAt).toFixed(1)}`,
+    ].join(', '))
     return c.json(response)
   })
 

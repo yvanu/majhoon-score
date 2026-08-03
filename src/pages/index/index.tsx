@@ -43,6 +43,7 @@ import { MatchScreen, ScoreScreen, StatsScreen } from './match-screens'
 import './index.scss'
 
 const TAB_CACHE_TTL = 60_000
+const FRIEND_STATS_CACHE_TTL = 5 * 60_000
 const DASHBOARD_CACHE_KEY = 'mahjong-dashboard-cache-v1'
 
 type DashboardSnapshot = {
@@ -101,6 +102,8 @@ export default function Index() {
   const [friendsLoading, setFriendsLoading] = useState(false)
   const [dailyStatsLoading, setDailyStatsLoading] = useState(false)
   const [friendStats, setFriendStats] = useState<FriendStatistics | null>(null)
+  const [activeFriend, setActiveFriend] = useState<Friend | null>(null)
+  const [friendStatsLoadingId, setFriendStatsLoadingId] = useState('')
   const [personalStats, setPersonalStats] = useState<PersonalStatistics | null>(null)
   const [adminToken, setAdminToken] = useState('')
   const [editingHandId, setEditingHandId] = useState<string | null>(null)
@@ -116,6 +119,9 @@ export default function Index() {
   const historyRequest = useRef<Promise<void> | null>(null)
   const friendsRequest = useRef<Promise<void> | null>(null)
   const dailyStatsRequest = useRef<Promise<void> | null>(null)
+  const activeFriendId = useRef('')
+  const friendStatsCache = useRef(new Map<string, { value: FriendStatistics; loadedAt: number }>())
+  const friendStatsRequests = useRef(new Map<string, Promise<FriendStatistics>>())
 
   useEffect(() => {
     void restoreSession()
@@ -179,6 +185,11 @@ export default function Index() {
       if (current.length <= 1) return [recentMatch]
       return [recentMatch, ...current.filter(item => item.id !== recentMatch.id)]
     })
+  }
+
+  function invalidateStatisticsCaches() {
+    setPersonalStats(null)
+    friendStatsCache.current.clear()
   }
 
   async function restoreSession() {
@@ -401,10 +412,37 @@ export default function Index() {
     })
   }
 
-  async function openFriend(friend: Friend) {
-    await run(async () => {
-      setFriendStats(await api.friendStatistics(friend.id))
-      setScreen('friend')
+  function loadFriendStatistics(friendId: string, force = false) {
+    const cached = friendStatsCache.current.get(friendId)
+    if (!force && cached && Date.now() - cached.loadedAt < FRIEND_STATS_CACHE_TTL) {
+      return Promise.resolve(cached.value)
+    }
+    const pending = friendStatsRequests.current.get(friendId)
+    if (pending) return pending
+    setFriendStatsLoadingId(friendId)
+    const request = api.friendStatistics(friendId).then(result => {
+      friendStatsCache.current.set(friendId, { value: result, loadedAt: Date.now() })
+      return result
+    }).finally(() => {
+      friendStatsRequests.current.delete(friendId)
+      setFriendStatsLoadingId(current => current === friendId ? '' : current)
+    })
+    friendStatsRequests.current.set(friendId, request)
+    return request
+  }
+
+  function openFriend(friend: Friend) {
+    activeFriendId.current = friend.id
+    setActiveFriend(friend)
+    setFriendStats(friendStatsCache.current.get(friend.id)?.value ?? null)
+    setScreen('friend')
+    void loadFriendStatistics(friend.id).then(result => {
+      if (activeFriendId.current === friend.id) setFriendStats(result)
+    }).catch(error => {
+      console.error('Load friend statistics failed:', error)
+      if (activeFriendId.current === friend.id && !friendStatsCache.current.has(friend.id)) {
+        void Taro.showToast({ title: '牌友战绩加载失败，请稍后重试', icon: 'none' })
+      }
     })
   }
 
@@ -458,6 +496,7 @@ export default function Index() {
       Taro.setStorageSync(CURRENT_KEY, { id: data.match.id, token: data.adminToken })
       setScreen('match')
       friendsLoadedAt.current = 0
+      invalidateStatisticsCaches()
       await Taro.showToast({ title: '牌局已创建', icon: 'success' })
       if (user) await refreshDashboard()
     })
@@ -504,7 +543,7 @@ export default function Index() {
     await run(async () => {
       const result = await api.updateProfile(displayName)
       setUser(result.user)
-      setPersonalStats(null)
+      invalidateStatisticsCaches()
       setScreen(nicknameReturn)
       await Taro.showToast({ title: '牌桌昵称已保存', icon: 'success' })
     })
@@ -525,6 +564,11 @@ export default function Index() {
     dailyStatsLoadedAt.current = 0
     dailyStatsRequest.current = null
     setFriendStats(null)
+    setActiveFriend(null)
+    activeFriendId.current = ''
+    friendStatsCache.current.clear()
+    friendStatsRequests.current.clear()
+    setFriendStatsLoadingId('')
     setPersonalStats(null)
     setDailyStats(null)
     setScreen('home')
@@ -542,7 +586,7 @@ export default function Index() {
     await run(async () => {
       await api.deleteHistoryMatch(id)
       setHistory(current => current.filter(item => item.id !== id))
-      setPersonalStats(null)
+      invalidateStatisticsCaches()
       const saved = Taro.getStorageSync<{ id: string; token: string }>(CURRENT_KEY)
       if (saved?.id === id) Taro.removeStorageSync(CURRENT_KEY)
       await Taro.showToast({ title: '已删除', icon: 'success' })
@@ -559,7 +603,7 @@ export default function Index() {
       setMatch(current => current?.id === match.id
         ? applyHandMutation(current, data, handId)
         : current)
-      setPersonalStats(null)
+      invalidateStatisticsCaches()
       setEditingHandId(null)
       if (data.status === 'finished') {
         setStats(await api.statistics(match.id))
@@ -598,7 +642,7 @@ export default function Index() {
     if (!confirmed) return
     await run(async () => {
       setMatch((await api.undo(match.id, adminToken)).match)
-      setPersonalStats(null)
+      invalidateStatisticsCaches()
       await Taro.showToast({ title: latestIsEvent ? '局内事件已撤销' : '已撤销上一局', icon: 'success' })
     })
   }
@@ -615,7 +659,7 @@ export default function Index() {
     await run(async () => {
       const data = await api.finish(match.id, adminToken)
       setMatch(data.match)
-      setPersonalStats(null)
+      invalidateStatisticsCaches()
       setStats(await api.statistics(match.id))
       Taro.removeStorageSync(CURRENT_KEY)
       if (user) await refreshDashboard()
@@ -683,7 +727,13 @@ export default function Index() {
       loading={friendsLoading}
       onOpen={openFriend}
     />}
-    {screen === 'friend' && friendStats && <FriendStatisticsScreen statistics={friendStats} onBack={() => setScreen('friends')} />}
+    {screen === 'friend' && (friendStats
+      ? <FriendStatisticsScreen statistics={friendStats} onBack={() => setScreen('friends')} />
+      : <LoadingScreen
+          title={activeFriend?.name || '牌友战绩'}
+          message={friendStatsLoadingId ? '正在加载牌友战绩…' : '暂无牌友战绩数据'}
+          onBack={goBack}
+        />)}
     {screen === 'personal' && (personalStats ? <PersonalStatisticsScreen
       statistics={personalStats}
       loading={loading}
