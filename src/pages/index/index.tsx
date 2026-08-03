@@ -94,6 +94,7 @@ export default function Index() {
   const screenHistory = useRef<Screen[]>(['home'])
   const [backTrapOpen, setBackTrapOpen] = useState(false)
   const [match, setMatch] = useState<Match | null>(null)
+  const [matchCanEdit, setMatchCanEdit] = useState(false)
   const [stats, setStats] = useState<Stats | null>(null)
   const [dailyStats, setDailyStats] = useState<DailyStats | null>(dashboardSnapshot?.dailyStats ?? null)
   const [user, setUser] = useState<AuthUser | null>(dashboardSnapshot?.user ?? null)
@@ -225,10 +226,11 @@ export default function Index() {
     }
 
     if (saved?.id) {
-      tasks.push(api.getMatch(saved.id).then(data => {
+      tasks.push(api.getMatch(saved.id, false, saved.token || '').then(data => {
         if (data.match.status === 'active') {
           setMatch(data.match)
           setAdminToken(saved.token || '')
+          setMatchCanEdit(data.canEdit)
         } else {
           Taro.removeStorageSync(CURRENT_KEY)
         }
@@ -304,21 +306,27 @@ export default function Index() {
     }
   }
 
-  async function openMatch(idOrCode: string, clearToken = true, statusHint?: MatchSummary['status']) {
+  async function openMatch(idOrCode: string, statusHint?: MatchSummary['status']) {
     const previousScreen = screenRef.current
     const previousMatch = match
     const previousStats = stats
+    const previousAdminToken = adminToken
+    const previousCanEdit = matchCanEdit
+    const saved = Taro.getStorageSync<{ id: string; token: string }>(CURRENT_KEY)
+    const tokenForRequest = saved?.token || adminToken
     const isCachedMatch = match?.id === idOrCode
     if (!isCachedMatch) {
       setMatch(null)
       setStats(null)
+      setMatchCanEdit(false)
     }
     setScreen('match')
 
     const succeeded = await run(async () => {
-      const data = await api.getMatch(idOrCode, statusHint === 'finished')
+      const data = await api.getMatch(idOrCode, statusHint === 'finished', tokenForRequest)
       setMatch(data.match)
-      if (clearToken) setAdminToken('')
+      setMatchCanEdit(data.canEdit)
+      setAdminToken(saved?.id === data.match.id ? saved.token || '' : '')
       if (data.match.status === 'finished') {
         setStats(data.stats ?? await api.statistics(data.match.id))
         if (screenRef.current === 'match') replaceScreen('stats')
@@ -328,6 +336,8 @@ export default function Index() {
     if (!succeeded) {
       setMatch(previousMatch)
       setStats(previousStats)
+      setAdminToken(previousAdminToken)
+      setMatchCanEdit(previousCanEdit)
       if (screenRef.current === 'match') replaceScreen(previousScreen)
     }
   }
@@ -546,6 +556,7 @@ export default function Index() {
       const data = await api.createMatch(players)
       setMatch(data.match)
       setAdminToken(data.adminToken)
+      setMatchCanEdit(true)
       Taro.setStorageSync(CURRENT_KEY, { id: data.match.id, token: data.adminToken })
       setScreen('match')
       friendsLoadedAt.current = 0
@@ -616,6 +627,7 @@ export default function Index() {
     Taro.removeStorageSync(AUTH_KEY)
     Taro.removeStorageSync(DASHBOARD_CACHE_KEY)
     setUser(null)
+    setMatchCanEdit(false)
     setHistory([])
     setFriends([])
     historyLoadedAt.current = 0
@@ -755,6 +767,7 @@ export default function Index() {
     setMatch(null)
     setStats(null)
     setAdminToken('')
+    setMatchCanEdit(false)
     setEditingHandId(null)
     setScreen('home')
     if (user) {
@@ -785,7 +798,7 @@ export default function Index() {
       onContinue={() => setScreen('match')}
       onStart={showCreate}
       onJoin={() => setScreen('join')}
-      onOpen={(code, statusHint) => openMatch(code, code !== match?.id, statusHint)}
+      onOpen={(code, statusHint) => openMatch(code, statusHint)}
       onHistory={showHistory}
       onDaily={showDailyStats}
       onLogin={() => setScreen('auth')}
@@ -810,7 +823,7 @@ export default function Index() {
     {screen === 'history' && user && <HistoryScreen
       matches={history}
       loading={historyLoading || loading}
-      onOpen={current => openMatch(current.id, current.id !== match?.id, current.status)}
+      onOpen={current => openMatch(current.id, current.status)}
       onDelete={deleteHistoryMatch}
     />}
     {screen === 'daily' && (dailyStats
@@ -849,7 +862,7 @@ export default function Index() {
     {screen === 'match' && (match ? <MatchScreen
       match={match}
       currentUserId={user?.id || null}
-      canEdit={Boolean(adminToken)}
+      canEdit={matchCanEdit}
       loading={loading}
       onAdd={() => { setEditingHandId(null); setScreen('score') }}
       onEdit={editHand}

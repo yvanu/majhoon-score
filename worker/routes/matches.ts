@@ -221,8 +221,15 @@ export function registerMatchRoutes(app: Hono<Env>) {
     const startedAt = performance.now()
     const includeStatistics = c.req.query('includeStatistics') === '1'
     const result = await getMatchBundle(c.env.DB, c.req.param('id'), includeStatistics)
-    c.header('Server-Timing', `match;dur=${(performance.now() - startedAt).toFixed(1)}`)
-    return result ? c.json(result) : jsonError(c, '牌局不存在', 404)
+    if (!result) return jsonError(c, '牌局不存在', 404)
+    const loadedAt = performance.now()
+    const editable = await canWrite(c, result.match.id)
+    const authorizedAt = performance.now()
+    c.header('Server-Timing', [
+      `match;dur=${(loadedAt - startedAt).toFixed(1)}`,
+      `permission;dur=${(authorizedAt - loadedAt).toFixed(1)}`,
+    ].join(', '))
+    return c.json({ ...result, canEdit: editable })
   })
 
   app.post('/api/matches/:id/claim', async c => {
