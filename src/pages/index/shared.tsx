@@ -81,21 +81,23 @@ function avatarInitial(name: string) {
   return [...name.trim()][0] || '雀'
 }
 
-function AvatarFace({ name, palette, seat, large = false, selected = false }: {
+function AvatarFace({ name, palette, seat, large = false, selected = false, isSelf = false }: {
   name: string
   palette: number
   seat?: number
   large?: boolean
   selected?: boolean
+  isSelf?: boolean
 }) {
-  return <View className={`avatar avatar-${palette % 6}${large ? ' avatar-large' : ''}${selected ? ' avatar-selected' : ''}`}>
+  return <View className={`avatar avatar-${palette % 6}${large ? ' avatar-large' : ''}${selected ? ' avatar-selected' : ''}${isSelf ? ' avatar-self' : ''}`}>
     <Text className='avatar-initial'>{avatarInitial(name)}</Text>
+    {isSelf && <Text className='avatar-self-badge'>我</Text>}
     {seat !== undefined && <Text className='avatar-seat-badge'>{seatLabels[seat]}</Text>}
   </View>
 }
 
-export function Avatar({ player, large = false, selected = false }: { player: Player; large?: boolean; selected?: boolean }) {
-  return <AvatarFace name={player.name} palette={player.seat} seat={player.seat} large={large} selected={selected} />
+export function Avatar({ player, large = false, selected = false, isSelf = false }: { player: Player; large?: boolean; selected?: boolean; isSelf?: boolean }) {
+  return <AvatarFace name={player.name} palette={player.seat} seat={player.seat} large={large} selected={selected} isSelf={isSelf} />
 }
 
 export function FriendAvatar({ friend, large = false }: { friend: Friend; large?: boolean }) {

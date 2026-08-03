@@ -591,6 +591,7 @@ export default function Index() {
     />}
     {screen === 'match' && (match ? <MatchScreen
       match={match}
+      currentUserId={user?.id || null}
       canEdit={Boolean(adminToken)}
       loading={loading}
       onAdd={() => { setEditingHandId(null); setScreen('score') }}
@@ -600,12 +601,13 @@ export default function Index() {
     /> : <LoadingScreen title='牌局详情' message='正在加载玩家、计分和牌局记录…' onBack={goBack} />)}
     {screen === 'score' && match && <ScoreScreen
       players={match.players}
+      currentUserId={user?.id || null}
       initialHand={editingHandId ? match.hands.find(hand => hand.id === editingHandId) || null : null}
       loading={loading}
       onBack={() => { setEditingHandId(null); setScreen('match') }}
       onSubmit={submitHand}
     />}
-    {screen === 'stats' && match && stats && <StatsScreen match={match} stats={stats} onReset={reset} />}
+    {screen === 'stats' && match && stats && <StatsScreen match={match} stats={stats} currentUserId={user?.id || null} onReset={reset} />}
     </View>
     {activeTab && <BottomNav
       active={activeTab}

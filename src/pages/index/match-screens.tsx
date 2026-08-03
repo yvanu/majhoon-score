@@ -76,8 +76,9 @@ function handOutcomeText(match: Match, hand: Hand) {
   return '自定义计分'
 }
 
-export function MatchScreen({ match, canEdit, loading, onAdd, onEdit, onUndo, onFinish }: {
+export function MatchScreen({ match, currentUserId, canEdit, loading, onAdd, onEdit, onUndo, onFinish }: {
   match: Match
+  currentUserId: string | null
   canEdit: boolean
   loading: boolean
   onAdd: () => void
@@ -99,7 +100,7 @@ export function MatchScreen({ match, canEdit, loading, onAdd, onEdit, onUndo, on
 
   return <View className='page match-page' style={{ paddingTop: `${getPageTopInset()}px` }}><View className='match-head'><View><Text className='eyebrow'>{windName[match.current_wind]}风 · 第 {match.current_hand} 局</Text><Text className='title-small'>雀局进行中</Text></View><Button className='code' onClick={share}>{match.share_code}</Button></View>
     {ranked.map((player, index) => <View className='score-card' key={player.id} onClick={() => setSelectedPlayerId(player.id)}>
-      <Text className='rank'>{index + 1}</Text><Avatar player={player} /><View className='grow'><Text className='card-title'>{player.name}</Text><Text>{['东', '南', '西', '北'][player.seat]}家 · 点击看个人战况</Text></View><Text className={player.score >= 0 ? 'positive' : 'negative'}>{player.score > 0 ? '+' : ''}{player.score}</Text>
+      <Text className='rank'>{index + 1}</Text><Avatar player={player} isSelf={player.user_id === currentUserId} /><View className='grow'><Text className='card-title'>{player.name}</Text><Text>{['东', '南', '西', '北'][player.seat]}家 · 点击看个人战况</Text></View><Text className={player.score >= 0 ? 'positive' : 'negative'}>{player.score > 0 ? '+' : ''}{player.score}</Text>
     </View>)}
     <View className='match-progress-row'><Text>已完成 {completedHands.length} 局{inHandEvents.length ? ` · ${inHandEvents.length} 项局内事件` : ''}</Text><Text>{completedHands.filter(handHasBigPattern).length} 局大胡</Text></View>
     <View className='match-insight-actions'>
@@ -108,12 +109,12 @@ export function MatchScreen({ match, canEdit, loading, onAdd, onEdit, onUndo, on
     </View>
     {canEdit ? <><Button className='primary' disabled={loading} onClick={onAdd}>＋ 记一局</Button><View className='button-row'><Button className='secondary half' disabled={!match.hands.length || loading} onClick={onUndo}>撤销上一项</Button><Button className='secondary half' disabled={loading} onClick={onFinish}>结束本将</Button></View></> : <Text className='readonly'>当前为只读分享视图</Text>}
     {selectedPlayer && <PlayerDetailModal player={selectedPlayer} match={match} onClose={() => setSelectedPlayerId(null)} />}
-    {showLiveStats && <LiveMatchStatsModal match={match} onClose={() => setShowLiveStats(false)} />}
+    {showLiveStats && <LiveMatchStatsModal match={match} currentUserId={currentUserId} onClose={() => setShowLiveStats(false)} />}
     {showHandHistory && <HandHistoryModal match={match} canEdit={canEdit} onEdit={hand => { setShowHandHistory(false); onEdit(hand) }} onClose={() => setShowHandHistory(false)} />}
   </View>
 }
 
-function LiveMatchStatsModal({ match, onClose }: { match: Match; onClose: () => void }) {
+function LiveMatchStatsModal({ match, currentUserId, onClose }: { match: Match; currentUserId: string | null; onClose: () => void }) {
   const playerStats = match.players.map(player => {
     const wins = playerWinEntries(match, player.id)
     return {
@@ -141,7 +142,7 @@ function LiveMatchStatsModal({ match, onClose }: { match: Match; onClose: () => 
     <View className='detail-header'><View><Text className='eyebrow'>LIVE RECORD</Text><Text className='title-small'>实时战况</Text></View><Button className='close-button' onClick={onClose}>×</Button></View>
     <ScrollView scrollY className='match-modal-scroll'>
       <View className='live-player-list'>{playerStats.map(item => <View className='live-player-card' key={item.player.id}>
-        <View className='live-player-name'><Avatar player={item.player} /><View><Text className='card-title'>{item.player.name}</Text><Text>{['东', '南', '西', '北'][item.player.seat]}家 · 当前 {item.player.score > 0 ? '+' : ''}{item.player.score}</Text></View></View>
+        <View className='live-player-name'><Avatar player={item.player} isSelf={item.player.user_id === currentUserId} /><View><Text className='card-title'>{item.player.name}</Text><Text>{['东', '南', '西', '北'][item.player.seat]}家 · 当前 {item.player.score > 0 ? '+' : ''}{item.player.score}</Text></View></View>
         <View className='live-player-metrics'><Text>胡 {item.wins}</Text><Text>大胡 {item.bigHands}</Text><Text>自摸 {item.tsumo}</Text><Text className={item.dealIns ? 'danger-metric' : ''}>点炮 {item.dealIns}</Text></View>
       </View>)}</View>
       <View className='relation-section'><View className='detail-group-title'><Text>点炮关系</Text><Text>共 {match.hands.filter(hand => hand.result_type === 'ron').length} 炮</Text></View>
@@ -358,7 +359,7 @@ function TileRecordModal({ record, onCancel, onConfirm }: {
   return <View className='modal-backdrop tile-record-modal-backdrop' onClick={onCancel}>
     <View className='tile-record-modal' style={{ height: `${modalHeight}px` }} onClick={event => event.stopPropagation()}>
       <View className='tile-record-modal-header'>
-        <View><Text className='eyebrow'>BIG HAND RECORD · v1.7.30</Text><Text className='title-small'>录入大胡牌谱</Text></View>
+        <View><Text className='eyebrow'>BIG HAND RECORD · v1.7.31</Text><Text className='title-small'>录入大胡牌谱</Text></View>
         <Button className='close-button' onClick={onCancel}>×</Button>
       </View>
       <Text className='tile-record-modal-tip'>先选择碰、明杠、暗杠、手牌或胡的牌，再点击下方麻将牌；已录入的牌可点击删除。</Text>
@@ -399,13 +400,17 @@ const inHandEventOptions: InHandEventOption[] = [
 
 const inHandEventOptionMap = new Map(inHandEventOptions.map(option => [option.type, option]))
 
-export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }: {
+export function ScoreScreen({ players, currentUserId, initialHand, loading, onBack, onSubmit }: {
   players: Player[]
+  currentUserId: string | null
   initialHand: Hand | null
   loading: boolean
   onBack: () => void
   onSubmit: (input: HandInput) => void
 }) {
+  const loggedPlayerId = currentUserId
+    ? players.find(player => player.user_id === currentUserId)?.id || null
+    : null
   const initialOutcomes = initialHand ? handOutcomes(initialHand) : []
   const initialWinner = initialOutcomes[0]?.winner_player_id || initialHand?.winner_player_id || players[0].id
   const initialRonWinnerIds = initialHand?.result_type === 'ron' && initialOutcomes.length
@@ -462,7 +467,7 @@ export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }:
   const [notes, setNotes] = useState<string[]>(initialTsumoOutcome?.note?.split('、').filter(Boolean) || [])
   const [tileRecord, setTileRecord] = useState<HandTileRecord>(() => initialTsumoOutcome?.tile_record ? cloneTileRecord(initialTsumoOutcome.tile_record) : emptyTileRecord())
   const [tileEditorTarget, setTileEditorTarget] = useState<'tsumo' | string | null>(null)
-  const canRecordTsumoTiles = type === 'tsumo' && notes.some(note => bigHandOptions.has(note))
+  const canRecordTsumoTiles = type === 'tsumo' && winner === loggedPlayerId && notes.some(note => bigHandOptions.has(note))
   const isEditing = Boolean(initialHand)
   const ronTotal = ronWinnerIds.reduce((sum, id) => sum + Math.max(1, Math.round(Number(ronDrafts[id]?.amount) || 0)), 0)
   const canSaveRon = Boolean(loser) && !ronWinnerIds.includes(loser) && (multiRonEnabled ? ronWinnerIds.length >= 2 : ronWinnerIds.length === 1)
@@ -680,7 +685,7 @@ export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }:
   const displayedRonWinnerId = ronWinnerIds.includes(activeRonWinnerId) ? activeRonWinnerId : ronWinnerIds[0]
   const displayedRonWinner = players.find(player => player.id === displayedRonWinnerId)
   const displayedRonDraft = displayedRonWinnerId ? ronDrafts[displayedRonWinnerId] : undefined
-  const canRecordDisplayedRonTiles = Boolean(displayedRonDraft?.notes.some(note => bigHandOptions.has(note)))
+  const canRecordDisplayedRonTiles = Boolean(displayedRonWinnerId === loggedPlayerId && displayedRonDraft?.notes.some(note => bigHandOptions.has(note)))
 
   const screenTitle = type === 'event'
     ? isEditing ? '修改局内事件' : '记录局内事件'
@@ -694,6 +699,7 @@ export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }:
     {type === 'ron' && <>
       <RonRolePicker
         players={players}
+        currentUserId={currentUserId}
         loserId={loser}
         winnerIds={ronWinnerIds}
         activeRole={ronSelectionRole}
@@ -729,7 +735,7 @@ export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }:
     </>}
 
     {type === 'tsumo' && <>
-      <PlayerPicker title='胡牌者' players={players} selected={winner} onSelect={setWinner} />
+      <PlayerPicker title='胡牌者' players={players} currentUserId={currentUserId} selected={winner} onSelect={setWinner} />
       <View className='field score-field'><Text>每人支付</Text><Input type='number' value={tsumoPayment} cursorSpacing={28} onInput={event => setTsumoPayment(event.detail.value)} /><View className='score-presets'><Button className={tsumoPayment === '50' ? 'score-preset active' : 'score-preset'} onClick={() => setTsumoPayment('50')}>50</Button><Button className={tsumoPayment === '70' ? 'score-preset active' : 'score-preset'} onClick={() => setTsumoPayment('70')}>70</Button><Button className='score-preset' onClick={() => adjustScore(tsumoPayment, 5, setTsumoPayment)}>+5</Button><Button className='score-preset' onClick={() => adjustScore(tsumoPayment, -5, setTsumoPayment)}>-5</Button></View></View>
       <View className='note-field'><Text className='section-title'>牌型（可选）</Text><View className='note-options'>{noteOptions.map(option => <Button key={option} className={notes.includes(option) ? 'note selected' : 'note'} onClick={() => toggleNote(option)}>{option}</Button>)}</View></View>
       {canRecordTsumoTiles && <View className='tile-record-entry'>
@@ -745,8 +751,8 @@ export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }:
         className={eventType === option.type ? 'event-type active' : 'event-type'}
         onClick={() => selectEventType(option.type)}
       >{option.type}</Button>)}</View>
-      <PlayerPicker title={eventOption.playerLabel} players={players} selected={eventPlayer} onSelect={selectEventPlayer} />
-      {!eventOption.allPay && <PlayerPicker title='放杠者' players={players.filter(player => player.id !== eventPlayer)} selected={eventPayer} onSelect={setEventPayer} />}
+      <PlayerPicker title={eventOption.playerLabel} players={players} currentUserId={currentUserId} selected={eventPlayer} onSelect={selectEventPlayer} />
+      {!eventOption.allPay && <PlayerPicker title='放杠者' players={players.filter(player => player.id !== eventPlayer)} currentUserId={currentUserId} selected={eventPayer} onSelect={setEventPayer} />}
       <View className='field score-field event-score-field'><Text>{eventOption.playerPaysAll ? '被跟圈者每家支付' : eventOption.allPay ? '每家支付' : '放杠者支付'}</Text><Input type='number' value={eventAmount} cursorSpacing={28} onInput={event => setEventAmount(event.detail.value)} /><View className='score-presets'><Button className={eventAmount === '10' ? 'score-preset active' : 'score-preset'} onClick={() => setEventAmount('10')}>10</Button><Button className={eventAmount === '20' ? 'score-preset active' : 'score-preset'} onClick={() => setEventAmount('20')}>20</Button><Button className='score-preset' onClick={() => adjustScore(eventAmount, 5, setEventAmount)}>+5</Button><Button className='score-preset' onClick={() => adjustScore(eventAmount, -5, setEventAmount)}>-5</Button></View></View>
       <View className='event-preview-card'>
         <View className='event-preview-head'><Text>本次分数变化</Text><Text>{eventType}</Text></View>
@@ -771,12 +777,12 @@ export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }:
   </>
 }
 
-function PlayerPicker({ title, players, selected, onSelect }: { title: string; players: Player[]; selected: string; onSelect: (id: string) => void }) {
+function PlayerPicker({ title, players, currentUserId, selected, onSelect }: { title: string; players: Player[]; currentUserId: string | null; selected: string; onSelect: (id: string) => void }) {
   return <View><Text className='section-title'>{title}</Text><View className='picker'>{players.map(player => {
     const isSelected = selected === player.id
     return <View className={isSelected ? 'pick selected' : 'pick'} key={player.id} onClick={() => onSelect(player.id)}>
       {isSelected && <Text className='pick-check'>✓</Text>}
-      <Avatar player={player} selected={isSelected} />
+      <Avatar player={player} selected={isSelected} isSelf={player.user_id === currentUserId} />
       <Text className='pick-name'>{player.name}</Text>
       <Text className='pick-seat'>{seatLabels[player.seat]}家</Text>
     </View>
@@ -785,6 +791,7 @@ function PlayerPicker({ title, players, selected, onSelect }: { title: string; p
 
 function RonRolePicker({
   players,
+  currentUserId,
   loserId,
   winnerIds,
   activeRole,
@@ -794,6 +801,7 @@ function RonRolePicker({
   onToggleMulti,
 }: {
   players: Player[]
+  currentUserId: string | null
   loserId: string
   winnerIds: string[]
   activeRole: 'loser' | 'winner'
@@ -847,19 +855,19 @@ function RonRolePicker({
       return <View className={className} key={player.id} onClick={() => onPlayerSelect(player.id)}>
         {isLoser && <Text className='ron-role-badge loser' onClick={event => { event.stopPropagation(); onRoleChange('loser') }}>放</Text>}
         {isWinner && <Text className='ron-role-badge winner'>胡{multiRonEnabled ? winnerIndex + 1 : ''}</Text>}
-        <Avatar player={player} selected={isLoser || isWinner} />
+        <Avatar player={player} selected={isLoser || isWinner} isSelf={player.user_id === currentUserId} />
         <Text className='pick-name'>{player.name}</Text>
       </View>
     })}</View>
   </View>
 }
 
-export function StatsScreen({ match, stats, onReset }: { match: Match; stats: Stats; onReset: () => void }) {
+export function StatsScreen({ match, stats, currentUserId, onReset }: { match: Match; stats: Stats; currentUserId: string | null; onReset: () => void }) {
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null)
   const selectedPlayer = match.players.find(player => player.id === selectedPlayerId) || null
   return <View className='page' style={{ paddingTop: `${getPageTopInset()}px` }}><View className='stats-head'><Text className='eyebrow'>FINAL RESULT</Text><Text className='title'>本将结束</Text><Text>共完成 {stats.totalHands} 局</Text></View>
     {stats.players.map(player => <View className='score-card stats-card' key={player.id} onClick={() => setSelectedPlayerId(player.id)}>
-      <Text className='rank'>#{player.rank}</Text><Avatar player={player} large /><View className='grow'><Text className='card-title'>{player.name}</Text><Text>胜率 {(player.winRate * 100).toFixed(0)}% · 放炮 {(player.dealInRate * 100).toFixed(0)}%</Text><Text>自摸占比 {(player.tsumoShare * 100).toFixed(0)}%</Text></View><Text className={player.score >= 0 ? 'positive' : 'negative'}>{player.score > 0 ? '+' : ''}{player.score}</Text>
+      <Text className='rank'>#{player.rank}</Text><Avatar player={player} large isSelf={player.user_id === currentUserId} /><View className='grow'><Text className='card-title'>{player.name}</Text><Text>胜率 {(player.winRate * 100).toFixed(0)}% · 放炮 {(player.dealInRate * 100).toFixed(0)}%</Text><Text>自摸占比 {(player.tsumoShare * 100).toFixed(0)}%</Text></View><Text className={player.score >= 0 ? 'positive' : 'negative'}>{player.score > 0 ? '+' : ''}{player.score}</Text>
     </View>)}
     <Button className='primary' onClick={onReset}>返回首页</Button><Text className='summary'>分享码：{match.share_code}</Text>
     {selectedPlayer && <PlayerDetailModal player={selectedPlayer} match={match} onClose={() => setSelectedPlayerId(null)} />}
