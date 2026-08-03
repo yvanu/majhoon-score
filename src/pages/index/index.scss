@@ -638,38 +638,57 @@ page { background: var(--page-bg); color: var(--text); }
 .score-presets { margin-top: 12px; display: grid; grid-template-columns: repeat(4,1fr); gap: 9px; }
 .score-preset { height: 56px; line-height: 56px; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 15px; background: #f8f5ef; color: var(--text-secondary); font-size: 19px; }
 .score-preset.active { border-color: #e6b32f; background: #fff1bd; color: #855e00; font-weight: 850; }
-.multi-picker-title { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
-.multi-picker-title > text:last-child { color: var(--text-muted); font-size: 18px; }
-.ron-multi-option { margin: 17px 0 4px; padding: 16px 18px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border: 1px solid var(--line); border-radius: 20px; background: #fffdf8; box-shadow: 0 8px 20px rgba(91,72,37,.05); transition: border-color .16s ease, background-color .16s ease, transform .16s ease; }
-.ron-multi-option:active { transform: scale(.99); }
-.ron-multi-option-copy text { display: block; }
-.ron-multi-option-title { color: var(--text); font-size: 22px; font-weight: 900; }
-.ron-multi-option-tip { margin-top: 4px; color: var(--text-muted); font-size: 17px; }
-.ron-multi-option-state { min-width: 74px; padding: 9px 13px; box-sizing: border-box; border-radius: 999px; background: #f2eee6; color: #787168; font-size: 17px; font-weight: 850; text-align: center; }
-.ron-multi-option.active { border-color: #e4b22f; background: #fff7d9; box-shadow: 0 0 0 2px rgba(228,178,47,.12), 0 10px 24px rgba(166,112,0,.08); }
-.ron-multi-option.active .ron-multi-option-title { color: #765200; }
-.ron-multi-option.active .ron-multi-option-state { background: #e7ae1f; color: #fff; }
-.multi-ron-summary { margin: 14px 0 10px; padding: 14px 17px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid #edcf7a; border-radius: 19px; background: linear-gradient(135deg,#fff8db,#fff0b9); color: #825b00; font-size: 19px; font-weight: 850; }
-.winner-result-tabs { margin: 10px 0 2px; padding: 7px; display: flex; gap: 7px; border: 1px solid #eadfca; border-radius: 22px; background: #f6f2ea; }
-.winner-result-tab { min-width: 0; flex: 1; padding: 11px 8px; border: 1px solid transparent; border-radius: 16px; background: transparent; text-align: center; }
+.ron-role-panel { margin-top: 16px; padding: 16px; border: 1px solid #eadfca; border-radius: 24px; background: #fffdf8; box-shadow: 0 10px 26px rgba(91,72,37,.06); }
+.ron-role-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.score-page .ron-role-head .section-title { margin: 0; }
+.ron-multi-switch { flex: 0 0 auto; display: flex; align-items: center; gap: 9px; color: var(--text-muted); font-size: 17px; font-weight: 800; }
+.ron-multi-switch-track { position: relative; width: 56px; height: 31px; border-radius: 999px; background: #ddd8cf; transition: background-color .16s ease; }
+.ron-multi-switch-thumb { position: absolute; left: 3px; top: 3px; width: 25px; height: 25px; border-radius: 50%; background: #fff; box-shadow: 0 3px 9px rgba(66,54,34,.18); transition: transform .16s ease; }
+.ron-multi-switch.active { color: #785500; }
+.ron-multi-switch.active .ron-multi-switch-track { background: #e4ad20; }
+.ron-multi-switch.active .ron-multi-switch-thumb { transform: translateX(25px); }
+.ron-role-tabs { margin-top: 13px; display: grid; grid-template-columns: repeat(2,1fr); gap: 9px; }
+.ron-role-tab { min-width: 0; padding: 11px 13px; border: 1px solid var(--line); border-radius: 16px; background: #f8f5ef; }
+.ron-role-tab text { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ron-role-tab > text:first-child { color: var(--text-secondary); font-size: 20px; font-weight: 900; }
+.ron-role-tab > text:last-child { margin-top: 2px; color: var(--text-muted); font-size: 15px; }
+.ron-role-tab.active.loser { border-color: #df7a6c; background: #fff0ec; box-shadow: 0 0 0 2px rgba(201,80,64,.09); }
+.ron-role-tab.active.loser > text:first-child { color: #a43f32; }
+.ron-role-tab.active.winner { border-color: #e2b12f; background: #fff4cc; box-shadow: 0 0 0 2px rgba(194,135,0,.09); }
+.ron-role-tab.active.winner > text:first-child { color: #795500; }
+.ron-role-guide { display: block; margin: 10px 2px 12px; color: var(--text-muted); font-size: 16px; line-height: 1.4; }
+.score-page .ron-role-player-grid { gap: 8px; }
+.score-page .ron-role-pick { padding: 22px 6px 11px; border-width: 2px; }
+.ron-role-pick.is-loser { border-color: #df796b; background: #fff3ef; }
+.ron-role-pick.is-winner { border-color: #e1b12d; background: #fff7d8; }
+.ron-role-pick.role-active { transform: translateY(-1px); box-shadow: 0 0 0 2px rgba(190,131,0,.1), 0 9px 19px rgba(86,66,32,.1); }
+.ron-role-pick.is-loser.role-active { box-shadow: 0 0 0 2px rgba(190,72,55,.1), 0 9px 19px rgba(104,48,37,.09); }
+.ron-role-pick.role-conflict { opacity: .68; }
+.ron-role-badge { position: absolute; z-index: 3; right: 6px; top: 6px; min-width: 32px; height: 28px; padding: 0 7px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border-radius: 999px; color: #fff; font-size: 15px; font-weight: 950; box-shadow: 0 4px 10px rgba(65,48,24,.16); }
+.ron-role-badge.loser { background: #d45c4d; }
+.ron-role-badge.winner { background: #dda91a; }
+.winner-result-tabs { margin: 10px 0 0; padding: 6px; display: flex; gap: 6px; border: 1px solid #eadfca; border-radius: 19px; background: #f6f2ea; }
+.winner-result-tab { min-width: 0; flex: 1; padding: 9px 7px; border: 1px solid transparent; border-radius: 14px; background: transparent; text-align: center; }
 .winner-result-tab text { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.winner-result-tab-index { color: var(--text-muted); font-size: 14px; }
-.winner-result-tab-name { margin-top: 3px; color: #5d5960; font-size: 19px; font-weight: 850; }
-.winner-result-tab-score { margin-top: 3px; color: #a77400; font-size: 18px; font-weight: 900; }
-.winner-result-tab.active { border-color: #e5b332; background: #fff4cc; box-shadow: 0 7px 18px rgba(166,112,0,.1); }
+.winner-result-tab-index { color: var(--text-muted); font-size: 13px; }
+.winner-result-tab-name { margin-top: 2px; color: #5d5960; font-size: 18px; font-weight: 850; }
+.winner-result-tab.active { border-color: #e5b332; background: #fff4cc; box-shadow: 0 6px 14px rgba(166,112,0,.08); }
 .winner-result-tab.active .winner-result-tab-index { color: #9b720d; }
 .winner-result-tab.active .winner-result-tab-name { color: #674600; }
-.winner-outcome-card { margin-top: 14px; padding: 18px; border: 1px solid #eadfca; border-radius: 24px; background: #fffdf8; box-shadow: 0 10px 26px rgba(91,72,37,.07); }
+.winner-outcome-card { margin-top: 10px; padding: 16px; border: 1px solid #eadfca; border-radius: 22px; background: #fffdf8; box-shadow: 0 9px 22px rgba(91,72,37,.06); }
 .winner-outcome-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.winner-outcome-head text { display: block; }
-.winner-outcome-index { margin-bottom: 3px; color: #9b720d; font-size: 16px; font-weight: 800; }
-.winner-outcome-head .card-title { margin-bottom: 0; font-size: 27px !important; }
-.winner-outcome-score { color: #b27600; font-size: 32px; font-weight: 950; }
+.winner-outcome-head .card-title { margin-bottom: 0; font-size: 25px !important; }
 .outcome-notes { margin-top: 12px; }
 .outcome-notes .section-title { margin-top: 0; }
 .score-page .tile-record-entry { margin: 12px 0 5px; padding: 17px 18px; }
-.loser-total-card { margin: 14px 0 0; padding: 16px 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid #f1c7bd; border-radius: 20px; background: #fff2ee; color: #9b463a; font-size: 20px; font-weight: 850; }
-.loser-total-card > text:last-child { font-size: 31px; font-weight: 950; }
+.ron-settlement-card { margin: 12px 0 0; padding: 15px 17px; border: 1px solid #eadfca; border-radius: 20px; background: #fffdf8; }
+.ron-settlement-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ron-settlement-head > text:first-child { color: var(--text); font-size: 20px; font-weight: 900; }
+.ron-settlement-head > text:last-child { color: #8b6507; font-size: 16px; font-weight: 850; }
+.ron-settlement-list { margin-top: 9px; display: grid; gap: 6px; }
+.ron-settlement-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--text-secondary); font-size: 18px; }
+.ron-settlement-row > text:last-child { font-weight: 950; }
+.ron-settlement-row.loser { margin-top: 2px; padding-top: 8px; border-top: 1px solid #f0ddd7; color: #a3483b; }
 
 @media (max-width: 360px) {
   .personal-rings { grid-template-columns: repeat(2,1fr); row-gap: 22px; }

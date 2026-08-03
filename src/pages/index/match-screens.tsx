@@ -353,7 +353,7 @@ function TileRecordModal({ record, onCancel, onConfirm }: {
   return <View className='modal-backdrop tile-record-modal-backdrop' onClick={onCancel}>
     <View className='tile-record-modal' style={{ height: `${modalHeight}px` }} onClick={event => event.stopPropagation()}>
       <View className='tile-record-modal-header'>
-        <View><Text className='eyebrow'>BIG HAND RECORD · v1.7.25</Text><Text className='title-small'>录入大胡牌谱</Text></View>
+        <View><Text className='eyebrow'>BIG HAND RECORD · v1.7.26</Text><Text className='title-small'>录入大胡牌谱</Text></View>
         <Button className='close-button' onClick={onCancel}>×</Button>
       </View>
       <Text className='tile-record-modal-tip'>先选择碰、明杠、暗杠、手牌或胡的牌，再点击下方麻将牌；已录入的牌可点击删除。</Text>
@@ -431,6 +431,7 @@ export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }:
   const [loser, setLoser] = useState(initialLoser)
   const [ronWinnerIds, setRonWinnerIds] = useState(initialRonWinnerIds)
   const [multiRonEnabled, setMultiRonEnabled] = useState(initialRonWinnerIds.length > 1)
+  const [ronSelectionRole, setRonSelectionRole] = useState<'loser' | 'winner'>('loser')
   const [activeRonWinnerId, setActiveRonWinnerId] = useState(initialRonWinnerIds[0])
   const [ronDrafts, setRonDrafts] = useState<Record<string, WinnerDraft>>(() => Object.fromEntries(players.map(player => {
     const outcome = initialHand?.result_type === 'ron'
@@ -457,6 +458,7 @@ export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }:
   const canRecordTsumoTiles = type === 'tsumo' && notes.some(note => bigHandOptions.has(note))
   const isEditing = Boolean(initialHand)
   const ronTotal = ronWinnerIds.reduce((sum, id) => sum + Math.max(1, Math.round(Number(ronDrafts[id]?.amount) || 0)), 0)
+  const canSaveRon = Boolean(loser) && !ronWinnerIds.includes(loser) && (multiRonEnabled ? ronWinnerIds.length >= 2 : ronWinnerIds.length === 1)
   const eventOption = inHandEventOptionMap.get(eventType)!
   const eventAmountValue = Math.max(1, Math.round(Number(eventAmount) || 0))
   const eventScores = players.map(player => ({
@@ -488,26 +490,53 @@ export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }:
     setRonDrafts(current => ({ ...current, [playerId]: updater(current[playerId] || { amount: '50', notes: [], tileRecord: emptyTileRecord() }) }))
   }
 
-  function selectRonLoser(playerId: string) {
-    setLoser(playerId)
-    setRonWinnerIds(current => {
-      const remaining = current.filter(id => id !== playerId)
-      if (remaining.length) {
-        if (activeRonWinnerId === playerId) setActiveRonWinnerId(remaining[0])
-        return remaining
+  function selectRonPlayer(playerId: string) {
+    if (ronSelectionRole === 'loser') {
+      if (loser === playerId) {
+        setLoser('')
+        return
       }
-      const replacement = players.find(player => player.id !== playerId)?.id
-      if (replacement) {
-        setActiveRonWinnerId(replacement)
-        return [replacement]
-      }
-      return current
-    })
-  }
+      setLoser(playerId)
+      setRonWinnerIds(current => {
+        if (!current.includes(playerId)) return current
+        const next = current.filter(id => id !== playerId)
+        if (activeRonWinnerId === playerId) setActiveRonWinnerId(next[0] || '')
+        return next
+      })
+      setRonSelectionRole('winner')
+      return
+    }
 
-  function selectSingleRonWinner(playerId: string) {
-    setRonWinnerIds([playerId])
-    setActiveRonWinnerId(playerId)
+    if (playerId === loser) {
+      void Taro.showToast({ title: '放炮者不能同时胡牌', icon: 'none' })
+      return
+    }
+
+    if (!multiRonEnabled) {
+      if (ronWinnerIds.length === 1 && ronWinnerIds[0] === playerId) {
+        setRonWinnerIds([])
+        setActiveRonWinnerId('')
+      } else {
+        setRonWinnerIds([playerId])
+        setActiveRonWinnerId(playerId)
+      }
+      return
+    }
+
+    setRonWinnerIds(current => {
+      if (current.includes(playerId)) {
+        const next = current.filter(id => id !== playerId)
+        if (activeRonWinnerId === playerId) setActiveRonWinnerId(next[0] || '')
+        return next
+      }
+      if (current.length >= 3) {
+        void Taro.showToast({ title: '一炮多响最多选择三位胡牌者', icon: 'none' })
+        return current
+      }
+      const next = [...current, playerId]
+      setActiveRonWinnerId(playerId)
+      return next
+    })
   }
 
   function toggleMultiRonMode() {
@@ -515,30 +544,11 @@ export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }:
       const retainedWinnerId = ronWinnerIds.includes(activeRonWinnerId)
         ? activeRonWinnerId
         : ronWinnerIds[0]
-      if (retainedWinnerId) {
-        setRonWinnerIds([retainedWinnerId])
-        setActiveRonWinnerId(retainedWinnerId)
-      }
+      setRonWinnerIds(retainedWinnerId ? [retainedWinnerId] : [])
+      setActiveRonWinnerId(retainedWinnerId || '')
     }
     setMultiRonEnabled(current => !current)
-  }
-
-  function toggleRonWinner(playerId: string) {
-    setRonWinnerIds(current => {
-      if (current.includes(playerId)) {
-        if (current.length === 1) {
-          void Taro.showToast({ title: '至少选择一位胡牌者', icon: 'none' })
-          return current
-        }
-        const next = current.filter(id => id !== playerId)
-        if (activeRonWinnerId === playerId) setActiveRonWinnerId(next[0])
-        return next
-      }
-      if (current.length >= 3) return current
-      const next = [...current, playerId]
-      setActiveRonWinnerId(playerId)
-      return next
-    })
+    setRonSelectionRole('winner')
   }
 
   function toggleRonNote(playerId: string, option: string) {
@@ -580,6 +590,14 @@ export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }:
   function save() {
     let scores: { playerId: string; change: number }[]
     if (type === 'ron') {
+      if (!loser) {
+        void Taro.showToast({ title: '请选择放炮者', icon: 'none' })
+        return
+      }
+      if (!ronWinnerIds.length) {
+        void Taro.showToast({ title: '请选择胡牌者', icon: 'none' })
+        return
+      }
       if (multiRonEnabled && ronWinnerIds.length < 2) {
         void Taro.showToast({ title: '一炮多响至少选择两位胡牌者', icon: 'none' })
         return
@@ -667,27 +685,26 @@ export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }:
     {tabOptions.length > 1 && <View className='tabs'>{tabOptions.map(value => <Button key={value} className={type === value ? 'tab active' : 'tab'} onClick={() => changeType(value)}>{typeName[value]}</Button>)}</View>}
 
     {type === 'ron' && <>
-      <PlayerPicker title='放炮者' players={players} selected={loser} onSelect={selectRonLoser} />
-      <View className={multiRonEnabled ? 'ron-multi-option active' : 'ron-multi-option'} onClick={toggleMultiRonMode}>
-        <View className='ron-multi-option-copy'><Text className='ron-multi-option-title'>一炮多响</Text><Text className='ron-multi-option-tip'>开启后可选择 2–3 位胡牌者</Text></View>
-        <Text className='ron-multi-option-state'>{multiRonEnabled ? '已开启' : '开启'}</Text>
-      </View>
-      {multiRonEnabled
-        ? <MultiPlayerPicker title='胡牌者（可多选）' players={players.filter(player => player.id !== loser)} selected={ronWinnerIds} onToggle={toggleRonWinner} />
-        : <PlayerPicker title='胡牌者' players={players.filter(player => player.id !== loser)} selected={ronWinnerIds[0]} onSelect={selectSingleRonWinner} />}
-      {ronWinnerIds.length > 1 && <View className='multi-ron-summary'><Text>一炮{ronWinnerIds.length === 2 ? '双' : '三'}响</Text><Text>{players.find(player => player.id === loser)?.name || '放炮者'} 合计 -{ronTotal}</Text></View>}
-      {ronWinnerIds.length > 1 && <View className='winner-result-tabs'>{ronWinnerIds.map((playerId, index) => {
+      <RonRolePicker
+        players={players}
+        loserId={loser}
+        winnerIds={ronWinnerIds}
+        activeRole={ronSelectionRole}
+        multiRonEnabled={multiRonEnabled}
+        onRoleChange={setRonSelectionRole}
+        onPlayerSelect={selectRonPlayer}
+        onToggleMulti={toggleMultiRonMode}
+      />
+      {multiRonEnabled && ronWinnerIds.length > 1 && <View className='winner-result-tabs'>{ronWinnerIds.map((playerId, index) => {
         const player = players.find(item => item.id === playerId)!
-        const draft = ronDrafts[playerId]
         const isActive = displayedRonWinnerId === playerId
         return <View className={isActive ? 'winner-result-tab active' : 'winner-result-tab'} key={playerId} onClick={() => setActiveRonWinnerId(playerId)}>
-          <Text className='winner-result-tab-index'>结果 {index + 1}</Text>
+          <Text className='winner-result-tab-index'>胡 {index + 1}</Text>
           <Text className='winner-result-tab-name'>{player.name}</Text>
-          <Text className='winner-result-tab-score'>+{Math.max(1, Math.round(Number(draft.amount) || 0))}</Text>
         </View>
       })}</View>}
       {displayedRonWinner && displayedRonDraft && <View className='winner-outcome-card'>
-        <View className='winner-outcome-head'><View><Text className='winner-outcome-index'>胡牌结果 {ronWinnerIds.indexOf(displayedRonWinner.id) + 1}{ronWinnerIds.length > 1 ? ` / ${ronWinnerIds.length}` : ''}</Text><Text className='card-title'>{displayedRonWinner.name}</Text></View><Text className='winner-outcome-score'>+{Math.max(1, Math.round(Number(displayedRonDraft.amount) || 0))}</Text></View>
+        <View className='winner-outcome-head'><Text className='card-title'>{displayedRonWinner.name}的结果</Text></View>
         <View className='field score-field compact'><Text>获得分数</Text><Input type='number' value={displayedRonDraft.amount} cursorSpacing={28} onInput={event => updateRonDraft(displayedRonWinner.id, current => ({ ...current, amount: event.detail.value }))} /><View className='score-presets'><Button className={displayedRonDraft.amount === '50' ? 'score-preset active' : 'score-preset'} onClick={() => updateRonDraft(displayedRonWinner.id, current => ({ ...current, amount: '50' }))}>50</Button><Button className={displayedRonDraft.amount === '70' ? 'score-preset active' : 'score-preset'} onClick={() => updateRonDraft(displayedRonWinner.id, current => ({ ...current, amount: '70' }))}>70</Button><Button className='score-preset' onClick={() => adjustScore(displayedRonDraft.amount, 5, value => updateRonDraft(displayedRonWinner.id, current => ({ ...current, amount: value })))}>+5</Button><Button className='score-preset' onClick={() => adjustScore(displayedRonDraft.amount, -5, value => updateRonDraft(displayedRonWinner.id, current => ({ ...current, amount: value })))}>-5</Button></View></View>
         <View className='note-field outcome-notes'><Text className='section-title'>牌型（可选）</Text><View className='note-options'>{noteOptions.map(option => <Button key={option} className={displayedRonDraft.notes.includes(option) ? 'note selected' : 'note'} onClick={() => toggleRonNote(displayedRonWinner.id, option)}>{option}</Button>)}</View></View>
         {canRecordDisplayedRonTiles && <View className='tile-record-entry'>
@@ -695,7 +712,13 @@ export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }:
           <Button onClick={() => setTileEditorTarget(displayedRonWinner.id)}>{hasTileRecordContent(displayedRonDraft.tileRecord) ? '修改' : '录入'}</Button>
         </View>}
       </View>}
-      <View className='loser-total-card'><Text>{players.find(player => player.id === loser)?.name || '放炮者'} 合计扣分</Text><Text>-{ronTotal}</Text></View>
+      {canSaveRon && <View className='ron-settlement-card'>
+        <View className='ron-settlement-head'><Text>本局结算</Text><Text>{multiRonEnabled ? `一炮${ronWinnerIds.length === 2 ? '双' : '三'}响` : '普通点炮'}</Text></View>
+        <View className='ron-settlement-list'>
+          {ronWinnerIds.map(playerId => <View className='ron-settlement-row' key={playerId}><Text>{players.find(player => player.id === playerId)?.name}</Text><Text className='positive'>+{Math.max(1, Math.round(Number(ronDrafts[playerId]?.amount) || 0))}</Text></View>)}
+          <View className='ron-settlement-row loser'><Text>{players.find(player => player.id === loser)?.name}</Text><Text>-{ronTotal}</Text></View>
+        </View>
+      </View>}
     </>}
 
     {type === 'tsumo' && <>
@@ -728,7 +751,7 @@ export function ScoreScreen({ players, initialHand, loading, onBack, onSubmit }:
     {type === 'custom' && players.map(player => <View className='field' key={player.id}><Text>{player.name}</Text><Input type='number' value={values[player.id]} onInput={event => setValues({ ...values, [player.id]: event.detail.value })} /></View>)}
     <View className='score-bottom-spacer' />
   </View></ScrollView>
-  <View className='score-save-bar'><Button className='primary' disabled={loading} onClick={save}>{loading ? '保存中…' : isEditing ? '保存修改' : saveLabel}</Button></View>
+  <View className='score-save-bar'><Button className='primary' disabled={loading || (type === 'ron' && !canSaveRon)} onClick={save}>{loading ? '保存中…' : isEditing ? '保存修改' : saveLabel}</Button></View>
   {activeTileRecord && <TileRecordModal
     record={activeTileRecord}
     onCancel={() => setTileEditorTarget(null)}
@@ -753,21 +776,76 @@ function PlayerPicker({ title, players, selected, onSelect }: { title: string; p
   })}</View></View>
 }
 
-function MultiPlayerPicker({ title, players, selected, onToggle }: {
-  title: string
+function RonRolePicker({
+  players,
+  loserId,
+  winnerIds,
+  activeRole,
+  multiRonEnabled,
+  onRoleChange,
+  onPlayerSelect,
+  onToggleMulti,
+}: {
   players: Player[]
-  selected: string[]
-  onToggle: (id: string) => void
+  loserId: string
+  winnerIds: string[]
+  activeRole: 'loser' | 'winner'
+  multiRonEnabled: boolean
+  onRoleChange: (role: 'loser' | 'winner') => void
+  onPlayerSelect: (id: string) => void
+  onToggleMulti: () => void
 }) {
-  return <View><View className='multi-picker-title'><Text className='section-title'>{title}</Text><Text>已选 {selected.length} 人</Text></View><View className='picker'>{players.map(player => {
-    const isSelected = selected.includes(player.id)
-    return <View className={isSelected ? 'pick selected' : 'pick'} key={player.id} onClick={() => onToggle(player.id)}>
-      {isSelected && <Text className='pick-check'>✓</Text>}
-      <Avatar player={player} selected={isSelected} />
-      <Text className='pick-name'>{player.name}</Text>
-      <Text className='pick-seat'>{seatLabels[player.seat]}家</Text>
+  const guide = activeRole === 'loser'
+    ? loserId
+      ? '点击当前放炮者可取消，点击其他玩家直接替换'
+      : '请选择放炮者'
+    : multiRonEnabled
+      ? winnerIds.length < 2
+        ? `还需选择 ${2 - winnerIds.length} 位胡牌者`
+        : '可继续追加，最多三位；再次点击可取消'
+      : winnerIds.length
+        ? '点击其他玩家直接切换胡牌者，再次点击当前玩家可取消'
+        : '请选择胡牌者'
+
+  return <View className='ron-role-panel'>
+    <View className='ron-role-head'>
+      <Text className='section-title'>玩家角色</Text>
+      <View className={multiRonEnabled ? 'ron-multi-switch active' : 'ron-multi-switch'} onClick={onToggleMulti}>
+        <Text>一炮多响</Text>
+        <View className='ron-multi-switch-track'><View className='ron-multi-switch-thumb' /></View>
+      </View>
     </View>
-  })}</View></View>
+    <View className='ron-role-tabs'>
+      <View className={activeRole === 'loser' ? 'ron-role-tab active loser' : 'ron-role-tab loser'} onClick={() => onRoleChange('loser')}>
+        <Text>放炮者</Text><Text>{loserId ? '已选择' : '未选择'}</Text>
+      </View>
+      <View className={activeRole === 'winner' ? 'ron-role-tab active winner' : 'ron-role-tab winner'} onClick={() => onRoleChange('winner')}>
+        <Text>胡牌者</Text><Text>{winnerIds.length ? `已选 ${winnerIds.length} 人` : '未选择'}</Text>
+      </View>
+    </View>
+    <Text className='ron-role-guide'>{guide}</Text>
+    <View className='picker ron-role-player-grid'>{players.map(player => {
+      const isLoser = player.id === loserId
+      const winnerIndex = winnerIds.indexOf(player.id)
+      const isWinner = winnerIndex >= 0
+      const isRoleActive = activeRole === 'loser' ? isLoser : isWinner
+      const className = [
+        'pick',
+        'ron-role-pick',
+        isLoser ? 'is-loser' : '',
+        isWinner ? 'is-winner' : '',
+        isRoleActive ? 'role-active' : '',
+        activeRole === 'winner' && isLoser ? 'role-conflict' : '',
+      ].filter(Boolean).join(' ')
+      return <View className={className} key={player.id} onClick={() => onPlayerSelect(player.id)}>
+        {isLoser && <Text className='ron-role-badge loser' onClick={event => { event.stopPropagation(); onRoleChange('loser') }}>放</Text>}
+        {isWinner && <Text className='ron-role-badge winner'>胡{multiRonEnabled ? winnerIndex + 1 : ''}</Text>}
+        <Avatar player={player} selected={isLoser || isWinner} />
+        <Text className='pick-name'>{player.name}</Text>
+        <Text className='pick-seat'>{seatLabels[player.seat]}家</Text>
+      </View>
+    })}</View>
+  </View>
 }
 
 export function StatsScreen({ match, stats, onReset }: { match: Match; stats: Stats; onReset: () => void }) {
