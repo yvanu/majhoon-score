@@ -42,6 +42,8 @@ import {
 import { MatchScreen, ScoreScreen, StatsScreen } from './match-screens'
 import './index.scss'
 
+const TAB_CACHE_TTL = 60_000
+
 function applyHandMutation(current: Match, result: HandMutationResult, replacedHandId?: string | null): Match {
   const previous = replacedHandId
     ? current.hands.find(hand => hand.id === replacedHandId)
@@ -81,6 +83,8 @@ export default function Index() {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [history, setHistory] = useState<MatchSummary[]>([])
   const [friends, setFriends] = useState<Friend[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [friendsLoading, setFriendsLoading] = useState(false)
   const [friendStats, setFriendStats] = useState<FriendStatistics | null>(null)
   const [personalStats, setPersonalStats] = useState<PersonalStatistics | null>(null)
   const [adminToken, setAdminToken] = useState('')
@@ -91,6 +95,10 @@ export default function Index() {
   const [nicknameReturn, setNicknameReturn] = useState<'home' | 'profile'>('home')
   const dialogResolver = useRef<((confirmed: boolean) => void) | null>(null)
   const personalStatsRequest = useRef<{ key: string; promise: Promise<PersonalStatistics> } | null>(null)
+  const historyLoadedAt = useRef(0)
+  const friendsLoadedAt = useRef(0)
+  const historyRequest = useRef<Promise<void> | null>(null)
+  const friendsRequest = useRef<Promise<void> | null>(null)
 
   useEffect(() => {
     void restoreSession()
@@ -151,8 +159,9 @@ export default function Index() {
         setUser(currentUser.user)
         const [historyData, today] = await Promise.all([api.history(), api.dailyStatistics()])
         setHistory(historyData.matches)
+        historyLoadedAt.current = Date.now()
         setDailyStats(today)
-        void api.friends(true).then(result => setFriends(result.friends)).catch(error => {
+        void loadFriends(true).catch(error => {
           console.error('Prefetch friends failed:', error)
         })
         if (needsNickname(currentUser.user)) {
@@ -270,22 +279,49 @@ export default function Index() {
     if (!Taro.getStorageSync<string>(AUTH_KEY)) return
     const [historyData, today] = await Promise.all([api.history(), api.dailyStatistics()])
     setHistory(historyData.matches)
+    historyLoadedAt.current = Date.now()
     setDailyStats(today)
   }
 
-  async function refreshHistory() {
-    const data = await api.history()
-    setHistory(data.matches)
+  function loadHistory(force = false) {
+    if (!force && Date.now() - historyLoadedAt.current < TAB_CACHE_TTL) return Promise.resolve()
+    if (historyRequest.current) return historyRequest.current
+    setHistoryLoading(true)
+    const request = api.history().then(data => {
+      setHistory(data.matches)
+      historyLoadedAt.current = Date.now()
+    }).finally(() => {
+      historyRequest.current = null
+      setHistoryLoading(false)
+    })
+    historyRequest.current = request
+    return request
   }
 
-  async function showHistory() {
+  function loadFriends(force = false) {
+    if (!force && Date.now() - friendsLoadedAt.current < TAB_CACHE_TTL) return Promise.resolve()
+    if (friendsRequest.current) return friendsRequest.current
+    setFriendsLoading(true)
+    const request = api.friends(true).then(result => {
+      setFriends(result.friends)
+      friendsLoadedAt.current = Date.now()
+    }).finally(() => {
+      friendsRequest.current = null
+      setFriendsLoading(false)
+    })
+    friendsRequest.current = request
+    return request
+  }
+
+  function showHistory() {
     if (!user) {
       setScreen('auth')
       return
     }
-    await run(async () => {
-      await refreshHistory()
-      setScreen('history')
+    setScreen('history')
+    void loadHistory().catch(error => {
+      console.error('Refresh history failed:', error)
+      if (!history.length) void Taro.showToast({ title: '牌局加载失败，请稍后重试', icon: 'none' })
     })
   }
 
@@ -300,16 +336,16 @@ export default function Index() {
     })
   }
 
-  async function showFriends() {
+  function showFriends() {
     if (!user) {
       setScreen('auth')
       return
     }
     setFriendStats(null)
     setScreen('friends')
-    await run(async () => {
-      const result = await api.friends(true)
-      setFriends(result.friends)
+    void loadFriends().catch(error => {
+      console.error('Refresh friends failed:', error)
+      if (!friends.length) void Taro.showToast({ title: '牌友加载失败，请稍后重试', icon: 'none' })
     })
   }
 
@@ -366,6 +402,7 @@ export default function Index() {
       setAdminToken(data.adminToken)
       Taro.setStorageSync(CURRENT_KEY, { id: data.match.id, token: data.adminToken })
       setScreen('match')
+      friendsLoadedAt.current = 0
       await Taro.showToast({ title: '牌局已创建', icon: 'success' })
       if (user) await refreshDashboard()
     })
@@ -377,7 +414,7 @@ export default function Index() {
     const saved = Taro.getStorageSync<{ id: string; token: string }>(CURRENT_KEY)
     if (saved?.id && saved?.token) await api.claim(saved.id, saved.token).catch(() => undefined)
     await refreshDashboard()
-    void api.friends(true).then(result => setFriends(result.friends)).catch(error => {
+    void loadFriends(true).catch(error => {
       console.error('Prefetch friends failed:', error)
     })
     if (needsNickname(data.user)) {
@@ -413,6 +450,10 @@ export default function Index() {
     setUser(null)
     setHistory([])
     setFriends([])
+    historyLoadedAt.current = 0
+    friendsLoadedAt.current = 0
+    setHistoryLoading(false)
+    setFriendsLoading(false)
     setFriendStats(null)
     setPersonalStats(null)
     setDailyStats(null)
@@ -533,7 +574,7 @@ export default function Index() {
           : null
 
   return <View className='app'>
-    <View key={screen} className='screen-transition'>
+    <View key={activeTab ? 'bottom-tabs' : screen} className={activeTab ? 'screen-transition tab-screen-transition' : 'screen-transition'}>
     {screen === 'home' && <Home
       user={user}
       currentMatch={match?.status === 'active' ? match : null}
@@ -560,14 +601,14 @@ export default function Index() {
     />}
     {screen === 'history' && user && <HistoryScreen
       matches={history}
-      loading={loading}
+      loading={historyLoading || loading}
       onOpen={current => openMatch(current.id, current.id !== match?.id, current.status)}
       onDelete={deleteHistoryMatch}
     />}
     {screen === 'daily' && dailyStats && <DailyStatsScreen stats={dailyStats} onBack={() => setScreen('home')} />}
     {screen === 'friends' && user && <FriendsScreen
       friends={friends}
-      loading={loading}
+      loading={friendsLoading}
       onOpen={openFriend}
     />}
     {screen === 'friend' && friendStats && <FriendStatisticsScreen statistics={friendStats} onBack={() => setScreen('friends')} />}

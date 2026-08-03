@@ -104,6 +104,8 @@
 
 /* 动效系统 */
 .screen-transition { min-height: 100vh; animation: screen-enter .3s cubic-bezier(.22,.8,.3,1) backwards; will-change: opacity, transform; }
+.tab-screen-transition { animation: none; will-change: auto; }
+.tab-screen-transition .history-card, .tab-screen-transition .friend-directory-card { animation: none; will-change: auto; }
 .home-page > .home-top, .home-page > .mahjong-strip, .home-page > .continue-card, .home-page > .home-primary, .home-page > .quick-actions, .home-page > .section-head, .home-page > .dashboard-card, .home-page > .mini-empty, .home-page > .login-card { animation: content-rise .38s cubic-bezier(.22,.8,.3,1) backwards; }
 .home-page > .mahjong-strip { animation-delay: .035s; }
 .home-page > .continue-card, .home-page > .home-primary { animation-delay: .07s; }
@@ -417,6 +419,7 @@ page { background: var(--page-bg); color: var(--text); }
 
 /* 牌友目录与对战统计 */
 .friend-directory-list { max-height: calc(100vh - 270px); }
+.tab-list-more { display: block; padding: 18px 0 24px; color: var(--text-muted); font-size: 17px; text-align: center; }
 .friend-directory-card { min-height: 122px; margin-bottom: 16px; padding: 22px; display: flex; align-items: center; gap: 18px; box-sizing: border-box; border: 1px solid var(--line); border-radius: 26px; background: #fff; box-shadow: var(--shadow); }
 .friend-directory-card .grow text { display: block; }
 .friend-directory-card .grow > text:nth-child(2) { margin-top: 7px; color: var(--text-secondary); font-size: 20px; }

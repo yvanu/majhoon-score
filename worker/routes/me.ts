@@ -20,21 +20,29 @@ import {
 
 export function registerMeRoutes(app: Hono<Env>) {
   app.get('/api/me/matches', async c => {
+    const startedAt = performance.now()
     const user = await currentUser(c)
+    const authenticatedAt = performance.now()
     if (!user) return jsonError(c, '请先登录', 401)
     const result = await c.env.DB.prepare(`
       SELECT m.id, m.share_code, m.status, m.current_wind, m.current_hand,
              m.created_at, m.finished_at,
-             COUNT(DISTINCT CASE WHEN h.result_type <> 'event' THEN h.id END) hand_count,
-             GROUP_CONCAT(DISTINCT p.name) player_names
+             (
+               SELECT COUNT(*)
+               FROM hands h
+               WHERE h.match_id = m.id AND h.result_type <> 'event'
+             ) hand_count,
+             (
+               SELECT GROUP_CONCAT(p.name)
+               FROM players p
+               WHERE p.match_id = m.id
+             ) player_names
       FROM matches m
-      LEFT JOIN players p ON p.match_id = m.id
-      LEFT JOIN hands h ON h.match_id = m.id
       WHERE m.owner_user_id = ?
-      GROUP BY m.id
       ORDER BY m.created_at DESC
       LIMIT 100
     `).bind(user.id).all<Record<string, unknown>>()
+    const queriedAt = performance.now()
 
     const matches: MatchSummary[] = result.results.map(row => ({
       id: String(row.id),
@@ -47,6 +55,12 @@ export function registerMeRoutes(app: Hono<Env>) {
       hand_count: Number(row.hand_count ?? 0),
       player_names: typeof row.player_names === 'string' ? row.player_names.split(',') : [],
     }))
+    const mappedAt = performance.now()
+    c.header('Server-Timing', [
+      `auth;dur=${(authenticatedAt - startedAt).toFixed(1)}`,
+      `query;dur=${(queriedAt - authenticatedAt).toFixed(1)}`,
+      `map;dur=${(mappedAt - queriedAt).toFixed(1)}`,
+    ].join(', '))
     return c.json({ matches })
   })
 
