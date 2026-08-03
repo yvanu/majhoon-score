@@ -658,7 +658,7 @@ page { background: var(--page-bg); color: var(--text); }
 .ron-role-tab.active.winner > text:first-child { color: #795500; }
 .ron-role-guide { display: block; margin: 10px 2px 12px; color: var(--text-muted); font-size: 16px; line-height: 1.4; }
 .score-page .ron-role-player-grid { gap: 8px; }
-.score-page .ron-role-pick { padding: 22px 6px 11px; border-width: 2px; }
+.score-page .ron-role-pick { padding: 22px 6px 14px; border-width: 2px; }
 .ron-role-pick.is-loser { border-color: #df796b; background: #fff3ef; }
 .ron-role-pick.is-winner { border-color: #e1b12d; background: #fff7d8; }
 .ron-role-pick.role-active { transform: translateY(-1px); box-shadow: 0 0 0 2px rgba(190,131,0,.1), 0 9px 19px rgba(86,66,32,.1); }
