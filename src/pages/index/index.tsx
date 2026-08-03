@@ -99,6 +99,7 @@ export default function Index() {
   const [friends, setFriends] = useState<Friend[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [friendsLoading, setFriendsLoading] = useState(false)
+  const [dailyStatsLoading, setDailyStatsLoading] = useState(false)
   const [friendStats, setFriendStats] = useState<FriendStatistics | null>(null)
   const [personalStats, setPersonalStats] = useState<PersonalStatistics | null>(null)
   const [adminToken, setAdminToken] = useState('')
@@ -111,8 +112,10 @@ export default function Index() {
   const personalStatsRequest = useRef<{ key: string; promise: Promise<PersonalStatistics> } | null>(null)
   const historyLoadedAt = useRef(0)
   const friendsLoadedAt = useRef(0)
+  const dailyStatsLoadedAt = useRef(dashboardSnapshot?.dailyStats ? Date.now() : 0)
   const historyRequest = useRef<Promise<void> | null>(null)
   const friendsRequest = useRef<Promise<void> | null>(null)
+  const dailyStatsRequest = useRef<Promise<void> | null>(null)
 
   useEffect(() => {
     void restoreSession()
@@ -195,7 +198,7 @@ export default function Index() {
       tasks.push(api.recentMatch().then(data => {
         updateRecentMatch(data.matches[0] ?? null)
       }))
-      tasks.push(api.dailyStatistics().then(setDailyStats))
+      tasks.push(loadDailyStats(true))
     } else {
       Taro.removeStorageSync(DASHBOARD_CACHE_KEY)
     }
@@ -310,8 +313,25 @@ export default function Index() {
 
   async function refreshDashboard() {
     if (!Taro.getStorageSync<string>(AUTH_KEY)) return
-    const [, today] = await Promise.all([loadHistory(true), api.dailyStatistics()])
-    setDailyStats(today)
+    await Promise.all([loadHistory(true), loadDailyStats(true)])
+  }
+
+  function loadDailyStats(force = false) {
+    const today = new Date().toISOString().slice(0, 10)
+    if (!force && dailyStats?.date === today && Date.now() - dailyStatsLoadedAt.current < TAB_CACHE_TTL) {
+      return Promise.resolve()
+    }
+    if (dailyStatsRequest.current) return dailyStatsRequest.current
+    setDailyStatsLoading(true)
+    const request = api.dailyStatistics().then(result => {
+      setDailyStats(result)
+      dailyStatsLoadedAt.current = Date.now()
+    }).finally(() => {
+      dailyStatsRequest.current = null
+      setDailyStatsLoading(false)
+    })
+    dailyStatsRequest.current = request
+    return request
   }
 
   function loadHistory(force = false) {
@@ -356,14 +376,15 @@ export default function Index() {
     })
   }
 
-  async function showDailyStats() {
+  function showDailyStats() {
     if (!user) {
       setScreen('auth')
       return
     }
-    await run(async () => {
-      setDailyStats(await api.dailyStatistics())
-      setScreen('daily')
+    setScreen('daily')
+    void loadDailyStats().catch(error => {
+      console.error('Refresh daily statistics failed:', error)
+      if (!dailyStats) void Taro.showToast({ title: '今日战绩加载失败，请稍后重试', icon: 'none' })
     })
   }
 
@@ -500,6 +521,9 @@ export default function Index() {
     friendsLoadedAt.current = 0
     setHistoryLoading(false)
     setFriendsLoading(false)
+    setDailyStatsLoading(false)
+    dailyStatsLoadedAt.current = 0
+    dailyStatsRequest.current = null
     setFriendStats(null)
     setPersonalStats(null)
     setDailyStats(null)
@@ -651,7 +675,9 @@ export default function Index() {
       onOpen={current => openMatch(current.id, current.id !== match?.id, current.status)}
       onDelete={deleteHistoryMatch}
     />}
-    {screen === 'daily' && dailyStats && <DailyStatsScreen stats={dailyStats} onBack={() => setScreen('home')} />}
+    {screen === 'daily' && (dailyStats
+      ? <DailyStatsScreen stats={dailyStats} onBack={() => setScreen('home')} />
+      : <LoadingScreen title='今日战绩' message={dailyStatsLoading ? '正在加载今日战绩…' : '暂无今日战绩数据'} onBack={goBack} />)}
     {screen === 'friends' && user && <FriendsScreen
       friends={friends}
       loading={friendsLoading}
