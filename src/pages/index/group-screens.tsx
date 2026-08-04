@@ -66,12 +66,14 @@ function GroupCard({ group, onOpen }: { group: GroupSessionSummary; onOpen: () =
   const previewMembers = group.members.slice(0, group.capacity)
   const pendingCount = previewMembers.filter(member => member.status === 'invited').length
   const vacantCount = Math.max(0, group.capacity - previewMembers.length)
-  const relationLabel = group.is_owner ? '我发起的' : group.is_member ? '我已加入' : null
+  const contextLabel = group.is_owner
+    ? '我发起'
+    : `${group.owner_name} 发起${group.is_member ? ' · 我已加入' : ''}`
   const actionLabel = group.is_owner && (group.status === 'recruiting' || group.status === 'full')
-    ? '管理详情'
+    ? '管理'
     : !group.is_member && group.status === 'recruiting'
-      ? '查看并加入'
-      : '查看详情'
+      ? '查看加入'
+      : '详情'
   const progressParts = [`${group.confirmed_count}人已确认`]
   if (pendingCount) progressParts.push(`${pendingCount}人待确认`)
   if (vacantCount) progressParts.push(`还缺${vacantCount}人`)
@@ -80,25 +82,22 @@ function GroupCard({ group, onOpen }: { group: GroupSessionSummary; onOpen: () =
     <View className='group-card-top'>
       <View className='group-card-heading'>
         <Text className='group-card-time'>{formatGroupTime(group.start_at)}</Text>
-        <Text className='group-card-location'><Text>地点</Text>{group.location}</Text>
+        <Text className='group-card-location'><Text>地点</Text>{group.location}<Text className='group-card-context'> · {contextLabel}</Text></Text>
       </View>
       <Text className={`group-status ${status.tone}`}>{status.label}</Text>
     </View>
-    {(relationLabel || !group.is_owner) && <View className='group-card-meta'>
-      {relationLabel && <Text className='group-relation-tag'>{relationLabel}</Text>}
-      {!group.is_owner && <Text className='group-owner-meta'>发起人 · {group.owner_name}</Text>}
-    </View>}
     <View className='group-card-members'>
-      {previewMembers.map(member => <View className='group-card-member' key={member.id}>
-        <GroupMemberAvatar member={member} />
+      {previewMembers.map(member => <View className='group-card-seat' key={member.id}>
+        <View className='group-card-avatar-wrap'>
+          <GroupMemberAvatar member={member} />
+          <Text className={`group-seat-state ${member.role === 'owner' ? 'owner' : member.status === 'confirmed' ? 'confirmed' : 'invited'}`}>
+            {member.role === 'owner' ? '主' : member.status === 'confirmed' ? '✓' : '待'}
+          </Text>
+        </View>
         <Text className='group-card-member-name'>{member.name}</Text>
-        <Text className={`group-card-member-state ${member.status === 'confirmed' ? 'confirmed' : 'invited'}`}>
-          {member.role === 'owner' ? '发起人' : member.status === 'confirmed' ? '已确认' : '待确认'}
-        </Text>
       </View>)}
-      {Array.from({ length: vacantCount }, (_, index) => <View className='group-card-member empty' key={`empty-${index}`}>
+      {Array.from({ length: vacantCount }, (_, index) => <View className='group-card-seat vacant' key={`vacant-${index}`}>
         <GroupMemberAvatar empty />
-        <Text className='group-card-member-name'>空位</Text>
       </View>)}
     </View>
     {group.note && <View className='group-card-note'><Text>备注</Text><Text>{group.note}</Text></View>}
@@ -161,7 +160,6 @@ export function GroupSessionsScreen({ groups, loading, onCreate, onOpen, onOpenC
     <View className='group-code-entry'>
       <View className='group-code-icon'><Text>码</Text></View>
       <View className='group-code-input'>
-        <Text>通过组局码加入</Text>
         <Input value={code} maxlength={12} placeholder='输入好友发来的组局码' onInput={event => setCode(event.detail.value.trim().toUpperCase())} />
       </View>
       <Button disabled={!code.trim() || loading} onClick={() => onOpenCode(code.trim())}>查找</Button>
@@ -169,7 +167,7 @@ export function GroupSessionsScreen({ groups, loading, onCreate, onOpen, onOpenC
     <View className='group-list-head'>
       <View>
         <Text>{tab === 'open' ? '即将开始' : '我的组局'}</Text>
-        <Text>{tab === 'open' ? '按开始时间排序' : '未结束的组局优先'}</Text>
+        <Text>{tab === 'open' ? '按时间' : '未结束优先'}</Text>
       </View>
       <Button className='group-refresh' disabled={loading} onClick={onRefresh}>{loading ? '刷新中…' : '↻ 刷新'}</Button>
     </View>
