@@ -101,17 +101,23 @@ export function MatchScreen({ match, currentUserId, canEdit, loading, undoNotice
     await Taro.setClipboardData({ data: match.share_code })
   }
 
-  return <View className='page match-page' style={{ paddingTop: `${getPageTopInset()}px` }}><View className='match-head'><View><Text className='eyebrow'>{windName[match.current_wind]}风 · 第 {match.current_hand} 局</Text><Text className='title-small'>雀局进行中</Text></View><Button className='code' onClick={share}>{match.share_code}</Button></View>
-    {ranked.map((player, index) => <View className='score-card' key={player.id} onClick={() => setSelectedPlayerId(player.id)}>
-      <Text className='rank'>{index + 1}</Text><Avatar player={player} isSelf={player.user_id === currentUserId} /><View className='grow'><Text className='card-title'>{player.name}</Text><Text>{['东', '南', '西', '北'][player.seat]}家 · 点击看个人战况</Text></View><Text className={player.score >= 0 ? 'positive' : 'negative'}>{player.score > 0 ? '+' : ''}{player.score}</Text>
-    </View>)}
-    <View className='match-progress-row'><Text>已完成 {completedHands.length} 局{inHandEvents.length ? ` · ${inHandEvents.length} 项局内事件` : ''}</Text><Text>{completedHands.filter(handHasBigPattern).length} 局大胡</Text></View>
+  return <View className='page match-page' style={{ paddingTop: `${getPageTopInset()}px` }}><View className='match-head compact'>
+    <View><Text className='eyebrow'>{windName[match.current_wind]}风 · 第 {match.current_hand} 局</Text><Text className='title-small'>本将计分</Text></View>
+    <Button className='code match-share-code' onClick={share}><Text>分享码</Text><Text>{match.share_code}</Text></Button>
+  </View>
+    <View className='match-scoreboard'>{ranked.map((player, index) => <View className={`match-player-tile${player.user_id === currentUserId ? ' self' : ''}`} key={player.id} onClick={() => setSelectedPlayerId(player.id)}>
+      <View className='match-player-head'><Text className='match-rank'>#{index + 1}</Text><Avatar player={player} isSelf={player.user_id === currentUserId} /></View>
+      <View className='match-player-copy'><Text className='match-player-name'>{player.name}</Text><Text>{['东', '南', '西', '北'][player.seat]}家</Text></View>
+      <Text className={`match-player-score ${player.score >= 0 ? 'positive' : 'negative'}`}>{player.score > 0 ? '+' : ''}{player.score}</Text>
+    </View>)}</View>
+    <View className='match-progress-row'><Text>已记 {completedHands.length} 局{inHandEvents.length ? ` · ${inHandEvents.length}项事件` : ''}</Text><Text>大胡 {completedHands.filter(handHasBigPattern).length}</Text></View>
     {undoNotice && <View className='recent-save-notice'><Text>已记录：{undoNotice}</Text><Button disabled={loading} onClick={onUndoNotice}>撤销</Button></View>}
+    {canEdit && <Button className='primary match-record-action' disabled={loading} onClick={onAdd}>＋ 记一局</Button>}
     <View className='match-insight-actions'>
-      <Button className='secondary half' disabled={!match.hands.length} onClick={() => setShowLiveStats(true)}>实时战况</Button>
-      <Button className='secondary half' disabled={!match.hands.length} onClick={() => setShowHandHistory(true)}>本将记录</Button>
+      <Button className='secondary half' disabled={!match.hands.length} onClick={() => setShowLiveStats(true)}>战况</Button>
+      <Button className='secondary half' disabled={!match.hands.length} onClick={() => setShowHandHistory(true)}>记录</Button>
     </View>
-    {canEdit ? <><Button className='primary' disabled={loading} onClick={onAdd}>＋ 记一局</Button><View className='button-row'><Button className='secondary half' disabled={!match.hands.length || loading} onClick={onUndo}>撤销上一项</Button><Button className='secondary half' disabled={loading} onClick={onFinish}>结束本将</Button></View></> : <Text className='readonly'>当前为只读分享视图</Text>}
+    {canEdit ? <View className='button-row match-secondary-actions'><Button className='secondary half' disabled={!match.hands.length || loading} onClick={onUndo}>撤销上一项</Button><Button className='secondary half' disabled={loading} onClick={onFinish}>结束本将</Button></View> : <Text className='readonly'>当前为只读分享视图</Text>}
     {selectedPlayer && <PlayerDetailModal player={selectedPlayer} match={match} onClose={() => setSelectedPlayerId(null)} />}
     {showLiveStats && <LiveMatchStatsModal match={match} currentUserId={currentUserId} onClose={() => setShowLiveStats(false)} />}
     {showHandHistory && <HandHistoryModal match={match} canEdit={canEdit} onEdit={hand => { setShowHandHistory(false); onEdit(hand) }} onClose={() => setShowHandHistory(false)} />}
@@ -143,7 +149,7 @@ function LiveMatchStatsModal({ match, currentUserId, onClose }: { match: Match; 
   const relations = [...relationMap.values()].sort((first, second) => second.count - first.count || second.score - first.score)
 
   return <View className='modal-backdrop' onClick={onClose}><View className='detail-modal match-detail-modal' onClick={event => event.stopPropagation()}>
-    <View className='detail-header'><View><Text className='eyebrow'>LIVE RECORD</Text><Text className='title-small'>实时战况</Text></View><Button className='close-button' onClick={onClose}>×</Button></View>
+    <View className='detail-header'><View><Text className='eyebrow'>本将数据</Text><Text className='title-small'>实时战况</Text></View><Button className='close-button' onClick={onClose}>×</Button></View>
     <ScrollView scrollY className='match-modal-scroll'>
       <View className='live-player-list'>{playerStats.map(item => <View className='live-player-card' key={item.player.id}>
         <View className='live-player-name'><Avatar player={item.player} isSelf={item.player.user_id === currentUserId} /><View><Text className='card-title'>{item.player.name}</Text><Text>{['东', '南', '西', '北'][item.player.seat]}家 · 当前 {item.player.score > 0 ? '+' : ''}{item.player.score}</Text></View></View>
@@ -178,7 +184,7 @@ function HandHistoryModal({ match, canEdit, onEdit, onClose }: {
       .map((hand, index) => [hand.id, index + 1]),
   )
   return <View className='modal-backdrop' onClick={onClose}><View className='detail-modal match-detail-modal' onClick={event => event.stopPropagation()}>
-    <View className='detail-header'><View><Text className='eyebrow'>HAND HISTORY</Text><Text className='title-small'>本将记录</Text></View><Button className='close-button' onClick={onClose}>×</Button></View>
+    <View className='detail-header'><View><Text className='eyebrow'>计分记录</Text><Text className='title-small'>本将记录</Text></View><Button className='close-button' onClick={onClose}>×</Button></View>
     <Text className='hand-history-tip'>{canEdit ? '点击任意记录即可修改录入内容和分数。' : '当前为只读记录。'}</Text>
     <ScrollView
       scrollY
@@ -220,7 +226,7 @@ function PlayerDetailModal({ player, match, onClose }: { player: Player; match: 
   }
 
   return <View className='modal-backdrop' onClick={onClose}><View className='detail-modal' onClick={event => event.stopPropagation()}>
-    <View className='detail-header'><View><Text className='eyebrow'>PLAYER RECORD</Text><Text className='title-small'>{player.name} 的战绩</Text></View><Button className='close-button' onClick={onClose}>×</Button></View>
+    <View className='detail-header'><View><Text className='eyebrow'>个人战况</Text><Text className='title-small'>{player.name} 的战绩</Text></View><Button className='close-button' onClick={onClose}>×</Button></View>
     <View className='detail-summary'>
       <View><Text>总胡牌</Text><Text className='detail-number'>{wins.length}</Text></View>
       <View><Text>自摸</Text><Text className='detail-number'>{tsumoHands.length}</Text></View>
@@ -373,7 +379,7 @@ function TileRecordModal({ record, onCancel, onConfirm }: {
   return <View className='modal-backdrop tile-record-modal-backdrop' onClick={onCancel}>
     <View className='tile-record-modal' style={{ height: `${modalHeight}px` }} onClick={event => event.stopPropagation()}>
       <View className='tile-record-modal-header'>
-        <View><Text className='eyebrow'>BIG HAND RECORD · v1.7.41</Text><Text className='title-small'>录入大胡牌谱</Text></View>
+        <View><Text className='eyebrow'>大胡牌谱</Text><Text className='title-small'>录入大胡牌谱</Text></View>
         <Button className='close-button' onClick={onCancel}>×</Button>
       </View>
       <Text className='tile-record-modal-tip'>先选择碰、明杠、暗杠、手牌或胡的牌，再点击下方麻将牌；已录入的牌可点击删除。</Text>
@@ -488,6 +494,7 @@ export function ScoreScreen({ players, currentUserId, initialHand, loading, onBa
   const [notes, setNotes] = useState<string[]>(initialTsumoOutcome?.note?.split('、').filter(Boolean) || [])
   const [tileRecord, setTileRecord] = useState<HandTileRecord>(() => initialTsumoOutcome?.tile_record ? cloneTileRecord(initialTsumoOutcome.tile_record) : emptyTileRecord())
   const [tileEditorTarget, setTileEditorTarget] = useState<'tsumo' | string | null>(null)
+  const [showAdvanced, setShowAdvanced] = useState(Boolean(initialHand && (initialHand.note || initialHand.tile_record || initialOutcomes.some(outcome => outcome.note || outcome.tile_record))))
   const canRecordTsumoTiles = type === 'tsumo' && winner === loggedPlayerId && notes.some(note => bigHandOptions.has(note))
   const isEditing = Boolean(initialHand)
   const ronTotal = ronWinnerIds.reduce((sum, id) => sum + Math.max(1, Math.round(Number(ronDrafts[id]?.amount) || 0)), 0)
@@ -796,11 +803,17 @@ export function ScoreScreen({ players, currentUserId, initialHand, loading, onBa
       {displayedRonWinner && displayedRonDraft && <View className='winner-outcome-card'>
         <View className='winner-outcome-head'><Text className='card-title'>{displayedRonWinner.name}的结果</Text></View>
         <View className='field score-field compact'><Text>获得分数</Text><Input type='number' value={displayedRonDraft.amount} cursorSpacing={28} onInput={event => updateRonDraft(displayedRonWinner.id, current => ({ ...current, amount: event.detail.value }))} /><View className='score-presets'><Button className={displayedRonDraft.amount === '50' ? 'score-preset active' : 'score-preset'} onClick={() => updateRonDraft(displayedRonWinner.id, current => ({ ...current, amount: '50' }))}>50</Button><Button className={displayedRonDraft.amount === '70' ? 'score-preset active' : 'score-preset'} onClick={() => updateRonDraft(displayedRonWinner.id, current => ({ ...current, amount: '70' }))}>70</Button><Button className='score-preset' onClick={() => adjustScore(displayedRonDraft.amount, 5, value => updateRonDraft(displayedRonWinner.id, current => ({ ...current, amount: value })))}>+5</Button><Button className='score-preset' onClick={() => adjustScore(displayedRonDraft.amount, -5, value => updateRonDraft(displayedRonWinner.id, current => ({ ...current, amount: value })))}>-5</Button></View></View>
-        <View className='note-field outcome-notes'><Text className='section-title'>牌型（可选）</Text><View className='note-options'>{noteOptions.map(option => <Button key={option} className={displayedRonDraft.notes.includes(option) ? 'note selected' : 'note'} onClick={() => toggleRonNote(displayedRonWinner.id, option)}>{option}</Button>)}</View></View>
-        {canRecordDisplayedRonTiles && <View className='tile-record-entry'>
-          <View><Text className='card-title'>大胡牌谱</Text><Text>{hasTileRecordContent(displayedRonDraft.tileRecord) ? '牌谱已录入，可继续修改' : '可选录入该赢家的牌谱'}</Text></View>
-          <Button onClick={() => setTileEditorTarget(displayedRonWinner.id)}>{hasTileRecordContent(displayedRonDraft.tileRecord) ? '修改' : '录入'}</Button>
-        </View>}
+        <View className='advanced-option-toggle' onClick={() => setShowAdvanced(current => !current)}>
+          <View><Text>牌型与牌谱</Text><Text>{displayedRonDraft.notes.length ? `已选 ${displayedRonDraft.notes.length} 项` : '普通胡牌可不填写'}</Text></View>
+          <Text>{showAdvanced ? '收起⌃' : '展开⌄'}</Text>
+        </View>
+        {showAdvanced && <>
+          <View className='note-field outcome-notes'><Text className='section-title'>牌型（可选）</Text><View className='note-options'>{noteOptions.map(option => <Button key={option} className={displayedRonDraft.notes.includes(option) ? 'note selected' : 'note'} onClick={() => toggleRonNote(displayedRonWinner.id, option)}>{option}</Button>)}</View></View>
+          {canRecordDisplayedRonTiles && <View className='tile-record-entry'>
+            <View><Text className='card-title'>大胡牌谱</Text><Text>{hasTileRecordContent(displayedRonDraft.tileRecord) ? '牌谱已录入，可继续修改' : '可选录入该赢家的牌谱'}</Text></View>
+            <Button onClick={() => setTileEditorTarget(displayedRonWinner.id)}>{hasTileRecordContent(displayedRonDraft.tileRecord) ? '修改' : '录入'}</Button>
+          </View>}
+        </>}
       </View>}
       {canSaveRon && <View className='ron-settlement-card'>
         <View className='ron-settlement-head'><Text>本局结算</Text><Text>{multiRonEnabled ? `一炮${ronWinnerIds.length === 2 ? '双' : '三'}响` : '普通点炮'}</Text></View>
@@ -814,11 +827,17 @@ export function ScoreScreen({ players, currentUserId, initialHand, loading, onBa
     {type === 'tsumo' && <>
       <PlayerPicker title='胡牌者' players={players} currentUserId={currentUserId} selected={winner} onSelect={setWinner} />
       <View className='field score-field'><Text>每人支付</Text><Input type='number' value={tsumoPayment} cursorSpacing={28} onInput={event => setTsumoPayment(event.detail.value)} /><View className='score-presets'><Button className={tsumoPayment === '50' ? 'score-preset active' : 'score-preset'} onClick={() => setTsumoPayment('50')}>50</Button><Button className={tsumoPayment === '70' ? 'score-preset active' : 'score-preset'} onClick={() => setTsumoPayment('70')}>70</Button><Button className='score-preset' onClick={() => adjustScore(tsumoPayment, 5, setTsumoPayment)}>+5</Button><Button className='score-preset' onClick={() => adjustScore(tsumoPayment, -5, setTsumoPayment)}>-5</Button></View></View>
-      <View className='note-field'><Text className='section-title'>牌型（可选）</Text><View className='note-options'>{noteOptions.map(option => <Button key={option} className={notes.includes(option) ? 'note selected' : 'note'} onClick={() => toggleNote(option)}>{option}</Button>)}</View></View>
-      {canRecordTsumoTiles && <View className='tile-record-entry'>
-        <View><Text className='card-title'>大胡牌谱</Text><Text>{hasTileRecordContent(tileRecord) ? '牌谱已录入，可继续修改' : '可选录入，之后会展示在我的战绩中'}</Text></View>
-        <Button onClick={() => setTileEditorTarget('tsumo')}>{hasTileRecordContent(tileRecord) ? '修改' : '录入'}</Button>
-      </View>}
+      <View className='advanced-option-toggle' onClick={() => setShowAdvanced(current => !current)}>
+        <View><Text>牌型与牌谱</Text><Text>{notes.length ? `已选 ${notes.length} 项` : '普通自摸可不填写'}</Text></View>
+        <Text>{showAdvanced ? '收起⌃' : '展开⌄'}</Text>
+      </View>
+      {showAdvanced && <>
+        <View className='note-field'><Text className='section-title'>牌型（可选）</Text><View className='note-options'>{noteOptions.map(option => <Button key={option} className={notes.includes(option) ? 'note selected' : 'note'} onClick={() => toggleNote(option)}>{option}</Button>)}</View></View>
+        {canRecordTsumoTiles && <View className='tile-record-entry'>
+          <View><Text className='card-title'>大胡牌谱</Text><Text>{hasTileRecordContent(tileRecord) ? '牌谱已录入，可继续修改' : '可选录入，之后会展示在我的战绩中'}</Text></View>
+          <Button onClick={() => setTileEditorTarget('tsumo')}>{hasTileRecordContent(tileRecord) ? '修改' : '录入'}</Button>
+        </View>}
+      </>}
     </>}
 
     {type === 'event' && <>
@@ -1035,7 +1054,7 @@ function EventRolePicker({
 export function StatsScreen({ match, stats, currentUserId, onReset }: { match: Match; stats: Stats; currentUserId: string | null; onReset: () => void }) {
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null)
   const selectedPlayer = match.players.find(player => player.id === selectedPlayerId) || null
-  return <View className='page' style={{ paddingTop: `${getPageTopInset()}px` }}><View className='stats-head'><Text className='eyebrow'>FINAL RESULT</Text><Text className='title'>本将结束</Text><Text>共完成 {stats.totalHands} 局</Text></View>
+  return <View className='page' style={{ paddingTop: `${getPageTopInset()}px` }}><View className='stats-head'><Text className='eyebrow'>最终战绩</Text><Text className='title'>本将结束</Text><Text>共完成 {stats.totalHands} 局</Text></View>
     {stats.players.map(player => <View className='score-card stats-card' key={player.id} onClick={() => setSelectedPlayerId(player.id)}>
       <Text className='rank'>#{player.rank}</Text><Avatar player={player} large isSelf={player.user_id === currentUserId} /><View className='grow'><Text className='card-title'>{player.name}</Text><Text>胜率 {(player.winRate * 100).toFixed(0)}% · 放炮 {(player.dealInRate * 100).toFixed(0)}%</Text><Text>自摸占比 {(player.tsumoShare * 100).toFixed(0)}%</Text></View><Text className={player.score >= 0 ? 'positive' : 'negative'}>{player.score > 0 ? '+' : ''}{player.score}</Text>
     </View>)}

@@ -212,7 +212,7 @@ export function GroupCreateScreen({ user, friends, loading, onBack, onCreate }: 
   return <ScrollView scrollY className='group-page-scroll' showScrollbar={false}><View className='page group-create-page' style={{ paddingTop: `${getPageTopInset()}px` }}>
     <Header title='发起组局' onBack={onBack} />
     <View className='group-create-hero'>
-      <Text className='eyebrow'>NEW TABLE</Text>
+      <Text className='eyebrow'>发起邀约</Text>
       <Text className='title-small'>约一桌南陵麻将</Text>
       <Text>发起人：{displayUserName(user)} · 固定四人局</Text>
     </View>

@@ -64,30 +64,10 @@ export function Home({ user, currentMatch, recentMatch, dailyStats, syncStatus, 
       ? '今日净胜'
       : '今日净负'
 
-  async function scanAndOpen() {
-    try {
-      const result = await Taro.scanCode({ onlyFromCamera: false })
-      const code = normalizeJoinCode(result.result)
-      if (!code) throw new Error('未识别到有效分享码')
-      onOpen(code)
-    } catch (error) {
-      const detail = error as { errMsg?: string; message?: string }
-      if (/cancel/i.test(detail.errMsg || '')) return
-      await Taro.showToast({ title: detail.message || '未识别到有效分享码', icon: 'none' })
-    }
-  }
-
   return <View className='page home-page' style={{ paddingTop: `${getPageTopInset()}px` }}>
     <View className='home-top'>
       <View className='brand compact'><View><Text className='title'>雀记</Text><Text className='subtitle'>四人南麻记分小助手</Text><Text className='home-greeting'>记录每一局的快乐时光</Text></View></View>
       <View className={`sync-pill ${syncStatus}`}><View className='sync-dot' /><Text>{syncText}</Text></View>
-    </View>
-
-    <View className='mahjong-strip'>
-      <View className='mahjong-tile black'>東</View>
-      <View className='mahjong-tile red featured'>中</View>
-      <View className='mahjong-tile green'>發</View>
-      <View className='mahjong-tile back'><View /></View>
     </View>
 
     {currentMatch && <View className='continue-card' onClick={onContinue}>
@@ -95,11 +75,16 @@ export function Home({ user, currentMatch, recentMatch, dailyStats, syncStatus, 
       <Text className='card-arrow'>›</Text>
     </View>}
 
-    <Button className='primary home-primary' onClick={onStart}>＋ 开启一将</Button>
-
-    <View className='quick-actions'>
-      <View className='quick-card' onClick={scanAndOpen}><Text className='quick-icon'>⌗</Text><View><Text className='quick-title'>扫码加入</Text><Text className='quick-subtitle'>扫描牌局二维码</Text></View></View>
-      <View className='quick-card' onClick={onJoin}><Text className='quick-icon'>#</Text><View><Text className='quick-title'>输入分享码</Text><Text className='quick-subtitle'>粘贴六位分享码</Text></View></View>
+    <View className='home-action-row'>
+      <Button className='primary home-primary' onClick={onStart}>
+        <Text className='home-action-title'>＋ 开启一将</Text>
+        <Text className='home-action-note'>创建牌桌并开始计分</Text>
+      </Button>
+      <View className='home-join-card' onClick={onJoin}>
+        <Text className='home-join-icon'>⌗</Text>
+        <View><Text className='home-action-title'>加入牌局</Text><Text className='home-action-note'>扫码或输入分享码</Text></View>
+        <Text className='card-arrow'>›</Text>
+      </View>
     </View>
 
     {user ? <>
@@ -198,15 +183,21 @@ export function Create({ user, friends, friendsLoading, onBack, onCreate, loadin
   }
 
   return <View className='page create-page' style={{ paddingTop: `${getPageTopInset()}px` }}><Header title='谁来上桌？' onBack={onBack} />
-    <Text className='create-hint'>{user ? '手动输入的新玩家会自动保存为牌友，下次可直接选择。' : '登录后可保存常用牌友并查看同桌统计。'}</Text>
-    {players.map((player, index) => <View className='field player-field friend-player-field' key={String(index)}>
-      <Text>{['东', '南', '西', '北'][index]}家</Text>
-      <Input value={player.name} maxlength={12} placeholder={`玩家 ${index + 1}`} onInput={event => updateName(index, event.detail.value)} />
-      {user && (player.isSelf
-        ? <Text className='self-selected'>当前账号</Text>
-        : <View className='player-actions'><Button className='self-select' onClick={() => chooseSelf(index)}>选自己</Button><Button className={player.friendId ? 'friend-select selected' : 'friend-select'} onClick={() => setPickerSeat(index)}>{player.friendId ? '已选择' : '选牌友'}</Button></View>)}
-    </View>)}
-    <Button className='primary' disabled={!valid || loading} onClick={() => onCreate(players.map(player => ({ ...player, name: player.name.trim() })))}>{loading ? '创建中…' : '开始计分'}</Button>
+    <Text className='create-hint'>{user ? '直接输入名字，或从自己和常用牌友中快速选择。' : '登录后可保存常用牌友并查看同桌统计。'}</Text>
+    <View className='seat-player-list'>{players.map((player, index) => <View className='seat-player-row' key={String(index)}>
+      <View className='seat-player-marker'><Text>{['东', '南', '西', '北'][index]}</Text><Text>{index + 1}</Text></View>
+      <View className='seat-player-input'>
+        <Input value={player.name} maxlength={12} placeholder={`输入${['东', '南', '西', '北'][index]}家昵称`} onInput={event => updateName(index, event.detail.value)} />
+        <Text>{player.isSelf ? '当前账号' : player.friendId ? '来自牌友列表' : player.name.trim() ? '手动输入' : '尚未选择'}</Text>
+      </View>
+      {user && <View className='seat-player-actions'>
+        {player.isSelf
+          ? <Text className='seat-source-chip'>我</Text>
+          : <Button className='seat-quick-button' onClick={() => chooseSelf(index)}>我</Button>}
+        <Button className={player.friendId ? 'seat-quick-button selected' : 'seat-quick-button'} onClick={() => setPickerSeat(index)}>牌友</Button>
+      </View>}
+    </View>)}</View>
+    <Button className='primary create-submit' disabled={!valid || loading} onClick={() => onCreate(players.map(player => ({ ...player, name: player.name.trim() })))}>{loading ? '创建中…' : '四人已齐 · 开始计分'}</Button>
 
     {pickerSeat !== null && <View className='modal-backdrop friend-picker-backdrop' onClick={() => setPickerSeat(null)}><View className='friend-picker' onClick={event => event.stopPropagation()}>
       <View className='detail-header'><View><Text className='eyebrow'>常用牌友</Text><Text className='title-small'>选择{['东', '南', '西', '北'][pickerSeat]}家</Text></View><Button className='close-button' onClick={() => setPickerSeat(null)}>×</Button></View>
@@ -286,7 +277,7 @@ export function NicknameScreen({ user, required, loading, onBack, onSave }: {
   return <View className='page nickname-page' style={{ paddingTop: `${getPageTopInset()}px` }}>
     <View className='nickname-title-row'>
       {!required && <Button className='icon-button' hoverClass='none' onClick={onBack}>‹</Button>}
-      <View><Text className='eyebrow'>PLAYER PROFILE</Text><Text className='title-small'>{required ? '确认牌桌昵称' : '修改牌桌昵称'}</Text></View>
+      <View><Text className='eyebrow'>牌桌身份</Text><Text className='title-small'>{required ? '确认牌桌昵称' : '修改牌桌昵称'}</Text></View>
     </View>
     <View className='nickname-card'>
       <View className='nickname-mark'>雀</View>
@@ -311,6 +302,23 @@ export function NicknameScreen({ user, required, loading, onBack, onSave }: {
 
 const TAB_LIST_PAGE_SIZE = 20
 
+function matchDayKey(value: string) {
+  const date = new Date(value)
+  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`
+}
+
+function matchDayLabel(value: string) {
+  const date = new Date(value)
+  const today = new Date()
+  const yesterday = new Date(today)
+  yesterday.setDate(today.getDate() - 1)
+  if (date.toDateString() === today.toDateString()) return '今天'
+  if (date.toDateString() === yesterday.toDateString()) return '昨天'
+  return date.getFullYear() === today.getFullYear()
+    ? `${date.getMonth() + 1}月${date.getDate()}日`
+    : `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`
+}
+
 export function HistoryScreen({ matches, loading, onOpen, onDelete }: {
   matches: MatchSummary[]
   loading: boolean
@@ -323,14 +331,27 @@ export function HistoryScreen({ matches, loading, onOpen, onDelete }: {
   }, [matches.length])
   const visibleMatches = matches.slice(0, visibleCount)
 
-  return <View className='page tab-page' style={{ paddingTop: `${getPageTopInset()}px` }}><View className='page-title-row'><View><Text className='eyebrow'>MATCH HISTORY</Text><Text className='title-small'>我的牌局</Text></View><Text className='count-badge'>{matches.length}</Text></View>
+  return <View className='page tab-page history-page' style={{ paddingTop: `${getPageTopInset()}px` }}><View className='page-title-row compact-title-row'><View><Text className='eyebrow'>牌局记录</Text><Text className='title-small'>我的牌局</Text></View><Text className='count-badge'>{matches.length}</Text></View>
     {loading && !matches.length && <View className='empty'><Text className='empty-icon'>🀫</Text><Text className='card-title'>正在加载牌局</Text></View>}
     {!loading && !matches.length && <View className='empty'><Text className='empty-icon'>🀫</Text><Text className='card-title'>暂无历史牌局</Text><Text>登录后创建的牌局会显示在这里</Text></View>}
-    <ScrollView scrollY lowerThreshold={120} className='history-list' onScrollToLower={() => setVisibleCount(current => Math.min(matches.length, current + TAB_LIST_PAGE_SIZE))}>{visibleMatches.map(current => <View className='card history-card' key={current.id} onClick={() => onOpen(current)}>
-      <View className='history-status'><Text>{current.status === 'finished' ? '已结束' : '进行中'}</Text></View>
-      <View className='grow'><Text className='card-title'>{current.player_names.join(' · ') || '四人牌局'}</Text><Text>{formatMatchTime(current.created_at)} · {current.hand_count} 局</Text><Text>分享码 {current.share_code}</Text></View>
-      <Button className='delete-button' disabled={loading} onClick={event => { event.stopPropagation(); onDelete(current.id) }}>删除</Button>
-    </View>)}{visibleCount < matches.length && <Text className='tab-list-more'>继续上滑加载更多</Text>}</ScrollView>
+    <ScrollView scrollY lowerThreshold={120} className='history-list' onScrollToLower={() => setVisibleCount(current => Math.min(matches.length, current + TAB_LIST_PAGE_SIZE))}>{visibleMatches.map((current, index) => {
+      const dayKey = matchDayKey(current.created_at)
+      const previousDayKey = index > 0 ? matchDayKey(visibleMatches[index - 1].created_at) : ''
+      return <View className='history-entry' key={current.id}>
+        {dayKey !== previousDayKey && <Text className='history-day-label'>{matchDayLabel(current.created_at)}</Text>}
+        <View className={`history-card compact ${current.status}`} onClick={() => onOpen(current)}>
+          <View className='history-card-main'>
+            <View className='history-card-title-row'>
+              <Text className='card-title'>{current.player_names.join(' · ') || '四人牌局'}</Text>
+              <Text className={`history-status-pill ${current.status}`}>{current.status === 'finished' ? '已结束' : '进行中'}</Text>
+            </View>
+            <Text className='history-card-meta'>{formatMatchTime(current.created_at)} · {current.hand_count} 局{current.status === 'active' ? ' · 点击继续' : ''}</Text>
+          </View>
+          <Button className='history-delete-button' disabled={loading} onClick={event => { event.stopPropagation(); onDelete(current.id) }}>删除</Button>
+          <Text className='card-arrow'>›</Text>
+        </View>
+      </View>
+    })}{visibleCount < matches.length && <Text className='tab-list-more'>继续上滑加载更多</Text>}</ScrollView>
   </View>
 }
 
@@ -339,24 +360,35 @@ export function FriendsScreen({ friends, loading, onOpen }: {
   loading: boolean
   onOpen: (friend: Friend) => void
 }) {
+  const [query, setQuery] = useState('')
+  const normalizedQuery = query.trim().toLocaleLowerCase()
+  const visibleFriends = [...friends]
+    .sort((left, right) => (right.lastPlayedAt ? Date.parse(right.lastPlayedAt) : 0) - (left.lastPlayedAt ? Date.parse(left.lastPlayedAt) : 0) || right.jointMatches - left.jointMatches)
+    .filter(friend => !normalizedQuery || friend.name.toLocaleLowerCase().includes(normalizedQuery))
+
   return <View className='page tab-page friends-page' style={{ paddingTop: `${getPageTopInset()}px` }}>
-    <View className='page-title-row'>
-      <View><Text className='eyebrow'>MAHJONG FRIENDS</Text><Text className='title-small'>我的牌友</Text></View>
+    <View className='page-title-row compact-title-row'>
+      <View><Text className='eyebrow'>常用牌友</Text><Text className='title-small'>我的牌友</Text></View>
       <Text className='count-badge'>{friends.length}</Text>
     </View>
+    {!!friends.length && <View className='friend-search'>
+      <Text>⌕</Text>
+      <Input value={query} maxlength={12} placeholder='搜索牌友昵称' onInput={event => setQuery(event.detail.value)} />
+      {query && <Text className='friend-search-clear' onClick={() => setQuery('')}>×</Text>}
+    </View>}
     {loading && !friends.length && <View className='empty'><Text className='empty-icon'>友</Text><Text className='card-title'>正在加载牌友</Text></View>}
     {!loading && !friends.length && <View className='empty'>
       <Text className='empty-icon'>友</Text>
       <Text className='card-title'>还没有牌友</Text>
       <Text>创建牌局时手动输入玩家，之后会自动出现在这里</Text>
     </View>}
+    {!loading && !!friends.length && !visibleFriends.length && <View className='empty compact-empty'><Text className='card-title'>没有找到“{query.trim()}”</Text><Text>换一个昵称试试</Text></View>}
     <View className='friend-directory-list'>
-      {friends.map(friend => <View className='friend-directory-card' key={friend.id} onClick={() => onOpen(friend)}>
+      {visibleFriends.map(friend => <View className='friend-directory-card compact' key={friend.id} onClick={() => onOpen(friend)}>
         <FriendAvatar friend={friend} />
         <View className='grow'>
           <Text className='card-title'>{friend.name}</Text>
-          <Text>共同 {friend.jointMatches} 将</Text>
-          <Text className='friend-last-played'>{friend.lastPlayedAt ? `最近 ${formatMatchTime(friend.lastPlayedAt)}` : '尚无共同牌局'}</Text>
+          <Text className='friend-directory-meta'>共同 {friend.jointMatches} 将 · {friend.lastPlayedAt ? `最近 ${formatMatchTime(friend.lastPlayedAt)}` : '尚无共同牌局'}</Text>
         </View>
         <Text className='card-arrow'>›</Text>
       </View>)}
@@ -498,7 +530,7 @@ export function PersonalStatisticsScreen({ statistics, loading, onBack, onChange
     >{item.label}</Button>)}</View>
     <View className='personal-period-picker'>
       <Button disabled={loading} onClick={() => onChange(statistics.dimension, previousValue)}>‹</Button>
-      <View><Text className='eyebrow'>STATISTICS PERIOD</Text><Text className='personal-period-label'>{statistics.label}</Text></View>
+      <View><Text className='eyebrow'>统计周期</Text><Text className='personal-period-label'>{statistics.label}</Text></View>
       <Button disabled={loading || !canGoNext} onClick={() => onChange(statistics.dimension, nextValue)}>›</Button>
     </View>
 
@@ -516,7 +548,7 @@ export function PersonalStatisticsScreen({ statistics, loading, onBack, onChange
     <PatternChart title='大胡次数详情' total={statistics.bigHands} patterns={statistics.patterns} emptyText='当前统计周期内还没有大胡记录' />
 
     <View className='featured-big-hand-card'>
-      <View className='featured-big-hand-title'><View><Text className='eyebrow'>FEATURED BIG HAND</Text><Text className='title-small'>近期最高分大胡牌谱</Text></View>{featured && <Text className='featured-big-hand-score'>{featured.score > 0 ? '+' : ''}{featured.score}</Text>}</View>
+      <View className='featured-big-hand-title'><View><Text className='eyebrow'>大胡牌谱</Text><Text className='title-small'>近期最高分牌谱</Text></View>{featured && <Text className='featured-big-hand-score'>{featured.score > 0 ? '+' : ''}{featured.score}</Text>}</View>
       {featured ? <>
         <View className='featured-big-hand-meta'><Text>{featured.resultType === 'tsumo' ? '自摸' : '点炮胡'} · {featured.note}</Text><Text>{formatMatchTime(featured.createdAt)}</Text></View>
         <TileRecordDisplay record={featured.tileRecord} />
@@ -572,7 +604,7 @@ export function ProfileScreen({ user, matches, dailyStats, syncStatus, onHistory
   }
 
   return <View className='page tab-page profile-page' style={{ paddingTop: `${getPageTopInset()}px` }}>
-    <View className='profile-head'><View className='profile-avatar'>雀</View><View className='grow'><Text className='title-small'>{displayUserName(user)}</Text><Text>{user ? '牌局数据已绑定当前账号' : '登录后同步历史牌局'}</Text></View><Button className='profile-action' onClick={user ? onHistory : onLogin}>{user ? '牌局' : '登录'}</Button></View>
+    <View className='profile-head'><View className='profile-avatar'>雀</View><View className='grow'><Text className='title-small'>{displayUserName(user)}</Text><Text>{user ? '牌局数据已绑定当前账号' : '登录后同步历史牌局'}</Text></View><Button className='profile-action' onClick={user ? onHistory : onLogin}>{user ? '记录' : '登录'}</Button></View>
     <View className='profile-stats'>
       <View><Text className='profile-number'>{matches.length}</Text><Text>全部牌局</Text></View>
       <View><Text className='profile-number'>{dailyStats?.matchCount || 0}</Text><Text>今日牌局</Text></View>
@@ -585,7 +617,7 @@ export function ProfileScreen({ user, matches, dailyStats, syncStatus, onHistory
     </View>}
     <View className='settings-card'>
       {user && <View className='setting-row' onClick={onEditNickname}><View><Text className='setting-title'>牌桌昵称</Text><Text className='setting-subnote'>{displayUserName(user)}</Text></View><Text className='card-arrow'>›</Text></View>}
-      <View className='setting-row'><View><Text className='setting-title'>数据同步</Text><Text className={`setting-note ${syncStatus}`}>{syncText}</Text></View><Text className='card-arrow'>›</Text></View>
+      <View className='setting-row'><View><Text className='setting-title'>数据同步</Text><Text className={`setting-note ${syncStatus}`}>{syncText}</Text></View><Text className={`setting-sync-mark ${syncStatus}`}>●</Text></View>
       <View className='setting-row' onClick={showPrivacy}><Text className='setting-title'>隐私说明</Text><Text className='card-arrow'>›</Text></View>
       <View className='setting-row' onClick={showAgreement}><Text className='setting-title'>用户协议</Text><Text className='card-arrow'>›</Text></View>
     </View>
@@ -603,9 +635,9 @@ export function BottomNav({ active, onHome, onMatches, onGroups, onFriends, onPr
   onProfile: () => void
 }) {
   const items = [
-    { key: 'home' as const, icon: '雀', label: '首页', action: onHome },
-    { key: 'matches' as const, icon: '局', label: '牌局', action: onMatches },
-    { key: 'groups' as const, icon: '桌', label: '组局', action: onGroups },
+    { key: 'home' as const, icon: '⌂', label: '首页', action: onHome },
+    { key: 'matches' as const, icon: '记', label: '牌局', action: onMatches },
+    { key: 'groups' as const, icon: '约', label: '组局', action: onGroups },
     { key: 'friends' as const, icon: '友', label: '牌友', action: onFriends },
     { key: 'profile' as const, icon: '我', label: '我的', action: onProfile },
   ]

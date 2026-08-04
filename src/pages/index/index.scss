@@ -837,10 +837,191 @@ page { background: var(--page-bg); color: var(--text); }
 .group-cancel-action { margin-top: 18px; }
 .group-start-hint { display: block; margin: 18px 5px 0; color: var(--text-muted); font-size: 17px; line-height: 1.5; text-align: center; }
 
+/* 2026-08 高频页面紧凑化整改 */
+.home-page, .tab-page { padding-left: 24px; padding-right: 24px; padding-bottom: calc(132px + env(safe-area-inset-bottom)); }
+.compact-title-row { margin: 8px 2px 20px; }
+.compact-title-row .title-small { font-size: 38px; }
+
+/* 首页：首屏只保留继续、创建和加入三个核心动作 */
+.home-top { min-height: 96px; }
+.brand.compact .title { font-size: 54px; }
+.brand.compact .subtitle { margin-top: 5px; font-size: 21px; }
+.home-greeting { margin-top: 10px; font-size: 18px; }
+.sync-pill { min-width: 88px; padding: 9px 12px; gap: 7px; font-size: 16px; }
+.sync-dot { width: 10px; height: 10px; }
+.continue-card { margin: 16px 0 14px; padding: 18px 20px; border-radius: 22px; }
+.continue-copy text { font-size: 18px; }
+.continue-copy .eyebrow { font-size: 15px; }
+.continue-title { margin: 3px 0 4px; font-size: 27px !important; }
+.home-action-row { display: grid; grid-template-columns: 1.08fr .92fr; gap: 12px; }
+.home-action-row .home-primary { height: 104px; line-height: normal; margin: 0; padding: 0 18px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; border-radius: 23px; text-align: left; }
+.home-join-card { min-width: 0; height: 104px; padding: 0 15px; display: flex; align-items: center; gap: 10px; box-sizing: border-box; border: 1px solid var(--line); border-radius: 23px; background: #fff; box-shadow: 0 9px 26px rgba(72,56,29,.06); }
+.home-join-card > view { min-width: 0; flex: 1; }
+.home-join-icon { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; border-radius: 13px; background: #fff2c7; color: #936800; font-size: 23px; font-weight: 900; }
+.home-action-title, .home-action-note { display: block; }
+.home-action-title { color: #34250a; font-size: 23px; font-weight: 900; white-space: nowrap; }
+.home-join-card .home-action-title { color: var(--text); font-size: 21px; }
+.home-action-note { margin-top: 5px; overflow: hidden; color: rgba(69,51,15,.68); font-size: 15px; text-overflow: ellipsis; white-space: nowrap; }
+.home-join-card .home-action-note { color: var(--text-muted); }
+.home-join-card .card-arrow { font-size: 30px; }
+.section-head { margin: 24px 2px 11px; }
+.section-head > text:first-child { font-size: 23px; }
+.section-more { font-size: 18px; }
+.dashboard-card { padding: 18px; gap: 14px; border-radius: 22px; }
+.dashboard-icon { width: 54px; height: 54px; line-height: 54px; border-radius: 17px; font-size: 23px; }
+.daily-card { padding: 20px; }
+.daily-card-score { margin-top: 5px; font-size: 46px; }
+.daily-card-count { min-width: 96px; padding: 12px 14px; border-radius: 17px; }
+.daily-card-count text { font-size: 17px; }
+.daily-card-count text:first-child { font-size: 21px; }
+.daily-card-details { margin-top: 17px; padding-top: 15px; }
+.daily-card-details text { font-size: 16px; }
+.daily-card-details .daily-detail-value { margin-bottom: 4px; font-size: 25px; }
+
+/* 创建牌局：四个座位统一成紧凑选择行 */
+.create-page { padding-left: 24px; padding-right: 24px; padding-bottom: calc(36px + env(safe-area-inset-bottom)); }
+.create-page .header { margin-bottom: 18px; }
+.create-hint { margin: -4px 2px 16px; font-size: 18px; }
+.seat-player-list { display: grid; gap: 10px; }
+.seat-player-row { min-height: 88px; padding: 12px 13px; display: flex; align-items: center; gap: 12px; box-sizing: border-box; border: 1px solid var(--line); border-radius: 21px; background: #fff; box-shadow: 0 8px 22px rgba(72,56,29,.045); }
+.seat-player-marker { width: 50px; height: 58px; flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 15px; background: #fff3cc; color: #8d6500; }
+.seat-player-marker text { display: block; }
+.seat-player-marker text:first-child { font-size: 22px; font-weight: 950; }
+.seat-player-marker text:last-child { margin-top: 1px; color: #b19b6c; font-size: 13px; }
+.seat-player-input { min-width: 0; flex: 1; }
+.seat-player-input input { width: 100%; height: 42px; color: var(--text); font-size: 23px; font-weight: 800; }
+.seat-player-input > text { display: block; margin-top: 2px; color: var(--text-muted); font-size: 14px; }
+.seat-player-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; }
+.seat-quick-button, .seat-source-chip { width: 54px; height: 50px; line-height: 50px; margin: 0; padding: 0; display: flex; align-items: center; justify-content: center; box-sizing: border-box; border: 1px solid var(--line); border-radius: 15px; background: #f8f5ef; color: #726c63; font-size: 16px; font-weight: 850; }
+.seat-quick-button.selected, .seat-source-chip { border-color: #e5bd50; background: #fff2c7; color: #845e00; }
+.create-submit { height: 84px; line-height: 84px; margin-top: 18px; border-radius: 23px; font-size: 27px; }
+
+/* 历史牌局：按日期分组，危险操作降权 */
+.history-page .history-list { height: calc(100vh - 218px); }
+.history-entry { width: 100%; }
+.history-day-label { display: block; margin: 16px 3px 8px; color: #8f897f; font-size: 17px; font-weight: 850; }
+.history-entry:first-child .history-day-label { margin-top: 0; }
+.history-card.compact { min-height: 82px; margin: 0 0 9px; padding: 14px 13px 14px 16px; gap: 10px; border-radius: 20px; box-shadow: 0 8px 24px rgba(72,56,29,.05); }
+.history-card.compact.active { border-color: #efd27c; background: linear-gradient(135deg,#fffdf8,#fff8e5); }
+.history-card-main { min-width: 0; flex: 1; }
+.history-card-title-row { display: flex; align-items: center; gap: 9px; }
+.history-card-title-row .card-title { min-width: 0; flex: 1; margin: 0; overflow: hidden; font-size: 22px !important; text-overflow: ellipsis; white-space: nowrap; }
+.history-status-pill { flex: 0 0 auto; padding: 5px 8px; border-radius: 999px; background: #f1efeb; color: #88827a; font-size: 13px; font-weight: 850; }
+.history-status-pill.active { background: #e9f8f1; color: #197052; }
+.history-card-meta { display: block; margin-top: 7px; color: var(--text-secondary); font-size: 16px; }
+.history-delete-button { width: auto; height: 42px; line-height: 42px; margin: 0; padding: 0 7px; border: 0; background: transparent; color: #b7b0a7; font-size: 14px; }
+.history-card.compact .card-arrow { font-size: 27px; }
+
+/* 牌友：通讯录式列表 */
+.friend-search { height: 64px; margin-bottom: 13px; padding: 0 15px; display: flex; align-items: center; gap: 10px; box-sizing: border-box; border: 1px solid var(--line); border-radius: 19px; background: #fff; }
+.friend-search > text:first-child { color: #9b958c; font-size: 26px; }
+.friend-search input { min-width: 0; flex: 1; height: 52px; color: var(--text); font-size: 19px; }
+.friend-search-clear { width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #f2efea; color: #878178; font-size: 23px; }
+.compact-empty { margin-top: 14px; padding: 34px 20px; }
+.friend-directory-card.compact { min-height: 84px; margin-bottom: 8px; padding: 12px 14px; gap: 13px; border-radius: 20px; box-shadow: 0 7px 22px rgba(72,56,29,.045); }
+.friend-directory-card.compact .avatar { width: 56px; height: 56px; border-radius: 17px; }
+.friend-directory-card.compact .avatar-initial { font-size: 25px !important; }
+.friend-directory-card.compact .card-title { margin: 0; font-size: 22px !important; }
+.friend-directory-meta { margin-top: 5px !important; overflow: hidden; color: var(--text-secondary) !important; font-size: 16px !important; text-overflow: ellipsis; white-space: nowrap; }
+.friend-directory-card.compact .card-arrow { font-size: 28px; }
+
+/* 当前牌局：四人比分首屏完整可见 */
+.match-page { padding: 0 24px calc(34px + env(safe-area-inset-bottom)); }
+.match-head.compact { padding: 17px 18px; border-radius: 22px; }
+.match-head.compact .title-small { margin-top: 3px; font-size: 32px; }
+.match-share-code { width: auto; min-width: 112px; height: 60px; line-height: normal; margin: 0; padding: 8px 13px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 17px; }
+.match-share-code text { display: block; }
+.match-share-code text:first-child { color: #a18a5d; font-family: inherit; font-size: 13px; font-weight: 700; }
+.match-share-code text:last-child { margin-top: 2px; color: #7f5b00; font-family: monospace; font-size: 20px; font-weight: 950; letter-spacing: 1px; }
+.match-scoreboard { margin-top: 12px; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px; }
+.match-player-tile { position: relative; min-width: 0; min-height: 116px; padding: 12px 13px; display: grid; grid-template-columns: 52px 1fr; grid-template-rows: auto auto; align-items: center; column-gap: 10px; box-sizing: border-box; border: 1px solid var(--line); border-radius: 21px; background: #fff; box-shadow: 0 8px 24px rgba(72,56,29,.05); }
+.match-player-tile.self { border-color: #e8c45f; background: #fffaf0; }
+.match-player-head { position: relative; grid-row: 1 / 3; }
+.match-player-head .avatar { width: 52px; height: 52px; border-radius: 16px; }
+.match-player-head .avatar-initial { font-size: 23px !important; }
+.match-player-head .avatar-self-badge { left: -6px; top: -8px; min-width: 27px; height: 27px; padding: 0 5px; border-width: 2px; font-size: 12px !important; }
+.match-rank { position: absolute; z-index: 5; left: -4px; bottom: -9px; min-width: 30px; height: 24px; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; border-radius: 999px; background: #2f2d31; color: #fff; font-size: 12px; font-weight: 900; }
+.match-player-copy { min-width: 0; align-self: end; }
+.match-player-copy text { display: block; }
+.match-player-name { overflow: hidden; color: var(--text); font-size: 20px; font-weight: 900; text-overflow: ellipsis; white-space: nowrap; }
+.match-player-copy > text:last-child { margin-top: 2px; color: var(--text-muted); font-size: 14px; }
+.match-player-score { align-self: start; font-size: 28px; font-weight: 950; }
+.match-progress-row { margin: 12px 3px 10px; font-size: 16px; }
+.match-record-action { height: 82px; line-height: 82px; margin: 0 0 10px; border-radius: 22px; font-size: 28px; }
+.match-insight-actions { gap: 9px; margin-bottom: 9px; }
+.match-insight-actions button { height: 58px; line-height: 58px; font-size: 19px; }
+.match-secondary-actions { gap: 9px; }
+.match-secondary-actions button { height: 58px; line-height: 58px; margin-top: 0; border-radius: 18px; font-size: 18px; }
+.recent-save-notice { margin-bottom: 10px; }
+
+/* 记分录入：默认收起低频牌型和牌谱 */
+.score-page { padding-left: 22px; padding-right: 22px; padding-bottom: calc(166px + env(safe-area-inset-bottom)); }
+.score-page .header { margin-bottom: 14px; }
+.score-page .tabs { margin-bottom: 11px; }
+.score-page .tab { height: 58px; line-height: 58px; font-size: 20px; }
+.score-page .ron-role-panel { margin-top: 10px; padding: 13px; }
+.score-page .ron-role-tabs { margin-top: 10px; }
+.score-page .ron-role-tab { min-height: 70px; padding: 9px 11px; }
+.score-page .ron-role-player-grid { gap: 6px; }
+.score-page .ron-role-pick { padding: 15px 5px 10px; }
+.score-page .ron-role-pick .avatar { width: 58px; height: 58px; margin-bottom: 7px; }
+.score-page .ron-role-pick .pick-name { font-size: 18px; }
+.score-page .winner-outcome-card { padding: 13px; }
+.score-page .score-field, .score-page .score-field.compact { padding: 14px 16px; }
+.score-page .score-field.compact { grid-template-columns: 1fr 110px; }
+.score-page .score-field input { font-size: 32px; }
+.score-presets { margin-top: 9px; gap: 7px; }
+.score-preset { height: 48px; line-height: 48px; font-size: 17px; }
+.advanced-option-toggle { margin-top: 10px; padding: 12px 13px; display: flex; align-items: center; justify-content: space-between; gap: 14px; border: 1px solid var(--line); border-radius: 16px; background: #f8f6f1; }
+.advanced-option-toggle > view { min-width: 0; }
+.advanced-option-toggle text { display: block; }
+.advanced-option-toggle > view > text:first-child { color: var(--text); font-size: 18px; font-weight: 900; }
+.advanced-option-toggle > view > text:last-child { margin-top: 3px; color: var(--text-muted); font-size: 14px; }
+.advanced-option-toggle > text:last-child { flex: 0 0 auto; color: #8a6500; font-size: 16px; font-weight: 850; }
+.score-page .note-options { gap: 7px; }
+.score-page .note { height: 50px; line-height: 50px; font-size: 17px; }
+.score-save-bar { left: 18px; right: 18px; bottom: calc(10px + env(safe-area-inset-bottom)); padding: 7px; border-radius: 23px; }
+.score-save-summary { padding: 5px 8px 8px; font-size: 16px; }
+.score-save-bar .primary { height: 72px; line-height: 72px; border-radius: 19px; font-size: 26px; }
+
+/* 我的、战绩和底部导航统一降低容器重量 */
+.profile-head { margin: 8px 0 16px; padding: 20px; border-radius: 24px; }
+.profile-avatar { width: 72px; height: 72px; border-radius: 22px; font-size: 38px; }
+.profile-head .title-small { font-size: 30px; }
+.profile-action { width: 86px; height: 54px; line-height: 54px; border-radius: 16px; font-size: 19px; }
+.profile-stats { margin-bottom: 16px; gap: 8px; }
+.profile-stats > view { padding: 17px 6px; border-radius: 18px; }
+.profile-stats .profile-number { margin-bottom: 4px; font-size: 29px; }
+.personal-statistics-entry { margin-bottom: 16px; padding: 18px; border-radius: 22px; }
+.personal-statistics-entry-icon { width: 58px; height: 58px; border-radius: 18px; font-size: 27px; }
+.setting-row { min-height: 76px; padding: 0 20px; }
+.setting-title { font-size: 22px; }
+.setting-sync-mark { color: var(--green); font-size: 18px; }
+.setting-sync-mark.syncing { color: var(--yellow-deep); }
+.setting-sync-mark.offline { color: var(--red); }
+.personal-rings { padding: 18px 8px; }
+.personal-ring { width: 94px; height: 94px; }
+.personal-ring-inner { width: 68px; height: 68px; }
+.personal-ring-inner text { font-size: 21px; }
+.friend-statistics-overview > view { padding: 17px 4px; border-radius: 18px; }
+.friend-rate-card, .friend-chart-card { padding: 20px; border-radius: 23px; }
+.daily-overview > view { padding: 17px 7px; }
+.daily-player { margin-bottom: 10px; padding: 17px; }
+
+.bottom-nav { left: 18px; right: 18px; bottom: calc(10px + env(safe-area-inset-bottom)); height: 82px; padding: 6px 10px; border-radius: 26px; }
+.nav-item { gap: 1px; border-radius: 17px; font-size: 15px; }
+.nav-icon { width: 36px; height: 31px; line-height: 31px; border-radius: 11px; font-size: 18px; }
+
 @media (max-width: 360px) {
   .personal-rings { grid-template-columns: repeat(2,1fr); row-gap: 22px; }
   .tile-palette-grid { gap: 2px; }
   .record-tile.compact { width: 38px; height: 53px; }
   .tile-record-modal .record-tile.compact { width: 42px; height: 58px; }
   .tile-record-section-tab text { font-size: 16px; }
+  .home-action-row { grid-template-columns: 1fr; }
+  .home-action-row .home-primary, .home-join-card { height: 88px; }
+  .seat-quick-button, .seat-source-chip { width: 48px; }
+  .match-player-tile { padding: 10px; column-gap: 7px; }
+  .match-player-head .avatar { width: 46px; height: 46px; }
+  .match-player-score { font-size: 24px; }
 }
