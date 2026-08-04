@@ -576,6 +576,15 @@ export default function Index() {
     })
   }
 
+  async function quickJoinGroupSession(group: GroupSessionSummary) {
+    await run(async () => {
+      const result = await api.joinGroupSession(group.id)
+      updateGroupState(result.group)
+      groupsLoadedAt.current = 0
+      await Taro.showToast({ title: '已加入组局', icon: 'success' })
+    })
+  }
+
   async function joinGroupSession() {
     if (!activeGroup) return
     await run(async () => {
@@ -1132,6 +1141,7 @@ export default function Index() {
       loading={groupsLoading}
       onCreate={showGroupCreate}
       onOpen={openGroup}
+      onJoin={group => { void quickJoinGroupSession(group) }}
       onOpenCode={code => { void openGroupByCode(code) }}
       onRefresh={() => { groupsLoadedAt.current = 0; void loadGroups(true).catch(error => console.error('Refresh groups failed:', error)) }}
     />}

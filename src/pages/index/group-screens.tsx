@@ -61,21 +61,26 @@ function GroupMemberAvatar({ member, empty = false }: { member?: Pick<GroupSessi
   return <View className={`group-member-avatar avatar-${Number(member.avatar_seed || 0) % 6}`}><Text>{memberInitial(member.name)}</Text></View>
 }
 
-function GroupCard({ group, onOpen }: { group: GroupSessionSummary; onOpen: () => void }) {
+function GroupCard({ group, onOpen, onJoin }: { group: GroupSessionSummary; onOpen: () => void; onJoin: () => void }) {
   const status = statusCopy[group.status]
   const previewMembers = group.members.slice(0, group.capacity)
   const pendingCount = previewMembers.filter(member => member.status === 'invited').length
   const vacantCount = Math.max(0, group.capacity - previewMembers.length)
-  const contextLabel = group.is_owner
-    ? '我发起'
-    : group.is_member
-      ? `${group.owner_name} 发起 · 我已加入`
-      : `${group.owner_name} 发起`
   const actionLabel = group.is_owner && (group.status === 'recruiting' || group.status === 'full')
     ? '管理'
-    : !group.is_member && group.status === 'recruiting'
-      ? '立即加入'
-      : '查看'
+    : group.is_member && (group.status === 'recruiting' || group.status === 'full')
+      ? '已加入'
+      : !group.is_member && group.status === 'recruiting'
+        ? '立即加入'
+        : '查看'
+  const canQuickJoin = !group.is_member && group.status === 'recruiting'
+  const actionTone = group.is_owner
+    ? 'owner'
+    : group.is_member
+      ? 'joined'
+      : canQuickJoin
+        ? 'join'
+        : 'view'
   const progressLabel = group.confirmed_count === group.capacity
     ? '人员已齐'
     : pendingCount && vacantCount
@@ -86,13 +91,14 @@ function GroupCard({ group, onOpen }: { group: GroupSessionSummary; onOpen: () =
 
   return <View className='group-list-card' onClick={onOpen}>
     <View className='group-list-card-head'>
-      <View className='group-list-card-heading'>
-        <Text className='group-list-card-title'>{group.location}</Text>
-        <Text className='group-list-card-time'>{formatGroupTime(group.start_at)} · {contextLabel}</Text>
-      </View>
+      <Text className='group-list-card-title'>{group.location}</Text>
       <Text className={`group-status ${status.tone}`}>{status.label}</Text>
     </View>
-    {group.note && <Text className='group-list-card-note'>{group.note}</Text>}
+    <View className='group-list-card-meta'>
+      <Text className='group-list-card-time'>{formatGroupTime(group.start_at)}</Text>
+      <Text className='group-rule-tag'>南陵麻将</Text>
+      {group.note && <Text className='group-note-tag'>{group.note}</Text>}
+    </View>
     <View className='group-list-card-bottom'>
       <View className='group-member-stack'>
         {previewMembers.map(member => <View className='group-stack-avatar' key={member.id}>
@@ -109,18 +115,23 @@ function GroupCard({ group, onOpen }: { group: GroupSessionSummary; onOpen: () =
         <Text>{group.confirmed_count}/{group.capacity}</Text>
         <Text>{progressLabel}</Text>
       </View>
-      <View className={group.is_owner ? 'group-list-card-action owner' : 'group-list-card-action'}>
-        <Text>{actionLabel}</Text><Text>›</Text>
+      <View className={`group-list-card-action ${actionTone}`} onClick={event => {
+        event.stopPropagation()
+        if (canQuickJoin) onJoin()
+        else onOpen()
+      }}>
+        <Text>{actionLabel}</Text>{(actionTone === 'owner' || actionLabel === '查看') && <Text>›</Text>}
       </View>
     </View>
   </View>
 }
 
-export function GroupSessionsScreen({ groups, loading, onCreate, onOpen, onOpenCode, onRefresh }: {
+export function GroupSessionsScreen({ groups, loading, onCreate, onOpen, onJoin, onOpenCode, onRefresh }: {
   groups: GroupSessionSummary[]
   loading: boolean
   onCreate: () => void
   onOpen: (group: GroupSessionSummary) => void
+  onJoin: (group: GroupSessionSummary) => void
   onOpenCode: (code: string) => void
   onRefresh: () => void
 }) {
@@ -145,15 +156,10 @@ export function GroupSessionsScreen({ groups, loading, onCreate, onOpen, onOpenC
 
   return <View className='page tab-page groups-page' style={{ paddingTop: `${getPageTopInset()}px` }}>
     <View className='group-page-hero'>
-      <View className='group-title-copy'>
-        <Text className='eyebrow'>牌桌邀约</Text>
-        <Text className='title-small'>约一桌南陵麻将</Text>
-        <Text className='group-title-note'>发起、加入或管理一桌牌局</Text>
-      </View>
       <View className='group-action-row'>
         <View className='group-action-tile' onClick={onCreate}>
           <Text className='group-action-icon'>＋</Text>
-          <View><Text className='group-action-title'>发起组局</Text><Text className='group-action-note'>约上三位牌友</Text></View>
+          <View><Text className='group-action-title'>发布组局</Text><Text className='group-action-note'>约三位牌友</Text></View>
         </View>
         <View className={showCodeEntry ? 'group-action-tile active' : 'group-action-tile'} onClick={() => setShowCodeEntry(current => !current)}>
           <Text className='group-action-icon code'>码</Text>
@@ -175,7 +181,7 @@ export function GroupSessionsScreen({ groups, loading, onCreate, onOpen, onOpenC
     </View>
     <View className='group-list-head'>
       <View>
-        <Text>{tab === 'open' ? '附近牌桌' : '我的组局'}</Text>
+        <Text>{tab === 'open' ? '可加入牌桌' : '我的组局'}</Text>
         <Text>{visible.length} 场 · {tab === 'open' ? '按开始时间排序' : '未结束优先'}</Text>
       </View>
       <Button className='group-refresh' disabled={loading} onClick={onRefresh}>{loading ? '刷新中…' : '↻ 刷新'}</Button>
@@ -187,7 +193,12 @@ export function GroupSessionsScreen({ groups, loading, onCreate, onOpen, onOpenC
       <Text>{tab === 'open' ? '可以先发起一桌，再邀请牌友加入' : '发起或加入组局后会显示在这里'}</Text>
       <Button className='secondary group-empty-action' onClick={onCreate}>发起第一个组局</Button>
     </View>}
-    <View className='group-list'>{visible.map(group => <GroupCard group={group} onOpen={() => onOpen(group)} key={group.id} />)}</View>
+    <View className='group-list'>{visible.map(group => <GroupCard
+      group={group}
+      onOpen={() => onOpen(group)}
+      onJoin={() => onJoin(group)}
+      key={group.id}
+    />)}</View>
   </View>
 }
 
