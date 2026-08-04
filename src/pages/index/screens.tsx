@@ -594,16 +594,18 @@ export function ProfileScreen({ user, matches, dailyStats, syncStatus, onHistory
   </View>
 }
 
-export function BottomNav({ active, onHome, onMatches, onFriends, onProfile }: {
-  active: 'home' | 'matches' | 'friends' | 'profile'
+export function BottomNav({ active, onHome, onMatches, onGroups, onFriends, onProfile }: {
+  active: 'home' | 'matches' | 'groups' | 'friends' | 'profile'
   onHome: () => void
   onMatches: () => void
+  onGroups: () => void
   onFriends: () => void
   onProfile: () => void
 }) {
   const items = [
     { key: 'home' as const, icon: '雀', label: '首页', action: onHome },
     { key: 'matches' as const, icon: '局', label: '牌局', action: onMatches },
+    { key: 'groups' as const, icon: '桌', label: '组局', action: onGroups },
     { key: 'friends' as const, icon: '友', label: '牌友', action: onFriends },
     { key: 'profile' as const, icon: '我', label: '我的', action: onProfile },
   ]

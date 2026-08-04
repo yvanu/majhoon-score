@@ -1,5 +1,5 @@
 import Taro from '@tarojs/taro'
-import type { AuthResult, AuthUser, DailyStats, Friend, FriendStatistics, HandInput, HandMutationResult, Match, MatchPlayerInput, MatchSummary, PersonalStatistics, StatisticsDimension, Stats } from '@shared/types'
+import type { AuthResult, AuthUser, DailyStats, Friend, FriendStatistics, GroupMemberStatus, GroupSession, GroupSessionInput, GroupSessionSummary, HandInput, HandMutationResult, Match, MatchPlayerInput, MatchSummary, PersonalStatistics, StatisticsDimension, Stats } from '@shared/types'
 
 export const AUTH_KEY = 'mahjong-auth-token'
 export const CURRENT_KEY = 'mahjong-current'
@@ -45,6 +45,22 @@ export const api = {
     request<PersonalStatistics>(`/api/me/statistics?dimension=${dimension}&value=${encodeURIComponent(value)}&timezoneOffset=${timezoneOffset}`),
   friends: (summary = false) => request<{ friends: Friend[] }>(`/api/me/friends${summary ? '?summary=1' : ''}`),
   friendStatistics: (friendId: string) => request<FriendStatistics>(`/api/me/friends/${encodeURIComponent(friendId)}/statistics`),
+  groupSessions: () => request<{ groups: GroupSessionSummary[] }>('/api/group-sessions'),
+  createGroupSession: (input: GroupSessionInput) => request<{ group: GroupSession }>('/api/group-sessions', 'POST', input),
+  getGroupSession: (idOrCode: string) => request<{ group: GroupSession }>(`/api/group-sessions/${encodeURIComponent(idOrCode)}`),
+  joinGroupSession: (groupId: string) => request<{ group: GroupSession }>(`/api/group-sessions/${encodeURIComponent(groupId)}/join`, 'POST'),
+  leaveGroupSession: (groupId: string) => request<{ group: GroupSession }>(`/api/group-sessions/${encodeURIComponent(groupId)}/leave`, 'POST'),
+  updateGroupMember: (groupId: string, memberId: string, status: GroupMemberStatus) => request<{ group: GroupSession }>(
+    `/api/group-sessions/${encodeURIComponent(groupId)}/members/${encodeURIComponent(memberId)}`,
+    'PUT',
+    { status },
+  ),
+  removeGroupMember: (groupId: string, memberId: string) => request<{ group: GroupSession }>(
+    `/api/group-sessions/${encodeURIComponent(groupId)}/members/${encodeURIComponent(memberId)}`,
+    'DELETE',
+  ),
+  cancelGroupSession: (groupId: string) => request<{ group: GroupSession }>(`/api/group-sessions/${encodeURIComponent(groupId)}/cancel`, 'POST'),
+  startGroupSession: (groupId: string) => request<{ group: GroupSession; match: Match; adminToken: string }>(`/api/group-sessions/${encodeURIComponent(groupId)}/start`, 'POST'),
   deleteHistoryMatch: (matchId: string) => request(`/api/me/matches/${matchId}`, 'DELETE'),
   createMatch: (players: MatchPlayerInput[]) => request<{ match: Match; adminToken: string }>('/api/matches', 'POST', { players }),
   getMatch: (idOrCode: string, includeStatistics = false, adminToken = '') => request<{ match: Match; stats?: Stats; canEdit: boolean }>(

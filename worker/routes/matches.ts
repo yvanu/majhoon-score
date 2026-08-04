@@ -494,9 +494,15 @@ export function registerMatchRoutes(app: Hono<Env>) {
     const id = c.req.param('id')
     if (!await canWrite(c, id)) return jsonError(c, '没有该牌局的修改权限', 401)
     const timestamp = now()
-    await c.env.DB.prepare(`
-      UPDATE matches SET status = 'finished', finished_at = ?, updated_at = ? WHERE id = ?
-    `).bind(timestamp, timestamp, id).run()
+    await c.env.DB.batch([
+      c.env.DB.prepare(`
+        UPDATE matches SET status = 'finished', finished_at = ?, updated_at = ? WHERE id = ?
+      `).bind(timestamp, timestamp, id),
+      c.env.DB.prepare(`
+        UPDATE group_sessions SET status = 'finished', updated_at = ?
+        WHERE match_id = ? AND status = 'active'
+      `).bind(timestamp, id),
+    ])
     return c.json({ match: await getMatch(c.env.DB, id) })
   })
 

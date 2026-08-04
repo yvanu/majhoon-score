@@ -7,6 +7,10 @@ import type {
   DailyStats,
   Friend,
   FriendStatistics,
+  GroupMemberStatus,
+  GroupSession,
+  GroupSessionInput,
+  GroupSessionSummary,
   Hand,
   HandInput,
   HandMutationResult,
@@ -39,6 +43,7 @@ import {
   PersonalStatisticsScreen,
   ProfileScreen,
 } from './screens'
+import { GroupCreateScreen, GroupDetailScreen, GroupSessionsScreen } from './group-screens'
 import { MatchScreen, ScoreScreen, StatsScreen } from './match-screens'
 import './index.scss'
 
@@ -87,7 +92,7 @@ function applyHandMutation(current: Match, result: HandMutationResult, replacedH
   }
 }
 
-const bottomTabScreens = new Set<Screen>(['home', 'history', 'friends', 'profile'])
+const bottomTabScreens = new Set<Screen>(['home', 'history', 'groups', 'friends', 'profile'])
 
 function shouldTrapNativeBack(screen: Screen) {
   return !bottomTabScreens.has(screen)
@@ -106,8 +111,11 @@ export default function Index() {
   const [user, setUser] = useState<AuthUser | null>(dashboardSnapshot?.user ?? null)
   const [history, setHistory] = useState<MatchSummary[]>(dashboardSnapshot?.recentMatch ? [dashboardSnapshot.recentMatch] : [])
   const [friends, setFriends] = useState<Friend[]>([])
+  const [groupSessions, setGroupSessions] = useState<GroupSessionSummary[]>([])
+  const [activeGroup, setActiveGroup] = useState<GroupSession | null>(null)
   const [historyLoading, setHistoryLoading] = useState(false)
   const [friendsLoading, setFriendsLoading] = useState(false)
+  const [groupsLoading, setGroupsLoading] = useState(false)
   const [dailyStatsLoading, setDailyStatsLoading] = useState(false)
   const [friendStats, setFriendStats] = useState<FriendStatistics | null>(null)
   const [activeFriend, setActiveFriend] = useState<Friend | null>(null)
@@ -128,16 +136,37 @@ export default function Index() {
   const personalStatsGeneration = useRef(0)
   const historyLoadedAt = useRef(0)
   const friendsLoadedAt = useRef(0)
+  const groupsLoadedAt = useRef(0)
   const dailyStatsLoadedAt = useRef(dashboardSnapshot?.dailyStats ? Date.now() : 0)
   const historyRequest = useRef<Promise<void> | null>(null)
   const friendsRequest = useRef<Promise<void> | null>(null)
+  const groupsRequest = useRef<Promise<void> | null>(null)
   const dailyStatsRequest = useRef<Promise<void> | null>(null)
   const activeFriendId = useRef('')
   const friendStatsCache = useRef(new Map<string, { value: FriendStatistics; loadedAt: number }>())
   const friendStatsRequests = useRef(new Map<string, Promise<FriendStatistics>>())
   const pageScrollTop = useRef(0)
   const friendListScrollTop = useRef(0)
+  const groupListScrollTop = useRef(0)
   const pendingPageScrollTop = useRef<number | null>(null)
+  const pendingGroupCode = useRef('')
+
+  Taro.useLoad<{ groupCode?: string }>(options => {
+    const code = options.groupCode?.trim().toUpperCase() || ''
+    if (!code) return
+    pendingGroupCode.current = code
+    if (!Taro.getStorageSync<string>(AUTH_KEY)) setScreen('auth')
+  })
+
+  Taro.useShareAppMessage(() => {
+    if (screenRef.current === 'group-detail' && activeGroup) {
+      return {
+        title: `${activeGroup.owner_name}邀你${new Date(activeGroup.start_at).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}打麻将`,
+        path: `/pages/index/index?groupCode=${encodeURIComponent(activeGroup.share_code)}`,
+      }
+    }
+    return { title: '雀记 · 南陵麻将组局与计分', path: '/pages/index/index' }
+  })
 
   Taro.usePageScroll(({ scrollTop }) => {
     pageScrollTop.current = scrollTop
@@ -146,6 +175,13 @@ export default function Index() {
   useEffect(() => {
     void restoreSession()
   }, [])
+
+  useEffect(() => {
+    if (!user || needsNickname(user) || !pendingGroupCode.current) return
+    const code = pendingGroupCode.current
+    pendingGroupCode.current = ''
+    void openGroupByCode(code)
+  }, [user])
 
   useEffect(() => {
     if (!user || !Taro.getStorageSync<string>(AUTH_KEY)) return
@@ -210,6 +246,9 @@ export default function Index() {
     const previous = history[history.length - 1] || 'home'
     if (current === 'friend' && previous === 'friends') {
       pendingPageScrollTop.current = friendListScrollTop.current
+    }
+    if ((current === 'group-detail' || current === 'group-create') && previous === 'groups') {
+      pendingPageScrollTop.current = groupListScrollTop.current
     }
     screenRef.current = previous
     setScreenState(previous)
@@ -291,6 +330,9 @@ export default function Index() {
     if (token) {
       void loadFriends(true).catch(error => {
         console.error('Prefetch friends failed:', error)
+      })
+      void loadGroups(true).catch(error => {
+        console.error('Prefetch group sessions failed:', error)
       })
     }
   }
@@ -437,6 +479,191 @@ export default function Index() {
     })
     friendsRequest.current = request
     return request
+  }
+
+  function updateGroupState(group: GroupSession) {
+    setActiveGroup(group)
+    setGroupSessions(current => {
+      const exists = current.some(item => item.id === group.id)
+      return exists
+        ? current.map(item => item.id === group.id ? group : item)
+        : [group, ...current]
+    })
+  }
+
+  function loadGroups(force = false) {
+    if (!force && Date.now() - groupsLoadedAt.current < TAB_CACHE_TTL) return Promise.resolve()
+    if (groupsRequest.current) return groupsRequest.current
+    setGroupsLoading(true)
+    const request = api.groupSessions().then(result => {
+      setGroupSessions(result.groups)
+      groupsLoadedAt.current = Date.now()
+    }).finally(() => {
+      groupsRequest.current = null
+      setGroupsLoading(false)
+    })
+    groupsRequest.current = request
+    return request
+  }
+
+  function showGroups() {
+    if (!user) {
+      setScreen('auth')
+      return
+    }
+    if (screenRef.current !== 'groups') pendingPageScrollTop.current = 0
+    setScreen('groups')
+    void loadGroups().catch(error => {
+      console.error('Refresh group sessions failed:', error)
+      if (!groupSessions.length) void Taro.showToast({ title: '组局加载失败，请稍后重试', icon: 'none' })
+    })
+  }
+
+  function showGroupCreate() {
+    if (!user) {
+      setScreen('auth')
+      return
+    }
+    groupListScrollTop.current = pageScrollTop.current
+    pendingPageScrollTop.current = 0
+    setScreen('group-create')
+    void loadFriends().catch(error => {
+      console.error('Prefetch friends for group creation failed:', error)
+    })
+  }
+
+  function openGroup(group: GroupSessionSummary) {
+    groupListScrollTop.current = pageScrollTop.current
+    pendingPageScrollTop.current = 0
+    setActiveGroup(group)
+    setScreen('group-detail')
+    void api.getGroupSession(group.id).then(result => {
+      if (screenRef.current === 'group-detail') updateGroupState(result.group)
+    }).catch(error => {
+      console.error('Load group session failed:', error)
+      void Taro.showToast({ title: '组局详情加载失败', icon: 'none' })
+    })
+  }
+
+  async function openGroupByCode(code: string) {
+    groupListScrollTop.current = pageScrollTop.current
+    pendingPageScrollTop.current = 0
+    setActiveGroup(null)
+    setScreen('group-detail')
+    const succeeded = await run(async () => {
+      const result = await api.getGroupSession(code)
+      updateGroupState(result.group)
+    })
+    if (!succeeded && screenRef.current === 'group-detail') {
+      pendingPageScrollTop.current = groupListScrollTop.current
+      replaceScreen('groups')
+    }
+  }
+
+  function closeGroup() {
+    pendingPageScrollTop.current = groupListScrollTop.current
+    setScreen('groups')
+  }
+
+  async function createGroupSession(input: GroupSessionInput) {
+    await run(async () => {
+      const result = await api.createGroupSession(input)
+      groupsLoadedAt.current = 0
+      updateGroupState(result.group)
+      pendingPageScrollTop.current = 0
+      setScreen('group-detail')
+      await Taro.showToast({ title: '组局已发起', icon: 'success' })
+    })
+  }
+
+  async function joinGroupSession() {
+    if (!activeGroup) return
+    await run(async () => {
+      const result = await api.joinGroupSession(activeGroup.id)
+      updateGroupState(result.group)
+      groupsLoadedAt.current = 0
+      await Taro.showToast({ title: '已加入组局', icon: 'success' })
+    })
+  }
+
+  async function leaveGroupSession() {
+    if (!activeGroup) return
+    const confirmed = await showDialog({
+      title: '退出组局？',
+      content: '退出后会释放你的座位，之后仍可在未满员时重新加入。',
+      confirmText: '退出',
+      variant: 'danger',
+    })
+    if (!confirmed) return
+    await run(async () => {
+      const result = await api.leaveGroupSession(activeGroup.id)
+      updateGroupState(result.group)
+      groupsLoadedAt.current = 0
+      await Taro.showToast({ title: '已退出组局', icon: 'success' })
+    })
+  }
+
+  async function updateGroupMember(memberId: string, status: GroupMemberStatus) {
+    if (!activeGroup) return
+    await run(async () => {
+      const result = await api.updateGroupMember(activeGroup.id, memberId, status)
+      updateGroupState(result.group)
+      groupsLoadedAt.current = 0
+    })
+  }
+
+  async function removeGroupMember(memberId: string) {
+    if (!activeGroup) return
+    const member = activeGroup.members.find(item => item.id === memberId)
+    if (!member) return
+    const confirmed = await showDialog({
+      title: `移除${member.name}？`,
+      content: '移除后将释放这个位置，对方仍可通过组局码重新加入。',
+      confirmText: '移除',
+      variant: 'danger',
+    })
+    if (!confirmed) return
+    await run(async () => {
+      const result = await api.removeGroupMember(activeGroup.id, memberId)
+      updateGroupState(result.group)
+      groupsLoadedAt.current = 0
+    })
+  }
+
+  async function cancelGroupSession() {
+    if (!activeGroup) return
+    const confirmed = await showDialog({
+      title: '取消这个组局？',
+      content: '取消后成员将无法继续加入，也不能从该组局开始记分。',
+      confirmText: '取消组局',
+      variant: 'danger',
+    })
+    if (!confirmed) return
+    await run(async () => {
+      const result = await api.cancelGroupSession(activeGroup.id)
+      updateGroupState(result.group)
+      groupsLoadedAt.current = 0
+      await Taro.showToast({ title: '组局已取消', icon: 'success' })
+    })
+  }
+
+  async function startGroupSession() {
+    if (!activeGroup) return
+    await run(async () => {
+      const result = await api.startGroupSession(activeGroup.id)
+      updateGroupState(result.group)
+      setMatch(result.match)
+      setAdminToken(result.adminToken)
+      setMatchCanEdit(true)
+      Taro.setStorageSync(CURRENT_KEY, { id: result.match.id, token: result.adminToken })
+      invalidateStatisticsCaches()
+      groupsLoadedAt.current = 0
+      setScreen('match')
+      await Taro.showToast({ title: '牌局已创建', icon: 'success' })
+      void refreshDashboard().catch(error => {
+        console.error('Refresh dashboard after starting group match failed:', error)
+      })
+    })
   }
 
   function showCreate() {
@@ -628,6 +855,9 @@ export default function Index() {
     const friendsPromise = loadFriends(true).catch(error => {
       console.error('Prefetch friends failed:', error)
     })
+    const groupsPromise = loadGroups(true).catch(error => {
+      console.error('Prefetch group sessions failed:', error)
+    })
     if (saved?.id && saved?.token) {
       await api.claim(saved.id, saved.token).catch(error => {
         console.error('Claim local match after login failed:', error)
@@ -636,7 +866,7 @@ export default function Index() {
     await refreshDashboard().catch(error => {
       console.error('Refresh dashboard after login failed:', error)
     })
-    await friendsPromise
+    await Promise.all([friendsPromise, groupsPromise])
   }
 
   function finishLogin(data: AuthResult) {
@@ -681,10 +911,15 @@ export default function Index() {
     setMatchCanEdit(false)
     setHistory([])
     setFriends([])
+    setGroupSessions([])
+    setActiveGroup(null)
     historyLoadedAt.current = 0
     friendsLoadedAt.current = 0
+    groupsLoadedAt.current = 0
+    groupsRequest.current = null
     setHistoryLoading(false)
     setFriendsLoading(false)
+    setGroupsLoading(false)
     setDailyStatsLoading(false)
     dailyStatsLoadedAt.current = 0
     dailyStatsRequest.current = null
@@ -840,13 +1075,15 @@ export default function Index() {
 
   const activeTab = screen === 'history'
     ? 'matches'
-    : screen === 'friends'
-      ? 'friends'
-      : screen === 'profile'
-        ? 'profile'
-        : screen === 'home'
-          ? 'home'
-          : null
+    : screen === 'groups'
+      ? 'groups'
+      : screen === 'friends'
+        ? 'friends'
+        : screen === 'profile'
+          ? 'profile'
+          : screen === 'home'
+            ? 'home'
+            : null
 
   return <View className='app'>
     <View key={activeTab ? 'bottom-tabs' : screen} className={activeTab ? 'screen-transition tab-screen-transition' : 'screen-transition'}>
@@ -890,6 +1127,36 @@ export default function Index() {
     {screen === 'daily' && (dailyStats
       ? <DailyStatsScreen stats={dailyStats} onBack={() => setScreen('home')} />
       : <LoadingScreen title='今日战绩' message={dailyStatsLoading ? '正在加载今日战绩…' : '暂无今日战绩数据'} onBack={goBack} />)}
+    {screen === 'groups' && user && <GroupSessionsScreen
+      groups={groupSessions}
+      loading={groupsLoading}
+      onCreate={showGroupCreate}
+      onOpen={openGroup}
+      onOpenCode={code => { void openGroupByCode(code) }}
+      onRefresh={() => { groupsLoadedAt.current = 0; void loadGroups(true).catch(error => console.error('Refresh groups failed:', error)) }}
+    />}
+    {screen === 'group-create' && user && <GroupCreateScreen
+      user={user}
+      friends={friends}
+      loading={loading}
+      onBack={goBack}
+      onCreate={createGroupSession}
+    />}
+    {screen === 'group-detail' && user && (activeGroup
+      ? <GroupDetailScreen
+          group={activeGroup}
+          currentUserId={user.id}
+          loading={loading}
+          onBack={closeGroup}
+          onJoin={joinGroupSession}
+          onLeave={leaveGroupSession}
+          onUpdateMember={updateGroupMember}
+          onRemoveMember={removeGroupMember}
+          onCancel={cancelGroupSession}
+          onStart={startGroupSession}
+          onOpenMatch={matchId => openMatch(matchId, activeGroup.status === 'finished' ? 'finished' : 'active')}
+        />
+      : <LoadingScreen title='组局详情' message='正在加载时间、地点和参与成员…' onBack={goBack} />)}
     {screen === 'friends' && user && <FriendsScreen
       friends={friends}
       loading={friendsLoading}
@@ -948,6 +1215,7 @@ export default function Index() {
       active={activeTab}
       onHome={() => setScreen('home')}
       onMatches={showHistory}
+      onGroups={showGroups}
       onFriends={showFriends}
       onProfile={showProfile}
     />}

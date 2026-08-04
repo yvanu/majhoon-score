@@ -8,6 +8,8 @@ export type MahjongTile =
   | '1s' | '2s' | '3s' | '4s' | '5s' | '6s' | '7s' | '8s' | '9s'
   | 'east' | 'south' | 'west' | 'north' | 'red' | 'green' | 'white'
 export type StatisticsDimension = 'day' | 'month' | 'year'
+export type GroupSessionStatus = 'recruiting' | 'full' | 'active' | 'finished' | 'cancelled'
+export type GroupMemberStatus = 'invited' | 'confirmed'
 
 export interface HandTileRecord {
   pongs: MahjongTile[]
@@ -57,6 +59,46 @@ export interface MatchPlayerInput {
   name: string
   friendId?: string
   isSelf?: boolean
+}
+
+export interface GroupSessionMember {
+  id: string
+  user_id: string | null
+  friend_id: string | null
+  name: string
+  avatar_seed: number
+  role: 'owner' | 'member'
+  status: GroupMemberStatus
+  joined_at: string
+}
+
+export interface GroupSessionSummary {
+  id: string
+  share_code: string
+  owner_user_id: string
+  owner_name: string
+  start_at: string
+  location: string
+  note: string | null
+  capacity: number
+  status: GroupSessionStatus
+  confirmed_count: number
+  invited_count: number
+  match_id: string | null
+  created_at: string
+  updated_at: string
+  members: GroupSessionMember[]
+  is_owner: boolean
+  is_member: boolean
+}
+
+export interface GroupSession extends GroupSessionSummary {}
+
+export interface GroupSessionInput {
+  startAt: string
+  location: string
+  note?: string
+  friendIds?: string[]
 }
 
 export interface HandOutcome {

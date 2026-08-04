@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { jsonError, now } from './core'
 import type { Env } from './env'
 import { registerAuthRoutes } from './routes/auth'
+import { registerGroupRoutes } from './routes/groups'
 import { registerMatchRoutes } from './routes/matches'
 import { registerMeRoutes } from './routes/me'
 
@@ -36,6 +37,7 @@ app.get('/assets/mahjong/:file', async c => {
 app.get('/api/health', c => c.json({ ok: true, service: 'mahjong-score-wechat', timestamp: now() }))
 registerAuthRoutes(app)
 registerMeRoutes(app)
+registerGroupRoutes(app)
 registerMatchRoutes(app)
 
 app.notFound(c => jsonError(c, '接口不存在', 404))
