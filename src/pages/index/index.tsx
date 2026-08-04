@@ -135,6 +135,13 @@ export default function Index() {
   const activeFriendId = useRef('')
   const friendStatsCache = useRef(new Map<string, { value: FriendStatistics; loadedAt: number }>())
   const friendStatsRequests = useRef(new Map<string, Promise<FriendStatistics>>())
+  const pageScrollTop = useRef(0)
+  const friendListScrollTop = useRef(0)
+  const pendingPageScrollTop = useRef<number | null>(null)
+
+  Taro.usePageScroll(({ scrollTop }) => {
+    pageScrollTop.current = scrollTop
+  })
 
   useEffect(() => {
     void restoreSession()
@@ -155,6 +162,21 @@ export default function Index() {
     return () => clearTimeout(timer)
   }, [lastSaveNotice])
 
+  useEffect(() => {
+    const target = pendingPageScrollTop.current
+    if (target === null) return
+    const screenAfterScroll = screen
+    const reopenBackTrap = shouldTrapNativeBack(screenAfterScroll)
+    pendingPageScrollTop.current = null
+    Taro.nextTick(() => {
+      void Taro.pageScrollTo({ scrollTop: target, duration: 0 }).catch(error => {
+        console.error('Restore page scroll position failed:', error)
+      }).finally(() => {
+        if (reopenBackTrap && screenRef.current === screenAfterScroll) setBackTrapOpen(true)
+      })
+    })
+  }, [screen])
+
   function setScreen(next: Screen) {
     const history = screenHistory.current
     const existingIndex = history.lastIndexOf(next)
@@ -162,7 +184,7 @@ export default function Index() {
     else history.push(next)
     screenRef.current = next
     setScreenState(next)
-    setBackTrapOpen(shouldTrapNativeBack(next))
+    setBackTrapOpen(shouldTrapNativeBack(next) && pendingPageScrollTop.current === null)
   }
 
   function replaceScreen(next: Screen) {
@@ -172,7 +194,7 @@ export default function Index() {
     else history.push(next)
     screenRef.current = next
     setScreenState(next)
-    setBackTrapOpen(shouldTrapNativeBack(next))
+    setBackTrapOpen(shouldTrapNativeBack(next) && pendingPageScrollTop.current === null)
   }
 
   function navigateBack(updateBackTrap: boolean) {
@@ -183,8 +205,12 @@ export default function Index() {
     if (screenRef.current === 'nickname' && needsNickname(user)) return
     const history = screenHistory.current
     if (history.length <= 1) return
+    const current = screenRef.current
     history.pop()
     const previous = history[history.length - 1] || 'home'
+    if (current === 'friend' && previous === 'friends') {
+      pendingPageScrollTop.current = friendListScrollTop.current
+    }
     screenRef.current = previous
     setScreenState(previous)
     if (updateBackTrap) setBackTrapOpen(shouldTrapNativeBack(previous))
@@ -478,6 +504,8 @@ export default function Index() {
   }
 
   function openFriend(friend: Friend) {
+    friendListScrollTop.current = pageScrollTop.current
+    pendingPageScrollTop.current = 0
     activeFriendId.current = friend.id
     setActiveFriend(friend)
     setFriendStats(friendStatsCache.current.get(friend.id)?.value ?? null)
@@ -490,6 +518,11 @@ export default function Index() {
         void Taro.showToast({ title: '牌友战绩加载失败，请稍后重试', icon: 'none' })
       }
     })
+  }
+
+  function closeFriend() {
+    pendingPageScrollTop.current = friendListScrollTop.current
+    setScreen('friends')
   }
 
   function personalStatisticsKey(dimension: StatisticsDimension, value: string) {
@@ -863,7 +896,7 @@ export default function Index() {
       onOpen={openFriend}
     />}
     {screen === 'friend' && (friendStats
-      ? <FriendStatisticsScreen statistics={friendStats} onBack={() => setScreen('friends')} />
+      ? <FriendStatisticsScreen statistics={friendStats} onBack={closeFriend} />
       : <LoadingScreen
           title={activeFriend?.name || '牌友战绩'}
           message={friendStatsLoadingId ? '正在加载牌友战绩…' : '暂无牌友战绩数据'}
