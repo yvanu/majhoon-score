@@ -680,10 +680,10 @@ export default function Index() {
     })
   }
 
-  async function submitHand(input: HandInput, summary: string) {
-    if (!match) return
+  async function submitHand(input: HandInput, summary: string): Promise<boolean> {
+    if (!match) return false
     const handId = editingHandId
-    await run(async () => {
+    return run(async () => {
       const data = handId
         ? await api.updateHand(match.id, handId, input, adminToken)
         : await api.addHand(match.id, input, adminToken)

@@ -420,7 +420,7 @@ export function ScoreScreen({ players, currentUserId, initialHand, loading, onBa
   initialHand: Hand | null
   loading: boolean
   onBack: () => void
-  onSubmit: (input: HandInput, summary: string) => void
+  onSubmit: (input: HandInput, summary: string) => Promise<boolean>
 }) {
   const loggedPlayerId = currentUserId
     ? players.find(player => player.user_id === currentUserId)?.id || null
@@ -644,7 +644,7 @@ export function ScoreScreen({ players, currentUserId, initialHand, loading, onBa
     setEventSelectionRole(eventPlayer ? null : 'player')
   }
 
-  function save() {
+  async function save() {
     let scores: { playerId: string; change: number }[]
     if (type === 'ron') {
       if (!loser) {
@@ -711,13 +711,19 @@ export function ScoreScreen({ players, currentUserId, initialHand, loading, onBa
         void Taro.showToast({ title: '请选择放杠者', icon: 'none' })
         return
       }
-      onSubmit({
+      const saved = await onSubmit({
         type,
         winnerPlayerId: eventPlayer,
         loserPlayerId: eventOption.allPay ? undefined : eventPayer,
         scores: eventScores,
         note: eventType,
       }, saveSummary)
+      if (saved && !isEditing) {
+        setEventPlayer('')
+        setEventPayer('')
+        setEventAmount(String(eventOption.defaultAmount))
+        setEventSelectionRole(eventNeedsPayer ? 'payer' : 'player')
+      }
       return
     }
     if (type === 'draw') {
