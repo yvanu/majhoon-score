@@ -339,12 +339,6 @@ export function FriendsScreen({ friends, loading, onOpen }: {
   loading: boolean
   onOpen: (friend: Friend) => void
 }) {
-  const [visibleCount, setVisibleCount] = useState(TAB_LIST_PAGE_SIZE)
-  useEffect(() => {
-    setVisibleCount(current => Math.min(current, Math.max(TAB_LIST_PAGE_SIZE, friends.length)))
-  }, [friends.length])
-  const visibleFriends = friends.slice(0, visibleCount)
-
   return <View className='page tab-page friends-page' style={{ paddingTop: `${getPageTopInset()}px` }}>
     <View className='page-title-row'>
       <View><Text className='eyebrow'>MAHJONG FRIENDS</Text><Text className='title-small'>我的牌友</Text></View>
@@ -356,8 +350,8 @@ export function FriendsScreen({ friends, loading, onOpen }: {
       <Text className='card-title'>还没有牌友</Text>
       <Text>创建牌局时手动输入玩家，之后会自动出现在这里</Text>
     </View>}
-    <ScrollView scrollY lowerThreshold={120} className='friend-directory-list' onScrollToLower={() => setVisibleCount(current => Math.min(friends.length, current + TAB_LIST_PAGE_SIZE))}>
-      {visibleFriends.map(friend => <View className='friend-directory-card' key={friend.id} onClick={() => onOpen(friend)}>
+    <View className='friend-directory-list'>
+      {friends.map(friend => <View className='friend-directory-card' key={friend.id} onClick={() => onOpen(friend)}>
         <FriendAvatar friend={friend} />
         <View className='grow'>
           <Text className='card-title'>{friend.name}</Text>
@@ -366,8 +360,7 @@ export function FriendsScreen({ friends, loading, onOpen }: {
         </View>
         <Text className='card-arrow'>›</Text>
       </View>)}
-      {visibleCount < friends.length && <Text className='tab-list-more'>继续上滑加载更多</Text>}
-    </ScrollView>
+    </View>
   </View>
 }
 

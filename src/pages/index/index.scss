@@ -418,7 +418,7 @@ page { background: var(--page-bg); color: var(--text); }
 .version-text { color: #aaa7ad; }
 
 /* 牌友目录与对战统计 */
-.friend-directory-list { width: 100%; height: calc(100vh - 270px); min-height: 320px; }
+.friend-directory-list { width: 100%; }
 .tab-list-more { display: block; padding: 18px 0 24px; color: var(--text-muted); font-size: 17px; text-align: center; }
 .friend-directory-card { min-height: 122px; margin-bottom: 16px; padding: 22px; display: flex; align-items: center; gap: 18px; box-sizing: border-box; border: 1px solid var(--line); border-radius: 26px; background: #fff; box-shadow: var(--shadow); }
 .friend-directory-card .grow text { display: block; }
