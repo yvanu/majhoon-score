@@ -87,6 +87,12 @@ function applyHandMutation(current: Match, result: HandMutationResult, replacedH
   }
 }
 
+const bottomTabScreens = new Set<Screen>(['home', 'history', 'friends', 'profile'])
+
+function shouldTrapNativeBack(screen: Screen) {
+  return !bottomTabScreens.has(screen)
+}
+
 export default function Index() {
   const [dashboardSnapshot] = useState(() => readDashboardSnapshot())
   const [screen, setScreenState] = useState<Screen>('home')
@@ -156,7 +162,7 @@ export default function Index() {
     else history.push(next)
     screenRef.current = next
     setScreenState(next)
-    setBackTrapOpen(next !== 'home')
+    setBackTrapOpen(shouldTrapNativeBack(next))
   }
 
   function replaceScreen(next: Screen) {
@@ -166,10 +172,10 @@ export default function Index() {
     else history.push(next)
     screenRef.current = next
     setScreenState(next)
-    setBackTrapOpen(next !== 'home')
+    setBackTrapOpen(shouldTrapNativeBack(next))
   }
 
-  function goBack() {
+  function navigateBack(updateBackTrap: boolean) {
     if (dialog) {
       closeDialog(false)
       return
@@ -181,15 +187,20 @@ export default function Index() {
     const previous = history[history.length - 1] || 'home'
     screenRef.current = previous
     setScreenState(previous)
+    if (updateBackTrap) setBackTrapOpen(shouldTrapNativeBack(previous))
+  }
+
+  function goBack() {
+    navigateBack(true)
   }
 
   function handleNativeBack() {
     setBackTrapOpen(false)
-    goBack()
+    navigateBack(false)
   }
 
   function rearmBackTrap() {
-    if (screenRef.current !== 'home') setBackTrapOpen(true)
+    if (shouldTrapNativeBack(screenRef.current)) setBackTrapOpen(true)
   }
 
   function updateRecentMatch(recentMatch: MatchSummary | null) {
@@ -913,7 +924,7 @@ export default function Index() {
       onConfirm={() => closeDialog(true)}
     />}
     <PageContainer
-      show={backTrapOpen || Boolean(dialog)}
+      show={Boolean(dialog) || (backTrapOpen && !activeTab)}
       duration={0}
       zIndex={0}
       overlay={false}
