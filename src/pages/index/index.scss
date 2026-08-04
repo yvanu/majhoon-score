@@ -216,7 +216,7 @@
 /* 历史牌局 */
 .page-title-row { display: flex; align-items: center; justify-content: space-between; margin: 18px 2px 34px; }
 .count-badge { min-width: 54px; height: 54px; line-height: 54px; padding: 0 10px; border-radius: 18px; background: #1d2940; color: #f1bd67; font-size: 23px; font-weight: 800; text-align: center; }
-.history-list { max-height: calc(100vh - 270px); }
+.history-list { width: 100%; height: calc(100vh - 270px); min-height: 320px; }
 .history-card { min-height: 112px; }
 .history-status { width: 66px; height: 66px; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; border-radius: 20px; background: #1e2b41; color: #f1bd67; font-size: 18px; text-align: center; }
 
@@ -418,7 +418,7 @@ page { background: var(--page-bg); color: var(--text); }
 .version-text { color: #aaa7ad; }
 
 /* 牌友目录与对战统计 */
-.friend-directory-list { max-height: calc(100vh - 270px); }
+.friend-directory-list { width: 100%; height: calc(100vh - 270px); min-height: 320px; }
 .tab-list-more { display: block; padding: 18px 0 24px; color: var(--text-muted); font-size: 17px; text-align: center; }
 .friend-directory-card { min-height: 122px; margin-bottom: 16px; padding: 22px; display: flex; align-items: center; gap: 18px; box-sizing: border-box; border: 1px solid var(--line); border-radius: 26px; background: #fff; box-shadow: var(--shadow); }
 .friend-directory-card .grow text { display: block; }
