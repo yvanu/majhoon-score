@@ -1027,7 +1027,7 @@ page { background: var(--page-bg); color: var(--text); }
 }
 
 /* 2026-08-04 比例回调：保留首屏效率，但恢复正常触控与阅读尺寸 */
-.home-page, .tab-page { padding-left: 30px; padding-right: 30px; padding-bottom: calc(148px + env(safe-area-inset-bottom)); }
+.home-page, .tab-page { padding-left: 30px; padding-right: 30px; padding-bottom: calc(132px + env(safe-area-inset-bottom)); }
 .compact-title-row { margin-bottom: 24px; }
 .compact-title-row .title-small { font-size: 42px; }
 
@@ -1142,9 +1142,14 @@ page { background: var(--page-bg); color: var(--text); }
 .personal-ring-inner text { font-size: 23px; }
 .daily-player { margin-bottom: 13px; padding: 20px; }
 
-.bottom-nav { left: 20px; right: 20px; bottom: calc(12px + env(safe-area-inset-bottom)); height: 94px; padding: 7px 11px; border-radius: 28px; }
-.nav-item { gap: 3px; border-radius: 19px; font-size: 17px; }
-.nav-icon { width: 42px; height: 36px; line-height: 36px; border-radius: 12px; font-size: 20px; }
+.bottom-nav { left: 0; right: 0; bottom: 0; height: calc(112px + env(safe-area-inset-bottom)); padding: 12px 18px calc(10px + env(safe-area-inset-bottom)); border: 0; border-top: 1px solid rgba(214,205,192,.82); border-radius: 24px 24px 0 0; background: rgba(255,253,249,.98); box-shadow: 0 -7px 22px rgba(72,56,29,.07); backdrop-filter: blur(18px); }
+.nav-item { position: relative; gap: 3px; border-radius: 0; color: #77736d; font-size: 22px; font-weight: 700; }
+.nav-active-mark { position: absolute; top: -4px; left: 50%; width: 34px; height: 5px; border-radius: 999px; background: #d79a00; opacity: 0; transform: translateX(-50%) scaleX(.55); transition: opacity .16s ease, transform .2s ease; }
+.nav-icon { width: 48px; height: 42px; line-height: 42px; border-radius: 0; background: transparent; color: inherit; font-size: 28px; font-weight: 850; }
+.nav-label { line-height: 1.1; }
+.nav-item.active { background: transparent; color: #9a6b00; font-weight: 900; }
+.nav-item.active .nav-active-mark { opacity: 1; transform: translateX(-50%) scaleX(1); }
+.nav-item.active .nav-icon { background: transparent; color: #9a6b00; }
 
 /* 组局页：保证文字与操作尺寸清晰，同时维持一屏可浏览多桌 */
 .groups-page { padding-left: 24px; padding-right: 24px; }

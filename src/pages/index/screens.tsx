@@ -636,10 +636,14 @@ export function BottomNav({ active, onHome, onMatches, onGroups, onFriends, onPr
 }) {
   const items = [
     { key: 'home' as const, icon: '⌂', label: '首页', action: onHome },
-    { key: 'matches' as const, icon: '记', label: '牌局', action: onMatches },
-    { key: 'groups' as const, icon: '约', label: '组局', action: onGroups },
+    { key: 'matches' as const, icon: '局', label: '牌局', action: onMatches },
+    { key: 'groups' as const, icon: '桌', label: '组局', action: onGroups },
     { key: 'friends' as const, icon: '友', label: '牌友', action: onFriends },
     { key: 'profile' as const, icon: '我', label: '我的', action: onProfile },
   ]
-  return <View className='bottom-nav'>{items.map(item => <View key={item.key} className={active === item.key ? 'nav-item active' : 'nav-item'} onClick={item.action}><Text className='nav-icon'>{item.icon}</Text><Text>{item.label}</Text></View>)}</View>
+  return <View className='bottom-nav'>{items.map(item => <View key={item.key} className={active === item.key ? 'nav-item active' : 'nav-item'} onClick={item.action}>
+    <View className='nav-active-mark' />
+    <Text className='nav-icon'>{item.icon}</Text>
+    <Text className='nav-label'>{item.label}</Text>
+  </View>)}</View>
 }
