@@ -57,7 +57,7 @@ function memberInitial(name: string) {
 }
 
 function GroupMemberAvatar({ member, empty = false }: { member?: Pick<GroupSessionMember, 'name' | 'avatar_seed'>; empty?: boolean }) {
-  if (empty || !member) return <View className='group-member-avatar empty'><Text>+</Text></View>
+  if (empty || !member) return <View className='group-member-avatar vacant'><Text>+</Text></View>
   return <View className={`group-member-avatar avatar-${Number(member.avatar_seed || 0) % 6}`}><Text>{memberInitial(member.name)}</Text></View>
 }
 
