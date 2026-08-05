@@ -1153,11 +1153,11 @@ page { background: var(--page-bg); color: var(--text); }
 
 /* 组局页：保证文字与操作尺寸清晰，同时维持一屏可浏览多桌 */
 .groups-page { padding-left: 24px; padding-right: 24px; }
-.group-page-hero { margin: 0 0 14px; padding: 16px; border: 1px solid #b9dfce; border-radius: 26px; background: linear-gradient(145deg,#7fc6a7,#b6dfcc); box-shadow: 0 10px 26px rgba(50,120,91,.11); }
+.group-page-hero { margin: 0 0 14px; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .group-action-row { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
-.group-action-tile { min-width: 0; min-height: 92px; padding: 14px 15px; display: flex; align-items: center; gap: 12px; box-sizing: border-box; border: 2px solid rgba(255,255,255,.84); border-radius: 21px; background: rgba(255,255,255,.97); box-shadow: 0 7px 18px rgba(36,91,68,.08); }
+.group-action-tile { min-width: 0; min-height: 92px; padding: 14px 15px; display: flex; align-items: center; gap: 12px; box-sizing: border-box; border: 1px solid #e7dfd2; border-radius: 21px; background: #fffdfa; box-shadow: 0 7px 18px rgba(72,56,29,.06); }
 .group-action-tile.active { border-color: #eab83f; background: #fff9df; }
-.group-action-icon { width: 50px; height: 50px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; border-radius: 16px; background: #e5f6ee; color: #2b906c; font-size: 30px; font-weight: 900; }
+.group-action-icon { width: 50px; height: 50px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; border-radius: 16px; background: #fff1bd; color: #936900; font-size: 30px; font-weight: 900; }
 .group-action-icon.code { background: #fff1bd; color: #936900; font-size: 22px; }
 .group-action-tile > view { min-width: 0; }
 .group-action-title, .group-action-note { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1182,7 +1182,7 @@ page { background: var(--page-bg); color: var(--text); }
 .group-list-card-meta { margin-top: 8px; display: flex; align-items: center; gap: 7px; overflow: hidden; }
 .group-list-card-meta text { height: 30px; display: flex; align-items: center; box-sizing: border-box; border-radius: 9px; font-size: 18px; white-space: nowrap; }
 .group-list-card-time { flex: 0 0 auto; color: var(--text-secondary); font-size: 21px !important; font-weight: 800; }
-.group-rule-tag { flex: 0 0 auto; padding: 0 8px; border: 1px solid #75b99c; color: #1f7658; font-weight: 850; }
+.group-rule-tag { flex: 0 0 auto; padding: 0 8px; border: 1px solid #dfc36f; background: #fff8dc; color: #7b5900; font-weight: 850; }
 .group-note-tag { min-width: 0; flex: 1; padding: 0 8px; overflow: hidden; background: #f5f2ec; color: #665f55; text-overflow: ellipsis; }
 .group-list-card-bottom { margin-top: 12px; padding-top: 12px; display: flex; align-items: center; gap: 12px; border-top: 1px solid #eee8de; }
 .group-member-stack { width: 178px; min-width: 178px; display: flex; align-items: center; }

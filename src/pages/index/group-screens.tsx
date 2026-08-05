@@ -96,7 +96,7 @@ function GroupCard({ group, onOpen, onJoin }: { group: GroupSessionSummary; onOp
     </View>
     <View className='group-list-card-meta'>
       <Text className='group-list-card-time'>{formatGroupTime(group.start_at)}</Text>
-      <Text className='group-rule-tag'>南陵麻将</Text>
+      <Text className='group-rule-tag'>南京麻将</Text>
       {group.note && <Text className='group-note-tag'>{group.note}</Text>}
     </View>
     <View className='group-list-card-bottom'>
@@ -233,7 +233,7 @@ export function GroupCreateScreen({ user, friends, loading, onBack, onCreate }: 
     <Header title='发起组局' onBack={onBack} />
     <View className='group-create-hero'>
       <Text className='eyebrow'>发起邀约</Text>
-      <Text className='title-small'>约一桌南陵麻将</Text>
+      <Text className='title-small'>约一桌南京麻将</Text>
       <Text>发起人：{displayUserName(user)} · 固定四人局</Text>
     </View>
     <Text className='group-form-title'>什么时候开始</Text>

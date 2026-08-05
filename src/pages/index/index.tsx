@@ -165,7 +165,7 @@ export default function Index() {
         path: `/pages/index/index?groupCode=${encodeURIComponent(activeGroup.share_code)}`,
       }
     }
-    return { title: '雀记 · 南陵麻将组局与计分', path: '/pages/index/index' }
+    return { title: '雀记 · 南京麻将组局与计分', path: '/pages/index/index' }
   })
 
   Taro.usePageScroll(({ scrollTop }) => {
