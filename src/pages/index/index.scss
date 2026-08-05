@@ -83,6 +83,8 @@
 .avatar-large .avatar-initial { font-size: 38px !important; }
 .avatar-large .avatar-seat-badge { width: 32px; height: 32px; font-size: 17px !important; }
 .stats-card { min-height: 108px; }
+.stats-actions { margin-top: 28px; align-items: stretch; }
+.stats-actions button { height: 88px; line-height: 88px; margin: 0; border-radius: 24px; font-size: 25px; }
 .note-field { margin-top: 26px; }
 .note-options { display: flex; flex-wrap: wrap; gap: 14px; }
 .note { width: auto; min-width: 124px; height: 64px; line-height: 64px; margin: 0; padding: 0 22px; border: 1px solid #2c3b54; border-radius: 18px; background: #151f31; color: #9eacc0; font-size: 23px; }
@@ -1121,6 +1123,8 @@ page { background: var(--page-bg); color: var(--text); }
 .match-record-action { height: 90px; line-height: 90px; margin-bottom: 13px; border-radius: 24px; font-size: 30px; }
 .match-insight-actions button, .match-secondary-actions button { height: 66px; line-height: 66px; font-size: 21px; }
 .match-secondary-actions .match-finish-action { border-color: #efd4cd; background: #fff8f6; color: #a65345; }
+.match-final-stats-action { height: 66px; line-height: 66px; margin-top: 0; border-radius: 18px; font-size: 21px; }
+.match-final-stats-action + .readonly { margin: 15px 0 0; font-size: 17px; }
 
 .score-page { padding-left: 28px; padding-right: 28px; padding-bottom: calc(180px + env(safe-area-inset-bottom)); }
 .score-page .header { margin-bottom: 18px; }

@@ -1249,6 +1249,7 @@ export default function Index() {
       onUndo={undo}
       onUndoNotice={undoLatestRecord}
       onFinish={finish}
+      onViewStats={() => setScreen('stats')}
     /> : <LoadingScreen title='牌局详情' message='正在加载玩家、计分和牌局记录…' onBack={goBack} />)}
     {screen === 'score' && match && <ScoreScreen
       players={match.players}
@@ -1259,7 +1260,7 @@ export default function Index() {
       onSubmit={submitHand}
     />}
     {screen === 'stats' && match && (stats
-      ? <StatsScreen match={match} stats={stats} currentUserId={user?.id || null} onReset={reset} />
+      ? <StatsScreen match={match} stats={stats} currentUserId={user?.id || null} onViewMatch={() => setScreen('match')} onReset={reset} />
       : <LoadingScreen title='最终战绩' message='正在生成本将最终战绩…' onBack={goBack} />)}
     </View>
     {activeTab && <BottomNav

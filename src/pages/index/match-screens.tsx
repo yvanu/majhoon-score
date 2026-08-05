@@ -82,7 +82,7 @@ function handGainText(hand: Hand) {
   return gain ? `+${gain}` : '0'
 }
 
-export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing, undoNotice, onAdd, onEdit, onUndo, onUndoNotice, onFinish }: {
+export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing, undoNotice, onAdd, onEdit, onUndo, onUndoNotice, onFinish, onViewStats }: {
   match: Match
   currentUserId: string | null
   canEdit: boolean
@@ -94,6 +94,7 @@ export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing
   onUndo: () => void
   onUndoNotice: () => void
   onFinish: () => void
+  onViewStats: () => void
 }) {
   const ranked = useMemo(() => [...match.players].sort((first, second) => second.score - first.score), [match.players])
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null)
@@ -109,7 +110,7 @@ export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing
   }
 
   return <View className='page match-page' style={{ paddingTop: `${getPageTopInset()}px` }}><View className='match-head compact'>
-    <View className='match-heading'><Text className='eyebrow'>{windName[match.current_wind]}风 · 第 {match.current_hand} 局</Text><View className='match-title-line'><Text className='title-small'>本将计分</Text>{refreshing && <Text className='match-refreshing'>同步中</Text>}</View></View>
+    <View className='match-heading'><Text className='eyebrow'>{match.status === 'finished' ? '本将已结束' : `${windName[match.current_wind]}风 · 第 ${match.current_hand} 局`}</Text><View className='match-title-line'><Text className='title-small'>{match.status === 'finished' ? '牌局战况' : '本将计分'}</Text>{refreshing && <Text className='match-refreshing'>同步中</Text>}</View></View>
     <Button className='code match-share-code' onClick={share}><Text>分享码</Text><Text>{match.share_code}</Text></Button>
   </View>
     <View className='match-scoreboard'>{ranked.map((player, index) => <View className={`match-player-tile${player.user_id === currentUserId ? ' self' : ''}`} key={player.id} onClick={() => setSelectedPlayerId(player.id)}>
@@ -127,8 +128,8 @@ export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing
         <Text className='match-recent-summary'>{handOutcomeText(match, hand)}</Text>
         <Text className='match-recent-score'>{handGainText(hand)}</Text>
       </View>)}</View> : <View className='match-recent-empty'>
-        <Text>尚未记录本将第一局</Text>
-        <Text>点击“记一局”开始计分</Text>
+        <Text>{match.status === 'finished' ? '本将没有计分记录' : '尚未记录本将第一局'}</Text>
+        <Text>{match.status === 'finished' ? '可返回最终战绩查看排名' : '点击“记一局”开始计分'}</Text>
       </View>}
       <View className='match-recent-progress'><Text>已记 {completedHands.length} 局{inHandEvents.length ? ` · ${inHandEvents.length}项事件` : ''}</Text><Text>大胡 {completedHands.filter(handHasBigPattern).length}</Text></View>
     </View>
@@ -139,7 +140,10 @@ export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing
         <Button className='secondary half' disabled={!match.hands.length} onClick={() => setShowLiveStats(true)}>战况</Button>
         <Button className='secondary half' disabled={!match.hands.length} onClick={() => setShowHandHistory(true)}>记录</Button>
       </View>
-      {canEdit ? <View className='button-row match-secondary-actions'><Button className='secondary half' disabled={!match.hands.length || loading} onClick={onUndo}>撤销上一项</Button><Button className='secondary half match-finish-action' disabled={loading} onClick={onFinish}>结束本将</Button></View> : <Text className='readonly'>当前为只读分享视图</Text>}
+      {canEdit ? <View className='button-row match-secondary-actions'><Button className='secondary half' disabled={!match.hands.length || loading} onClick={onUndo}>撤销上一项</Button><Button className='secondary half match-finish-action' disabled={loading} onClick={onFinish}>结束本将</Button></View> : match.status === 'finished' ? <>
+        <Button className='primary match-final-stats-action' onClick={onViewStats}>查看最终战绩</Button>
+        <Text className='readonly'>本将已结束，当前为只读回顾</Text>
+      </> : <Text className='readonly'>当前为只读分享视图</Text>}
     </View>
     {selectedPlayer && <PlayerDetailModal player={selectedPlayer} match={match} onClose={() => setSelectedPlayerId(null)} />}
     {showLiveStats && <LiveMatchStatsModal match={match} currentUserId={currentUserId} onClose={() => setShowLiveStats(false)} />}
@@ -1074,14 +1078,14 @@ function EventRolePicker({
   </View>
 }
 
-export function StatsScreen({ match, stats, currentUserId, onReset }: { match: Match; stats: Stats; currentUserId: string | null; onReset: () => void }) {
+export function StatsScreen({ match, stats, currentUserId, onViewMatch, onReset }: { match: Match; stats: Stats; currentUserId: string | null; onViewMatch: () => void; onReset: () => void }) {
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null)
   const selectedPlayer = match.players.find(player => player.id === selectedPlayerId) || null
   return <View className='page' style={{ paddingTop: `${getPageTopInset()}px` }}><View className='stats-head'><Text className='eyebrow'>最终战绩</Text><Text className='title'>本将结束</Text><Text>共完成 {stats.totalHands} 局</Text></View>
     {stats.players.map(player => <View className='score-card stats-card' key={player.id} onClick={() => setSelectedPlayerId(player.id)}>
       <Text className='rank'>#{player.rank}</Text><Avatar player={player} large isSelf={player.user_id === currentUserId} /><View className='grow'><Text className='card-title'>{player.name}</Text><Text>胜率 {(player.winRate * 100).toFixed(0)}% · 放炮 {(player.dealInRate * 100).toFixed(0)}%</Text><Text>自摸占比 {(player.tsumoShare * 100).toFixed(0)}%</Text></View><Text className={player.score >= 0 ? 'positive' : 'negative'}>{player.score > 0 ? '+' : ''}{player.score}</Text>
     </View>)}
-    <Button className='primary' onClick={onReset}>返回首页</Button><Text className='summary'>分享码：{match.share_code}</Text>
+    <View className='button-row stats-actions'><Button className='secondary half' onClick={onViewMatch}>查看战况与记录</Button><Button className='primary half' onClick={onReset}>返回首页</Button></View><Text className='summary'>分享码：{match.share_code}</Text>
     {selectedPlayer && <PlayerDetailModal player={selectedPlayer} match={match} onClose={() => setSelectedPlayerId(null)} />}
   </View>
 }
