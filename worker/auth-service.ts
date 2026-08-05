@@ -35,18 +35,32 @@ export async function createSession(c: Context<Env>, userId: string): Promise<Om
   return { token, expiresAt }
 }
 
-export async function canWrite(c: Context<Env>, matchId: string) {
-  const row = await c.env.DB.prepare(
-    'SELECT admin_token_hash, owner_user_id FROM matches WHERE id = ?',
-  ).bind(matchId).first<{ admin_token_hash: string; owner_user_id: string | null }>()
+export async function canWrite(c: Context<Env>, matchIdOrCode: string) {
+  const suppliedAdminToken = c.req.header('x-admin-token') || ''
+  const authToken = bearer(c)
+  const [adminTokenHash, authTokenHash] = await Promise.all([
+    suppliedAdminToken ? sha256(suppliedAdminToken) : Promise.resolve(''),
+    authToken ? sha256(authToken) : Promise.resolve(''),
+  ])
+  const row = await c.env.DB.prepare(`
+    SELECT m.admin_token_hash, m.owner_user_id,
+      EXISTS(
+        SELECT 1 FROM sessions s
+        WHERE s.user_id = m.owner_user_id
+          AND s.token_hash = ?
+          AND s.expires_at > ?
+      ) owner_session
+    FROM matches m
+    WHERE m.id = ? OR m.share_code = ?
+    LIMIT 1
+  `).bind(authTokenHash, now(), matchIdOrCode, matchIdOrCode.toUpperCase()).first<{
+    admin_token_hash: string
+    owner_user_id: string | null
+    owner_session: number
+  }>()
   if (!row) return false
-
-  const supplied = c.req.header('x-admin-token')
-  if (supplied && safeEqual(row.admin_token_hash, await sha256(supplied))) return true
-
-  if (!row.owner_user_id) return false
-  const user = await currentUser(c)
-  return Boolean(user && user.id === row.owner_user_id)
+  if (suppliedAdminToken && safeEqual(row.admin_token_hash, adminTokenHash)) return true
+  return Boolean(row.owner_user_id && Number(row.owner_session))
 }
 
 export async function exchangeWechatCode(c: Context<Env>, code: string) {

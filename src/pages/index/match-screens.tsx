@@ -77,11 +77,12 @@ function handOutcomeText(match: Match, hand: Hand) {
   return '自定义计分'
 }
 
-export function MatchScreen({ match, currentUserId, canEdit, loading, undoNotice, onAdd, onEdit, onUndo, onUndoNotice, onFinish }: {
+export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing, undoNotice, onAdd, onEdit, onUndo, onUndoNotice, onFinish }: {
   match: Match
   currentUserId: string | null
   canEdit: boolean
   loading: boolean
+  refreshing: boolean
   undoNotice: string | null
   onAdd: () => void
   onEdit: (hand: Hand) => void
@@ -102,7 +103,7 @@ export function MatchScreen({ match, currentUserId, canEdit, loading, undoNotice
   }
 
   return <View className='page match-page' style={{ paddingTop: `${getPageTopInset()}px` }}><View className='match-head compact'>
-    <View><Text className='eyebrow'>{windName[match.current_wind]}风 · 第 {match.current_hand} 局</Text><Text className='title-small'>本将计分</Text></View>
+    <View className='match-heading'><Text className='eyebrow'>{windName[match.current_wind]}风 · 第 {match.current_hand} 局</Text><View className='match-title-line'><Text className='title-small'>本将计分</Text>{refreshing && <Text className='match-refreshing'>同步中</Text>}</View></View>
     <Button className='code match-share-code' onClick={share}><Text>分享码</Text><Text>{match.share_code}</Text></Button>
   </View>
     <View className='match-scoreboard'>{ranked.map((player, index) => <View className={`match-player-tile${player.user_id === currentUserId ? ' self' : ''}`} key={player.id} onClick={() => setSelectedPlayerId(player.id)}>
@@ -110,14 +111,16 @@ export function MatchScreen({ match, currentUserId, canEdit, loading, undoNotice
       <View className='match-player-copy'><Text className='match-player-name'>{player.name}</Text><Text>{['东', '南', '西', '北'][player.seat]}家</Text></View>
       <Text className={`match-player-score ${player.score >= 0 ? 'positive' : 'negative'}`}>{player.score > 0 ? '+' : ''}{player.score}</Text>
     </View>)}</View>
-    <View className='match-progress-row'><Text>已记 {completedHands.length} 局{inHandEvents.length ? ` · ${inHandEvents.length}项事件` : ''}</Text><Text>大胡 {completedHands.filter(handHasBigPattern).length}</Text></View>
-    {undoNotice && <View className='recent-save-notice'><Text>已记录：{undoNotice}</Text><Button disabled={loading} onClick={onUndoNotice}>撤销</Button></View>}
-    {canEdit && <Button className='primary match-record-action' disabled={loading} onClick={onAdd}>＋ 记一局</Button>}
-    <View className='match-insight-actions'>
-      <Button className='secondary half' disabled={!match.hands.length} onClick={() => setShowLiveStats(true)}>战况</Button>
-      <Button className='secondary half' disabled={!match.hands.length} onClick={() => setShowHandHistory(true)}>记录</Button>
+    <View className='match-action-dock'>
+      <View className='match-progress-row'><Text>已记 {completedHands.length} 局{inHandEvents.length ? ` · ${inHandEvents.length}项事件` : ''}</Text><Text>大胡 {completedHands.filter(handHasBigPattern).length}</Text></View>
+      {undoNotice && <View className='recent-save-notice'><Text>已记录：{undoNotice}</Text><Button disabled={loading} onClick={onUndoNotice}>撤销</Button></View>}
+      {canEdit && <Button className='primary match-record-action' disabled={loading} onClick={onAdd}>＋ 记一局</Button>}
+      <View className='match-insight-actions'>
+        <Button className='secondary half' disabled={!match.hands.length} onClick={() => setShowLiveStats(true)}>战况</Button>
+        <Button className='secondary half' disabled={!match.hands.length} onClick={() => setShowHandHistory(true)}>记录</Button>
+      </View>
+      {canEdit ? <View className='button-row match-secondary-actions'><Button className='secondary half' disabled={!match.hands.length || loading} onClick={onUndo}>撤销上一项</Button><Button className='secondary half match-finish-action' disabled={loading} onClick={onFinish}>结束本将</Button></View> : <Text className='readonly'>当前为只读分享视图</Text>}
     </View>
-    {canEdit ? <View className='button-row match-secondary-actions'><Button className='secondary half' disabled={!match.hands.length || loading} onClick={onUndo}>撤销上一项</Button><Button className='secondary half' disabled={loading} onClick={onFinish}>结束本将</Button></View> : <Text className='readonly'>当前为只读分享视图</Text>}
     {selectedPlayer && <PlayerDetailModal player={selectedPlayer} match={match} onClose={() => setSelectedPlayerId(null)} />}
     {showLiveStats && <LiveMatchStatsModal match={match} currentUserId={currentUserId} onClose={() => setShowLiveStats(false)} />}
     {showHandHistory && <HandHistoryModal match={match} canEdit={canEdit} onEdit={hand => { setShowHandHistory(false); onEdit(hand) }} onClose={() => setShowHandHistory(false)} />}

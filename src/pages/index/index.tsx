@@ -51,6 +51,7 @@ const TAB_CACHE_TTL = 60_000
 const FRIEND_STATS_CACHE_TTL = 5 * 60_000
 const PERSONAL_STATS_CACHE_TTL = 5 * 60_000
 const DASHBOARD_CACHE_KEY = 'mahjong-dashboard-cache-v1'
+const MATCH_CACHE_KEY = 'mahjong-current-match-cache-v1'
 
 type DashboardSnapshot = {
   user: AuthUser
@@ -58,10 +59,23 @@ type DashboardSnapshot = {
   dailyStats: DailyStats | null
 }
 
+type MatchSnapshot = {
+  match: Match
+  canEdit: boolean
+  savedAt: number
+}
+
 function readDashboardSnapshot(): DashboardSnapshot | null {
   if (!Taro.getStorageSync<string>(AUTH_KEY)) return null
   const snapshot = Taro.getStorageSync<DashboardSnapshot>(DASHBOARD_CACHE_KEY)
   return snapshot?.user?.id ? snapshot : null
+}
+
+function readMatchSnapshot(): MatchSnapshot | null {
+  const current = Taro.getStorageSync<{ id?: string }>(CURRENT_KEY)
+  if (!current?.id) return null
+  const snapshot = Taro.getStorageSync<MatchSnapshot>(MATCH_CACHE_KEY)
+  return snapshot?.match?.id === current.id && snapshot.match.status === 'active' ? snapshot : null
 }
 
 function applyHandMutation(current: Match, result: HandMutationResult, replacedHandId?: string | null): Match {
@@ -100,12 +114,14 @@ function shouldTrapNativeBack(screen: Screen) {
 
 export default function Index() {
   const [dashboardSnapshot] = useState(() => readDashboardSnapshot())
+  const [matchSnapshot] = useState(() => readMatchSnapshot())
   const [screen, setScreenState] = useState<Screen>('home')
   const screenRef = useRef<Screen>('home')
   const screenHistory = useRef<Screen[]>(['home'])
   const [backTrapOpen, setBackTrapOpen] = useState(false)
-  const [match, setMatch] = useState<Match | null>(null)
-  const [matchCanEdit, setMatchCanEdit] = useState(false)
+  const [match, setMatch] = useState<Match | null>(matchSnapshot?.match ?? null)
+  const [matchCanEdit, setMatchCanEdit] = useState(matchSnapshot?.canEdit ?? false)
+  const [matchRefreshing, setMatchRefreshing] = useState(false)
   const [stats, setStats] = useState<Stats | null>(null)
   const [dailyStats, setDailyStats] = useState<DailyStats | null>(dashboardSnapshot?.dailyStats ?? null)
   const [user, setUser] = useState<AuthUser | null>(dashboardSnapshot?.user ?? null)
@@ -122,7 +138,7 @@ export default function Index() {
   const [friendStatsLoadingId, setFriendStatsLoadingId] = useState('')
   const [personalStats, setPersonalStats] = useState<PersonalStatistics | null>(null)
   const [personalStatsLoadingKey, setPersonalStatsLoadingKey] = useState('')
-  const [adminToken, setAdminToken] = useState('')
+  const [adminToken, setAdminToken] = useState(() => Taro.getStorageSync<{ token?: string }>(CURRENT_KEY)?.token || '')
   const [editingHandId, setEditingHandId] = useState<string | null>(null)
   const [lastSaveNotice, setLastSaveNotice] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -191,6 +207,20 @@ export default function Index() {
       dailyStats,
     })
   }, [user, history, dailyStats])
+
+  useEffect(() => {
+    const current = Taro.getStorageSync<{ id?: string }>(CURRENT_KEY)
+    if (!current?.id) {
+      Taro.removeStorageSync(MATCH_CACHE_KEY)
+      return
+    }
+    if (match?.id !== current.id) return
+    if (match.status !== 'active') {
+      Taro.removeStorageSync(MATCH_CACHE_KEY)
+      return
+    }
+    Taro.setStorageSync(MATCH_CACHE_KEY, { match, canEdit: matchCanEdit, savedAt: Date.now() } satisfies MatchSnapshot)
+  }, [match, matchCanEdit])
 
   useEffect(() => {
     if (!lastSaveNotice) return
@@ -362,8 +392,8 @@ export default function Index() {
     }, 180)
   }
 
-  async function run(action: () => Promise<void>): Promise<boolean> {
-    setLoading(true)
+  async function run(action: () => Promise<void>, { blockUi = true }: { blockUi?: boolean } = {}): Promise<boolean> {
+    if (blockUi) setLoading(true)
     setSyncStatus('syncing')
     try {
       await action()
@@ -388,7 +418,7 @@ export default function Index() {
       })
       return false
     } finally {
-      setLoading(false)
+      if (blockUi) setLoading(false)
     }
   }
 
@@ -400,13 +430,22 @@ export default function Index() {
     const previousCanEdit = matchCanEdit
     const saved = Taro.getStorageSync<{ id: string; token: string }>(CURRENT_KEY)
     const tokenForRequest = saved?.token || adminToken
-    const isCachedMatch = match?.id === idOrCode
-    if (!isCachedMatch) {
+    const storedSnapshot = readMatchSnapshot()
+    const cachedMatch = match?.id === idOrCode
+      ? match
+      : storedSnapshot?.match.id === idOrCode
+        ? storedSnapshot.match
+        : null
+    if (cachedMatch) {
+      setMatch(cachedMatch)
+      setMatchCanEdit(match?.id === idOrCode ? matchCanEdit : storedSnapshot?.canEdit ?? false)
+    } else {
       setMatch(null)
       setStats(null)
       setMatchCanEdit(false)
     }
     setScreen('match')
+    setMatchRefreshing(true)
 
     const succeeded = await run(async () => {
       const data = await api.getMatch(idOrCode, statusHint === 'finished', tokenForRequest)
@@ -417,7 +456,8 @@ export default function Index() {
         setStats(data.stats ?? await api.statistics(data.match.id))
         if (screenRef.current === 'match') replaceScreen('stats')
       }
-    })
+    }, { blockUi: false })
+    setMatchRefreshing(false)
 
     if (!succeeded) {
       setMatch(previousMatch)
@@ -1202,6 +1242,7 @@ export default function Index() {
       currentUserId={user?.id || null}
       canEdit={matchCanEdit}
       loading={loading}
+      refreshing={matchRefreshing}
       undoNotice={lastSaveNotice}
       onAdd={() => { setLastSaveNotice(null); setEditingHandId(null); setScreen('score') }}
       onEdit={editHand}

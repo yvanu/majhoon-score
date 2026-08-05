@@ -219,15 +219,23 @@ export function registerMatchRoutes(app: Hono<Env>) {
 
   app.get('/api/matches/:id', async c => {
     const startedAt = performance.now()
+    const idOrCode = c.req.param('id')
     const includeStatistics = c.req.query('includeStatistics') === '1'
-    const result = await getMatchBundle(c.env.DB, c.req.param('id'), includeStatistics)
+    let matchDuration = 0
+    let permissionDuration = 0
+    const matchRequest = getMatchBundle(c.env.DB, idOrCode, includeStatistics).finally(() => {
+      matchDuration = performance.now() - startedAt
+    })
+    const permissionStartedAt = performance.now()
+    const permissionRequest = canWrite(c, idOrCode).finally(() => {
+      permissionDuration = performance.now() - permissionStartedAt
+    })
+    const [result, editable] = await Promise.all([matchRequest, permissionRequest])
     if (!result) return jsonError(c, '牌局不存在', 404)
-    const loadedAt = performance.now()
-    const editable = await canWrite(c, result.match.id)
-    const authorizedAt = performance.now()
     c.header('Server-Timing', [
-      `match;dur=${(loadedAt - startedAt).toFixed(1)}`,
-      `permission;dur=${(authorizedAt - loadedAt).toFixed(1)}`,
+      `match;dur=${matchDuration.toFixed(1)}`,
+      `permission;dur=${permissionDuration.toFixed(1)}`,
+      `total;dur=${(performance.now() - startedAt).toFixed(1)}`,
     ].join(', '))
     return c.json({ ...result, canEdit: editable })
   })
