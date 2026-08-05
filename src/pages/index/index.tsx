@@ -122,6 +122,7 @@ export default function Index() {
   const [match, setMatch] = useState<Match | null>(matchSnapshot?.match ?? null)
   const [matchCanEdit, setMatchCanEdit] = useState(matchSnapshot?.canEdit ?? false)
   const [matchRefreshing, setMatchRefreshing] = useState(false)
+  const [reviewMatch, setReviewMatch] = useState<Match | null>(null)
   const [stats, setStats] = useState<Stats | null>(null)
   const [dailyStats, setDailyStats] = useState<DailyStats | null>(dashboardSnapshot?.dailyStats ?? null)
   const [user, setUser] = useState<AuthUser | null>(dashboardSnapshot?.user ?? null)
@@ -166,6 +167,7 @@ export default function Index() {
   const groupListScrollTop = useRef(0)
   const pendingPageScrollTop = useRef<number | null>(null)
   const pendingGroupCode = useRef('')
+  const reviewReturnScreen = useRef<Screen>('home')
 
   Taro.useLoad<{ groupCode?: string }>(options => {
     const code = options.groupCode?.trim().toUpperCase() || ''
@@ -269,6 +271,10 @@ export default function Index() {
       return
     }
     if (screenRef.current === 'nickname' && needsNickname(user)) return
+    if (screenRef.current === 'stats') {
+      closeMatchReview()
+      return
+    }
     const history = screenHistory.current
     if (history.length <= 1) return
     const current = screenRef.current
@@ -422,10 +428,51 @@ export default function Index() {
     }
   }
 
+  function closeMatchReview() {
+    const target = reviewReturnScreen.current
+    setReviewMatch(null)
+    setStats(null)
+    setScreen(target)
+  }
+
+  function reviewReturnLabel() {
+    if (reviewReturnScreen.current === 'history') return '返回牌局列表'
+    if (reviewReturnScreen.current === 'group-detail') return '返回组局详情'
+    return '返回首页'
+  }
+
+  async function openFinishedMatch(idOrCode: string) {
+    const previousScreen = screenRef.current
+    const saved = Taro.getStorageSync<{ id: string; token: string }>(CURRENT_KEY)
+    reviewReturnScreen.current = previousScreen
+    setReviewMatch(null)
+    setStats(null)
+    setScreen('stats')
+
+    const succeeded = await run(async () => {
+      const data = await api.getMatch(idOrCode, true, saved?.token || adminToken)
+      if (data.match.status === 'active') {
+        setMatch(data.match)
+        setMatchCanEdit(data.canEdit)
+        setAdminToken(saved?.id === data.match.id ? saved.token || '' : '')
+        replaceScreen('match')
+        return
+      }
+      setReviewMatch(data.match)
+      setStats(data.stats ?? await api.statistics(data.match.id))
+    }, { blockUi: false })
+
+    if (!succeeded && screenRef.current === 'stats') closeMatchReview()
+  }
+
   async function openMatch(idOrCode: string, statusHint?: MatchSummary['status']) {
+    if (statusHint === 'finished') {
+      await openFinishedMatch(idOrCode)
+      return
+    }
+
     const previousScreen = screenRef.current
     const previousMatch = match
-    const previousStats = stats
     const previousAdminToken = adminToken
     const previousCanEdit = matchCanEdit
     const saved = Taro.getStorageSync<{ id: string; token: string }>(CURRENT_KEY)
@@ -441,27 +488,31 @@ export default function Index() {
       setMatchCanEdit(match?.id === idOrCode ? matchCanEdit : storedSnapshot?.canEdit ?? false)
     } else {
       setMatch(null)
-      setStats(null)
       setMatchCanEdit(false)
     }
     setScreen('match')
     setMatchRefreshing(true)
 
     const succeeded = await run(async () => {
-      const data = await api.getMatch(idOrCode, statusHint === 'finished', tokenForRequest)
-      setMatch(data.match)
-      setMatchCanEdit(data.canEdit && data.match.status === 'active')
-      setAdminToken(saved?.id === data.match.id ? saved.token || '' : '')
+      const data = await api.getMatch(idOrCode, false, tokenForRequest)
       if (data.match.status === 'finished') {
-        setStats(data.stats ?? await api.statistics(data.match.id))
+        setMatch(previousMatch)
+        setMatchCanEdit(previousCanEdit)
+        setAdminToken(previousAdminToken)
+        reviewReturnScreen.current = previousScreen
+        setReviewMatch(data.match)
+        setStats(await api.statistics(data.match.id))
         if (screenRef.current === 'match') replaceScreen('stats')
+        return
       }
+      setMatch(data.match)
+      setMatchCanEdit(data.canEdit)
+      setAdminToken(saved?.id === data.match.id ? saved.token || '' : '')
     }, { blockUi: false })
     setMatchRefreshing(false)
 
     if (!succeeded) {
       setMatch(previousMatch)
-      setStats(previousStats)
       setAdminToken(previousAdminToken)
       setMatchCanEdit(previousCanEdit)
       if (screenRef.current === 'match') replaceScreen(previousScreen)
@@ -701,6 +752,8 @@ export default function Index() {
     await run(async () => {
       const result = await api.startGroupSession(activeGroup.id)
       updateGroupState(result.group)
+      setReviewMatch(null)
+      setStats(null)
       setMatch(result.match)
       setAdminToken(result.adminToken)
       setMatchCanEdit(true)
@@ -881,6 +934,8 @@ export default function Index() {
   async function createMatch(players: MatchPlayerInput[]) {
     await run(async () => {
       const data = await api.createMatch(players)
+      setReviewMatch(null)
+      setStats(null)
       setMatch(data.match)
       setAdminToken(data.adminToken)
       setMatchCanEdit(true)
@@ -957,6 +1012,8 @@ export default function Index() {
     Taro.removeStorageSync(AUTH_KEY)
     Taro.removeStorageSync(DASHBOARD_CACHE_KEY)
     setUser(null)
+    setReviewMatch(null)
+    setStats(null)
     setMatchCanEdit(false)
     setHistory([])
     setFriends([])
@@ -1015,13 +1072,16 @@ export default function Index() {
       const data = handId
         ? await api.updateHand(match.id, handId, input, adminToken)
         : await api.addHand(match.id, input, adminToken)
-      setMatch(current => current?.id === match.id
-        ? applyHandMutation(current, data, handId)
-        : current)
+      const nextMatch = applyHandMutation(match, data, handId)
+      setMatch(nextMatch)
       invalidateStatisticsCaches()
       setEditingHandId(null)
       if (data.status === 'finished') {
+        reviewReturnScreen.current = 'home'
+        setReviewMatch(nextMatch)
+        setMatch(null)
         setMatchCanEdit(false)
+        setAdminToken('')
         setStats(null)
         replaceScreen('stats')
         Taro.removeStorageSync(CURRENT_KEY)
@@ -1089,12 +1149,16 @@ export default function Index() {
     })
     if (!confirmed) return
     const previousMatch = match
+    reviewReturnScreen.current = 'home'
+    setReviewMatch(null)
     setStats(null)
     setScreen('stats')
     const succeeded = await run(async () => {
       const data = await api.finish(match.id, adminToken)
-      setMatch(data.match)
+      setReviewMatch(data.match)
+      setMatch(null)
       setMatchCanEdit(false)
+      setAdminToken('')
       invalidateStatisticsCaches()
       Taro.removeStorageSync(CURRENT_KEY)
       setStats(await api.statistics(match.id))
@@ -1105,23 +1169,10 @@ export default function Index() {
       }
     })
     if (!succeeded && screenRef.current === 'stats') {
+      setReviewMatch(null)
       setMatch(previousMatch)
+      setMatchCanEdit(true)
       replaceScreen('match')
-    }
-  }
-
-  function reset() {
-    Taro.removeStorageSync(CURRENT_KEY)
-    setMatch(null)
-    setStats(null)
-    setAdminToken('')
-    setMatchCanEdit(false)
-    setEditingHandId(null)
-    setScreen('home')
-    if (user) {
-      void refreshDashboard().catch(error => {
-        console.error('Refresh dashboard after reset failed:', error)
-      })
     }
   }
 
@@ -1267,8 +1318,31 @@ export default function Index() {
       onBack={() => { setEditingHandId(null); setScreen('match') }}
       onSubmit={submitHand}
     />}
-    {screen === 'stats' && match && (stats
-      ? <StatsScreen match={match} stats={stats} currentUserId={user?.id || null} onViewMatch={() => setScreen('match')} onReset={reset} />
+    {screen === 'review' && (reviewMatch ? <MatchScreen
+      match={reviewMatch}
+      currentUserId={user?.id || null}
+      canEdit={false}
+      loading={false}
+      refreshing={false}
+      undoNotice={null}
+      onAdd={() => {}}
+      onEdit={() => {}}
+      onUndo={() => {}}
+      onUndoNotice={() => {}}
+      onFinish={() => {}}
+      onViewStats={() => setScreen('stats')}
+      onCloseReview={closeMatchReview}
+      reviewReturnLabel={reviewReturnLabel()}
+    /> : <LoadingScreen title='牌局详情' message='正在加载战况与逐局记录…' onBack={goBack} />)}
+    {screen === 'stats' && (reviewMatch && stats
+      ? <StatsScreen
+          match={reviewMatch}
+          stats={stats}
+          currentUserId={user?.id || null}
+          onViewMatch={() => setScreen('review')}
+          onClose={closeMatchReview}
+          returnLabel={reviewReturnLabel()}
+        />
       : <LoadingScreen title='最终战绩' message='正在生成本将最终战绩…' onBack={goBack} />)}
     </View>
     {activeTab && <BottomNav

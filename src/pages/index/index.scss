@@ -1124,7 +1124,8 @@ page { background: var(--page-bg); color: var(--text); }
 .match-insight-actions button, .match-secondary-actions button { height: 66px; line-height: 66px; font-size: 21px; }
 .match-secondary-actions .match-finish-action { border-color: #efd4cd; background: #fff8f6; color: #a65345; }
 .match-final-stats-action { height: 66px; line-height: 66px; margin-top: 0; border-radius: 18px; font-size: 21px; }
-.match-final-stats-action + .readonly { margin: 15px 0 0; font-size: 17px; }
+.match-review-back-action { height: 62px; line-height: 62px; margin-top: 10px; border-radius: 18px; font-size: 20px; }
+.match-action-dock > .readonly { margin: 15px 0 0; font-size: 17px; }
 
 .score-page { padding-left: 28px; padding-right: 28px; padding-bottom: calc(180px + env(safe-area-inset-bottom)); }
 .score-page .header { margin-bottom: 18px; }

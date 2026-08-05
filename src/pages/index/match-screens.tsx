@@ -82,7 +82,7 @@ function handGainText(hand: Hand) {
   return gain ? `+${gain}` : '0'
 }
 
-export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing, undoNotice, onAdd, onEdit, onUndo, onUndoNotice, onFinish, onViewStats }: {
+export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing, undoNotice, onAdd, onEdit, onUndo, onUndoNotice, onFinish, onViewStats, onCloseReview, reviewReturnLabel }: {
   match: Match
   currentUserId: string | null
   canEdit: boolean
@@ -95,6 +95,8 @@ export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing
   onUndoNotice: () => void
   onFinish: () => void
   onViewStats: () => void
+  onCloseReview?: () => void
+  reviewReturnLabel?: string
 }) {
   const ranked = useMemo(() => [...match.players].sort((first, second) => second.score - first.score), [match.players])
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null)
@@ -143,6 +145,7 @@ export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing
       </View>
       {editable ? <View className='button-row match-secondary-actions'><Button className='secondary half' disabled={!match.hands.length || loading} onClick={onUndo}>撤销上一项</Button><Button className='secondary half match-finish-action' disabled={loading} onClick={onFinish}>结束本将</Button></View> : match.status === 'finished' ? <>
         <Button className='primary match-final-stats-action' onClick={onViewStats}>查看最终战绩</Button>
+        {onCloseReview && <Button className='secondary match-review-back-action' onClick={onCloseReview}>{reviewReturnLabel || '返回'}</Button>}
         <Text className='readonly'>本将已结束，当前为只读回顾</Text>
       </> : <Text className='readonly'>当前为只读分享视图</Text>}
     </View>
@@ -1079,14 +1082,14 @@ function EventRolePicker({
   </View>
 }
 
-export function StatsScreen({ match, stats, currentUserId, onViewMatch, onReset }: { match: Match; stats: Stats; currentUserId: string | null; onViewMatch: () => void; onReset: () => void }) {
+export function StatsScreen({ match, stats, currentUserId, onViewMatch, onClose, returnLabel }: { match: Match; stats: Stats; currentUserId: string | null; onViewMatch: () => void; onClose: () => void; returnLabel: string }) {
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null)
   const selectedPlayer = match.players.find(player => player.id === selectedPlayerId) || null
   return <View className='page' style={{ paddingTop: `${getPageTopInset()}px` }}><View className='stats-head'><Text className='eyebrow'>最终战绩</Text><Text className='title'>本将结束</Text><Text>共完成 {stats.totalHands} 局</Text></View>
     {stats.players.map(player => <View className='score-card stats-card' key={player.id} onClick={() => setSelectedPlayerId(player.id)}>
       <Text className='rank'>#{player.rank}</Text><Avatar player={player} large isSelf={player.user_id === currentUserId} /><View className='grow'><Text className='card-title'>{player.name}</Text><Text>胜率 {(player.winRate * 100).toFixed(0)}% · 放炮 {(player.dealInRate * 100).toFixed(0)}%</Text><Text>自摸占比 {(player.tsumoShare * 100).toFixed(0)}%</Text></View><Text className={player.score >= 0 ? 'positive' : 'negative'}>{player.score > 0 ? '+' : ''}{player.score}</Text>
     </View>)}
-    <View className='button-row stats-actions'><Button className='secondary half' onClick={onViewMatch}>查看战况与记录</Button><Button className='primary half' onClick={onReset}>返回首页</Button></View><Text className='summary'>分享码：{match.share_code}</Text>
+    <View className='button-row stats-actions'><Button className='secondary half' onClick={onViewMatch}>查看战况与记录</Button><Button className='primary half' onClick={onClose}>{returnLabel}</Button></View><Text className='summary'>分享码：{match.share_code}</Text>
     {selectedPlayer && <PlayerDetailModal player={selectedPlayer} match={match} onClose={() => setSelectedPlayerId(null)} />}
   </View>
 }
