@@ -102,7 +102,7 @@ export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing
   const selectedPlayer = match.players.find(player => player.id === selectedPlayerId) || null
   const completedHands = match.hands.filter(hand => hand.result_type !== 'event')
   const inHandEvents = match.hands.filter(hand => hand.result_type === 'event')
-  const recentHands = match.hands.slice(0, 2)
+  const recentHands = match.hands.slice(0, 4)
 
   async function share() {
     await Taro.setClipboardData({ data: match.share_code })
@@ -130,9 +130,9 @@ export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing
         <Text>尚未记录本将第一局</Text>
         <Text>点击“记一局”开始计分</Text>
       </View>}
+      <View className='match-recent-progress'><Text>已记 {completedHands.length} 局{inHandEvents.length ? ` · ${inHandEvents.length}项事件` : ''}</Text><Text>大胡 {completedHands.filter(handHasBigPattern).length}</Text></View>
     </View>
     <View className='match-action-dock'>
-      <View className='match-progress-row'><Text>已记 {completedHands.length} 局{inHandEvents.length ? ` · ${inHandEvents.length}项事件` : ''}</Text><Text>大胡 {completedHands.filter(handHasBigPattern).length}</Text></View>
       {undoNotice && <View className='recent-save-notice'><Text>已记录：{undoNotice}</Text><Button disabled={loading} onClick={onUndoNotice}>撤销</Button></View>}
       {canEdit && <Button className='primary match-record-action' disabled={loading} onClick={onAdd}>＋ 记一局</Button>}
       <View className='match-insight-actions'>
