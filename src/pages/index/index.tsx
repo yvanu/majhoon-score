@@ -450,7 +450,7 @@ export default function Index() {
     const succeeded = await run(async () => {
       const data = await api.getMatch(idOrCode, statusHint === 'finished', tokenForRequest)
       setMatch(data.match)
-      setMatchCanEdit(data.canEdit)
+      setMatchCanEdit(data.canEdit && data.match.status === 'active')
       setAdminToken(saved?.id === data.match.id ? saved.token || '' : '')
       if (data.match.status === 'finished') {
         setStats(data.stats ?? await api.statistics(data.match.id))
@@ -1009,7 +1009,7 @@ export default function Index() {
   }
 
   async function submitHand(input: HandInput, summary: string): Promise<boolean> {
-    if (!match) return false
+    if (!match || !matchCanEdit || match.status !== 'active') return false
     const handId = editingHandId
     return run(async () => {
       const data = handId
@@ -1021,6 +1021,7 @@ export default function Index() {
       invalidateStatisticsCaches()
       setEditingHandId(null)
       if (data.status === 'finished') {
+        setMatchCanEdit(false)
         setStats(null)
         replaceScreen('stats')
         Taro.removeStorageSync(CURRENT_KEY)
@@ -1048,13 +1049,14 @@ export default function Index() {
   }
 
   function editHand(hand: Hand) {
+    if (!match || !matchCanEdit || match.status !== 'active') return
     setLastSaveNotice(null)
     setEditingHandId(hand.id)
     setScreen('score')
   }
 
   async function undoLatestRecord() {
-    if (!match) return
+    if (!match || !matchCanEdit || match.status !== 'active') return
     const latestIsEvent = match.hands[0]?.result_type === 'event'
     await run(async () => {
       setMatch((await api.undo(match.id, adminToken)).match)
@@ -1065,7 +1067,7 @@ export default function Index() {
   }
 
   async function undo() {
-    if (!match) return
+    if (!match || !matchCanEdit || match.status !== 'active') return
     const latestIsEvent = match.hands[0]?.result_type === 'event'
     const confirmed = await showDialog({
       title: latestIsEvent ? '撤销局内事件' : '撤销上一局',
@@ -1078,7 +1080,7 @@ export default function Index() {
   }
 
   async function finish() {
-    if (!match) return
+    if (!match || !matchCanEdit || match.status !== 'active') return
     const confirmed = await showDialog({
       title: '结束本将',
       content: '结束后将生成最终战绩，本将不能再继续录分。',
@@ -1092,6 +1094,7 @@ export default function Index() {
     const succeeded = await run(async () => {
       const data = await api.finish(match.id, adminToken)
       setMatch(data.match)
+      setMatchCanEdit(false)
       invalidateStatisticsCaches()
       Taro.removeStorageSync(CURRENT_KEY)
       setStats(await api.statistics(match.id))
@@ -1240,11 +1243,16 @@ export default function Index() {
     {screen === 'match' && (match ? <MatchScreen
       match={match}
       currentUserId={user?.id || null}
-      canEdit={matchCanEdit}
+      canEdit={matchCanEdit && match.status === 'active'}
       loading={loading}
       refreshing={matchRefreshing}
       undoNotice={lastSaveNotice}
-      onAdd={() => { setLastSaveNotice(null); setEditingHandId(null); setScreen('score') }}
+      onAdd={() => {
+        if (!matchCanEdit || match.status !== 'active') return
+        setLastSaveNotice(null)
+        setEditingHandId(null)
+        setScreen('score')
+      }}
       onEdit={editHand}
       onUndo={undo}
       onUndoNotice={undoLatestRecord}

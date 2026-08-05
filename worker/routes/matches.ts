@@ -484,6 +484,11 @@ export function registerMatchRoutes(app: Hono<Env>) {
   app.delete('/api/matches/:id/hands/last', async c => {
     const id = c.req.param('id')
     if (!await canWrite(c, id)) return jsonError(c, '没有该牌局的修改权限', 401)
+    const match = await c.env.DB.prepare(
+      'SELECT status FROM matches WHERE id = ?',
+    ).bind(id).first<{ status: string }>()
+    if (!match) return jsonError(c, '牌局不存在', 404)
+    if (match.status !== 'active') return jsonError(c, '本将已经结束，不能撤销记录', 409)
     const last = await c.env.DB.prepare(`
       SELECT id, wind, hand_number FROM hands
       WHERE match_id = ? ORDER BY sequence DESC LIMIT 1
@@ -501,6 +506,11 @@ export function registerMatchRoutes(app: Hono<Env>) {
   app.post('/api/matches/:id/finish', async c => {
     const id = c.req.param('id')
     if (!await canWrite(c, id)) return jsonError(c, '没有该牌局的修改权限', 401)
+    const match = await c.env.DB.prepare(
+      'SELECT status FROM matches WHERE id = ?',
+    ).bind(id).first<{ status: string }>()
+    if (!match) return jsonError(c, '牌局不存在', 404)
+    if (match.status !== 'active') return jsonError(c, '本将已经结束', 409)
     const timestamp = now()
     await c.env.DB.batch([
       c.env.DB.prepare(`

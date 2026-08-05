@@ -101,6 +101,7 @@ export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing
   const [showLiveStats, setShowLiveStats] = useState(false)
   const [showHandHistory, setShowHandHistory] = useState(false)
   const selectedPlayer = match.players.find(player => player.id === selectedPlayerId) || null
+  const editable = canEdit && match.status === 'active'
   const completedHands = match.hands.filter(hand => hand.result_type !== 'event')
   const inHandEvents = match.hands.filter(hand => hand.result_type === 'event')
   const recentHands = match.hands.slice(0, 4)
@@ -134,20 +135,20 @@ export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing
       <View className='match-recent-progress'><Text>已记 {completedHands.length} 局{inHandEvents.length ? ` · ${inHandEvents.length}项事件` : ''}</Text><Text>大胡 {completedHands.filter(handHasBigPattern).length}</Text></View>
     </View>
     <View className='match-action-dock'>
-      {undoNotice && <View className='recent-save-notice'><Text>已记录：{undoNotice}</Text><Button disabled={loading} onClick={onUndoNotice}>撤销</Button></View>}
-      {canEdit && <Button className='primary match-record-action' disabled={loading} onClick={onAdd}>＋ 记一局</Button>}
+      {editable && undoNotice && <View className='recent-save-notice'><Text>已记录：{undoNotice}</Text><Button disabled={loading} onClick={onUndoNotice}>撤销</Button></View>}
+      {editable && <Button className='primary match-record-action' disabled={loading} onClick={onAdd}>＋ 记一局</Button>}
       <View className='match-insight-actions'>
         <Button className='secondary half' disabled={!match.hands.length} onClick={() => setShowLiveStats(true)}>战况</Button>
         <Button className='secondary half' disabled={!match.hands.length} onClick={() => setShowHandHistory(true)}>记录</Button>
       </View>
-      {canEdit ? <View className='button-row match-secondary-actions'><Button className='secondary half' disabled={!match.hands.length || loading} onClick={onUndo}>撤销上一项</Button><Button className='secondary half match-finish-action' disabled={loading} onClick={onFinish}>结束本将</Button></View> : match.status === 'finished' ? <>
+      {editable ? <View className='button-row match-secondary-actions'><Button className='secondary half' disabled={!match.hands.length || loading} onClick={onUndo}>撤销上一项</Button><Button className='secondary half match-finish-action' disabled={loading} onClick={onFinish}>结束本将</Button></View> : match.status === 'finished' ? <>
         <Button className='primary match-final-stats-action' onClick={onViewStats}>查看最终战绩</Button>
         <Text className='readonly'>本将已结束，当前为只读回顾</Text>
       </> : <Text className='readonly'>当前为只读分享视图</Text>}
     </View>
     {selectedPlayer && <PlayerDetailModal player={selectedPlayer} match={match} onClose={() => setSelectedPlayerId(null)} />}
     {showLiveStats && <LiveMatchStatsModal match={match} currentUserId={currentUserId} onClose={() => setShowLiveStats(false)} />}
-    {showHandHistory && <HandHistoryModal match={match} canEdit={canEdit} onEdit={hand => { setShowHandHistory(false); onEdit(hand) }} onClose={() => setShowHandHistory(false)} />}
+    {showHandHistory && <HandHistoryModal match={match} canEdit={editable} onEdit={hand => { setShowHandHistory(false); onEdit(hand) }} onClose={() => setShowHandHistory(false)} />}
   </View>
 }
 
@@ -176,7 +177,7 @@ function LiveMatchStatsModal({ match, currentUserId, onClose }: { match: Match; 
   const relations = [...relationMap.values()].sort((first, second) => second.count - first.count || second.score - first.score)
 
   return <View className='modal-backdrop' onClick={onClose}><View className='detail-modal match-detail-modal' onClick={event => event.stopPropagation()}>
-    <View className='detail-header'><View><Text className='eyebrow'>本将数据</Text><Text className='title-small'>实时战况</Text></View><Button className='close-button' onClick={onClose}>×</Button></View>
+    <View className='detail-header'><View><Text className='eyebrow'>本将数据</Text><Text className='title-small'>{match.status === 'finished' ? '最终战况' : '实时战况'}</Text></View><Button className='close-button' onClick={onClose}>×</Button></View>
     <ScrollView scrollY className='match-modal-scroll'>
       <View className='live-player-list'>{playerStats.map(item => <View className='live-player-card' key={item.player.id}>
         <View className='live-player-name'><Avatar player={item.player} isSelf={item.player.user_id === currentUserId} /><View><Text className='card-title'>{item.player.name}</Text><Text>{['东', '南', '西', '北'][item.player.seat]}家 · 当前 {item.player.score > 0 ? '+' : ''}{item.player.score}</Text></View></View>
