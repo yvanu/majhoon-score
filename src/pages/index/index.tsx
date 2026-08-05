@@ -14,6 +14,7 @@ import type {
   Hand,
   HandInput,
   HandMutationResult,
+  HandType,
   Match,
   MatchPlayerInput,
   MatchSummary,
@@ -141,6 +142,7 @@ export default function Index() {
   const [personalStatsLoadingKey, setPersonalStatsLoadingKey] = useState('')
   const [adminToken, setAdminToken] = useState(() => Taro.getStorageSync<{ token?: string }>(CURRENT_KEY)?.token || '')
   const [editingHandId, setEditingHandId] = useState<string | null>(null)
+  const [scoreEntryType, setScoreEntryType] = useState<HandType>('ron')
   const [lastSaveNotice, setLastSaveNotice] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle')
@@ -1108,11 +1110,35 @@ export default function Index() {
     })
   }
 
+  function openScoreEntry(type: Exclude<HandType, 'custom'>) {
+    if (!match || !matchCanEdit || match.status !== 'active') return
+    setLastSaveNotice(null)
+    setEditingHandId(null)
+    setScoreEntryType(type)
+    setScreen('score')
+  }
+
   function editHand(hand: Hand) {
     if (!match || !matchCanEdit || match.status !== 'active') return
     setLastSaveNotice(null)
     setEditingHandId(hand.id)
+    setScoreEntryType(hand.result_type)
     setScreen('score')
+  }
+
+  async function quickRecordDraw() {
+    if (!match || !matchCanEdit || match.status !== 'active') return
+    const confirmed = await showDialog({
+      title: '记录流局',
+      content: '确认本局流局，四位玩家分数均不发生变化？',
+      confirmText: '确认记录',
+    })
+    if (!confirmed) return
+    setEditingHandId(null)
+    await submitHand({
+      type: 'draw',
+      scores: match.players.map(player => ({ playerId: player.id, change: 0 })),
+    }, '本局流局')
   }
 
   async function undoLatestRecord() {
@@ -1298,11 +1324,12 @@ export default function Index() {
       loading={loading}
       refreshing={matchRefreshing}
       undoNotice={lastSaveNotice}
-      onAdd={() => {
-        if (!matchCanEdit || match.status !== 'active') return
-        setLastSaveNotice(null)
-        setEditingHandId(null)
-        setScreen('score')
+      onAdd={type => {
+        if (type === 'draw') {
+          void quickRecordDraw()
+          return
+        }
+        openScoreEntry(type)
       }}
       onEdit={editHand}
       onUndo={undo}
@@ -1314,6 +1341,7 @@ export default function Index() {
       players={match.players}
       currentUserId={user?.id || null}
       initialHand={editingHandId ? match.hands.find(hand => hand.id === editingHandId) || null : null}
+      initialType={scoreEntryType}
       loading={loading}
       onBack={() => { setEditingHandId(null); setScreen('match') }}
       onSubmit={submitHand}
