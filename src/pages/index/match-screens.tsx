@@ -77,6 +77,11 @@ function handOutcomeText(match: Match, hand: Hand) {
   return '自定义计分'
 }
 
+function handGainText(hand: Hand) {
+  const gain = hand.scores.reduce((total, score) => total + Math.max(0, score.change), 0)
+  return gain ? `+${gain}` : '0'
+}
+
 export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing, undoNotice, onAdd, onEdit, onUndo, onUndoNotice, onFinish }: {
   match: Match
   currentUserId: string | null
@@ -97,6 +102,7 @@ export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing
   const selectedPlayer = match.players.find(player => player.id === selectedPlayerId) || null
   const completedHands = match.hands.filter(hand => hand.result_type !== 'event')
   const inHandEvents = match.hands.filter(hand => hand.result_type === 'event')
+  const recentHands = match.hands.slice(0, 2)
 
   async function share() {
     await Taro.setClipboardData({ data: match.share_code })
@@ -111,6 +117,20 @@ export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing
       <View className='match-player-copy'><Text className='match-player-name'>{player.name}</Text><Text>{['东', '南', '西', '北'][player.seat]}家</Text></View>
       <Text className={`match-player-score ${player.score >= 0 ? 'positive' : 'negative'}`}>{player.score > 0 ? '+' : ''}{player.score}</Text>
     </View>)}</View>
+    <View className='match-recent-panel'>
+      <View className='match-recent-head'>
+        <Text>最近记录</Text>
+        {!!match.hands.length && <Text onClick={() => setShowHandHistory(true)}>全部记录 ›</Text>}
+      </View>
+      {recentHands.length ? <View className='match-recent-list'>{recentHands.map(hand => <View className='match-recent-row' key={hand.id}>
+        <Text className='match-recent-round'>{windName[hand.wind]}{hand.hand_number}局</Text>
+        <Text className='match-recent-summary'>{handOutcomeText(match, hand)}</Text>
+        <Text className='match-recent-score'>{handGainText(hand)}</Text>
+      </View>)}</View> : <View className='match-recent-empty'>
+        <Text>尚未记录本将第一局</Text>
+        <Text>点击“记一局”开始计分</Text>
+      </View>}
+    </View>
     <View className='match-action-dock'>
       <View className='match-progress-row'><Text>已记 {completedHands.length} 局{inHandEvents.length ? ` · ${inHandEvents.length}项事件` : ''}</Text><Text>大胡 {completedHands.filter(handHasBigPattern).length}</Text></View>
       {undoNotice && <View className='recent-save-notice'><Text>已记录：{undoNotice}</Text><Button disabled={loading} onClick={onUndoNotice}>撤销</Button></View>}
