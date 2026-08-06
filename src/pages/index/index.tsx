@@ -147,6 +147,8 @@ export default function Index() {
   const [scoreDrawerKey, setScoreDrawerKey] = useState(0)
   const [scoreTileEditorOpen, setScoreTileEditorOpen] = useState(false)
   const [scoreTileEditorCloseRequest, setScoreTileEditorCloseRequest] = useState(0)
+  const [matchDetailOpen, setMatchDetailOpen] = useState(false)
+  const [matchDetailCloseRequest, setMatchDetailCloseRequest] = useState(0)
   const [lastSaveNotice, setLastSaveNotice] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle')
@@ -285,6 +287,11 @@ export default function Index() {
     }
     if (scoreDrawerOpen) {
       closeScoreDrawer()
+      return
+    }
+    if (matchDetailOpen) {
+      setMatchDetailOpen(false)
+      setMatchDetailCloseRequest(current => current + 1)
       return
     }
     if (screenRef.current === 'nickname' && needsNickname(user)) return
@@ -1381,6 +1388,8 @@ export default function Index() {
       loading={loading}
       refreshing={matchRefreshing}
       undoNotice={lastSaveNotice}
+      closeDetailRequest={matchDetailCloseRequest}
+      onDetailOpenChange={setMatchDetailOpen}
       onAdd={type => {
         if (type === 'draw') {
           void quickRecordDraw()
@@ -1401,6 +1410,8 @@ export default function Index() {
       loading={false}
       refreshing={false}
       undoNotice={null}
+      closeDetailRequest={matchDetailCloseRequest}
+      onDetailOpenChange={setMatchDetailOpen}
       onAdd={() => {}}
       onEdit={() => {}}
       onUndo={() => {}}

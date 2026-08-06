@@ -76,13 +76,15 @@ function handOutcomeText(match: Match, hand: Hand) {
   return '自定义计分'
 }
 
-export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing, undoNotice, onAdd, onEdit, onUndo, onUndoNotice, onFinish, onViewStats, onCloseReview, reviewReturnLabel }: {
+export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing, undoNotice, closeDetailRequest, onDetailOpenChange, onAdd, onEdit, onUndo, onUndoNotice, onFinish, onViewStats, onCloseReview, reviewReturnLabel }: {
   match: Match
   currentUserId: string | null
   canEdit: boolean
   loading: boolean
   refreshing: boolean
   undoNotice: string | null
+  closeDetailRequest: number
+  onDetailOpenChange: (open: boolean) => void
   onAdd: (type: Exclude<HandType, 'custom'>) => void
   onEdit: (hand: Hand) => void
   onUndo: () => void
@@ -103,6 +105,20 @@ export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing
   const [showHandHistory, setShowHandHistory] = useState(false)
   const selectedPlayer = match.players.find(player => player.id === selectedPlayerId) || null
   const editable = canEdit && match.status === 'active'
+  const detailOpen = Boolean(selectedPlayerId || showLiveStats || showHandHistory)
+
+  useEffect(() => {
+    onDetailOpenChange(detailOpen)
+  }, [detailOpen, onDetailOpenChange])
+
+  useEffect(() => () => onDetailOpenChange(false), [onDetailOpenChange])
+
+  useEffect(() => {
+    if (closeDetailRequest <= 0) return
+    setSelectedPlayerId(null)
+    setShowLiveStats(false)
+    setShowHandHistory(false)
+  }, [closeDetailRequest])
 
   async function share() {
     await Taro.setClipboardData({ data: match.share_code })
