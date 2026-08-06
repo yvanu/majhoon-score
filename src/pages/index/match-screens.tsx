@@ -230,7 +230,12 @@ export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing
         <View className='match-player-copy'>
           <Text className='match-player-name'>{player.name}</Text>
           <View className='match-player-labels'><Text>{['东', '南', '西', '北'][player.seat]}家</Text>{isDealer && <Text className='match-dealer-badge'>庄</Text>}</View>
-          {result && <Text className='match-player-result-meta'>胡 {result.wins} · 自摸 {result.tsumo} · 点炮 {result.dealIns}</Text>}
+          {result && <View className='match-player-result-meta'>
+            <Text>胡 {result.wins}</Text>
+            <Text>大胡 {result.bigHands}</Text>
+            <Text>自摸 {result.tsumo}</Text>
+            <Text className={result.dealIns ? 'danger-metric' : ''}>点炮 {result.dealIns}</Text>
+          </View>}
         </View>
         <Text className={`match-player-score ${player.score >= 0 ? 'positive' : 'negative'}`}>{player.score > 0 ? '+' : ''}{player.score}</Text>
       </View>
@@ -256,7 +261,6 @@ export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing
         <FinishedMatchDetails
           match={match}
           summary={finishedSummary}
-          currentUserId={currentUserId}
           onOpenAllRecords={() => setShowHandHistory(true)}
         />
         {onCloseReview && <Button className='secondary match-review-back-action' onClick={onCloseReview}>{reviewReturnLabel || '返回'}</Button>}
@@ -276,10 +280,9 @@ export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing
   </View>
 }
 
-function FinishedMatchDetails({ match, summary, currentUserId, onOpenAllRecords }: {
+function FinishedMatchDetails({ match, summary, onOpenAllRecords }: {
   match: Match
   summary: FinishedMatchSummary
-  currentUserId: string | null
   onOpenAllRecords: () => void
 }) {
   const [activeTab, setActiveTab] = useState<'battle' | 'records'>('battle')
@@ -320,12 +323,7 @@ function FinishedMatchDetails({ match, summary, currentUserId, onOpenAllRecords 
         <View><Text>大胡最多</Text><Text>{bigHandLeader?.bigHands ? bigHandLeader.player.name : '暂无'}</Text><Text>{bigHandLeader?.bigHands ? `${bigHandLeader.bigHands} 次` : '0 次'}</Text></View>
         <View><Text>点炮最多</Text><Text>{dealInLeader?.dealIns ? dealInLeader.player.name : '无人点炮'}</Text><Text>{dealInLeader?.dealIns ? `${dealInLeader.dealIns} 次` : '0 次'}</Text></View>
       </View>
-      <View className='finished-panel-heading compact'><View><Text>四人战况</Text><Text>点击顶部玩家卡片可查看个人明细</Text></View></View>
-      <View className='finished-player-list'>{summary.playerStats.map(item => <View className='finished-player-row' key={item.player.id}>
-        <View className='finished-player-identity'><Avatar player={item.player} isSelf={item.player.user_id === currentUserId} /><View><Text>{item.player.name}</Text><Text>{seatLabels[item.player.seat]}家 · {item.player.score > 0 ? '+' : ''}{item.player.score}</Text></View></View>
-        <View className='finished-player-metrics'><Text>胡 {item.wins}</Text><Text>大胡 {item.bigHands}</Text><Text>自摸 {item.tsumo}</Text><Text className={item.dealIns ? 'danger-metric' : ''}>点炮 {item.dealIns}</Text></View>
-      </View>)}</View>
-      <View className='finished-panel-heading compact'><View><Text>点炮关系</Text><Text>按次数和分值排序</Text></View><Text>共 {summary.ronHands} 炮</Text></View>
+      <View className='finished-panel-heading compact'><View><Text>点炮关系</Text><Text>按次数和分值排序 · 点击顶部卡片查看个人明细</Text></View><Text>共 {summary.ronHands} 炮</Text></View>
       <View className='finished-relation-list'>{summary.relations.length ? summary.relations.slice(0, 5).map(relation => <View className='finished-relation-row' key={`${relation.loserId}-${relation.winnerId}`}>
         <Text>{handPlayerName(match, relation.loserId)} → {handPlayerName(match, relation.winnerId)}</Text>
         <Text>{relation.count} 炮 · {relation.score} 分</Text>
