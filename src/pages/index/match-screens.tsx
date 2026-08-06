@@ -16,7 +16,6 @@ import type {
 import { MahjongTileFace } from './screens'
 import {
   Avatar,
-  Header,
   bigHandOptions,
   cloneTileRecord,
   emptyTileRecord,
@@ -825,7 +824,11 @@ export function ScoreScreen({ players, currentUserId, initialHand, initialType, 
             : '记一局'
   const saveLabel = type === 'event' ? '确认记录' : '确认保存'
 
-  return <><ScrollView scrollY className='score-page-scroll' showScrollbar={false}><View className='page score-page' style={{ paddingTop: `${getPageTopInset()}px` }}><Header title={screenTitle} onBack={onBack} />
+  return <View className={`score-dialog score-dialog-${type}${showAdvanced ? ' is-advanced' : ''}`}><ScrollView scrollY className='score-page-scroll' showScrollbar={false}><View className='page score-page'>
+    <View className='score-modal-header'>
+      <View className='score-modal-title-wrap'><Text className='score-modal-kicker'>快捷录分</Text><Text className='score-modal-title'>{screenTitle}</Text></View>
+      <Button className='score-modal-close' onClick={onBack}>×</Button>
+    </View>
     {isEditing && <Text className='edit-hand-tip'>{initialHand?.result_type === 'event' ? '正在修改这项局内事件，保存后会重新计算当前比分。' : `正在修改第 ${initialHand?.sequence} 条记录，保存后会自动重新计算当前总分和战况。`}</Text>}
     {tabOptions.length > 1 && <View className='tabs'>{tabOptions.map(value => <Button key={value} className={type === value ? 'tab active' : 'tab'} onClick={() => changeType(value)}>{typeName[value]}</Button>)}</View>}
 
@@ -932,7 +935,7 @@ export function ScoreScreen({ players, currentUserId, initialHand, initialType, 
       setTileEditorTarget(null)
     }}
   />}
-  </>
+  </View>
 }
 
 function PlayerPicker({ title, players, currentUserId, selected, onSelect }: { title: string; players: Player[]; currentUserId: string | null; selected: string; onSelect: (id: string) => void }) {

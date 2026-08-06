@@ -1415,8 +1415,8 @@ export default function Index() {
       onFriends={showFriends}
       onProfile={showProfile}
     />}
-    {scoreDrawerOpen && match && <View className='score-drawer-backdrop'>
-      <View className='score-drawer-shell'>
+    {scoreDrawerOpen && match && <View className='score-drawer-backdrop' onClick={closeScoreDrawer}>
+      <View className={`score-drawer-shell score-drawer-${scoreEntryType}`} onClick={event => event.stopPropagation()}>
         <View className='score-drawer-handle' />
         <ScoreScreen
           key={`${scoreDrawerKey}:${editingHandId || scoreEntryType}`}

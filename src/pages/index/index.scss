@@ -1231,24 +1231,74 @@ page { background: var(--page-bg); color: var(--text); }
 .group-list-card-action.view { background: #f1efeb; color: #554f48; }
 .group-list-card-action text:last-child { font-size: 29px; line-height: 1; }
 
-/* 牌局内录分抽屉：保留比分上下文，表单与操作独立滚动 */
-.score-drawer-backdrop { position: fixed; z-index: 70; inset: 0; display: flex; align-items: flex-end; background: rgba(48,42,33,.38); backdrop-filter: blur(8px); animation: score-drawer-backdrop-enter .2s ease-out; }
-.score-drawer-shell { position: relative; width: 100%; height: 88vh; max-height: 92vh; overflow: hidden; border-radius: 34px 34px 0 0; background: #fffdf9; box-shadow: 0 -22px 58px rgba(55,43,27,.2); animation: score-drawer-sheet-enter .24s cubic-bezier(.22,.8,.3,1); }
-.score-drawer-handle { position: absolute; z-index: 8; left: 50%; top: 12px; width: 72px; height: 8px; border-radius: 999px; background: #d8d1c7; transform: translateX(-50%); }
-.score-drawer-shell .score-page-scroll { width: 100%; height: 100%; }
-.score-drawer-shell .score-page { min-height: 100%; padding: 32px 26px calc(190px + constant(safe-area-inset-bottom)) !important; padding-bottom: calc(190px + env(safe-area-inset-bottom)) !important; background: #fffdf9; }
-.score-drawer-shell .score-page .header { position: sticky; z-index: 6; top: 0; margin: 0 -4px 16px; padding: 12px 4px 12px; background: linear-gradient(180deg,#fffdf9 76%,rgba(255,253,249,.92)); }
-.score-drawer-shell .score-page .header .title-small { font-size: 36px; }
-.score-drawer-shell .score-page .icon-button { width: 62px; height: 62px; line-height: 54px; border-radius: 19px; font-size: 42px; }
-.score-drawer-shell .score-save-bar { position: absolute; z-index: 10; left: 18px; right: 18px; bottom: calc(10px + constant(safe-area-inset-bottom)); bottom: calc(10px + env(safe-area-inset-bottom)); }
-.score-drawer-shell .score-save-summary { font-size: 18px; }
-.score-drawer-shell .score-save-bar .primary { height: 78px; line-height: 78px; font-size: 28px; }
+/* 牌局内快捷录分弹窗：保留比分上下文，不再呈现为独立子页面 */
+.score-drawer-backdrop { position: fixed; z-index: 70; inset: 0; padding: 0 14px calc(12px + constant(safe-area-inset-bottom)); padding-bottom: calc(12px + env(safe-area-inset-bottom)); display: flex; align-items: flex-end; box-sizing: border-box; background: rgba(48,42,33,.24); backdrop-filter: blur(2px); animation: score-drawer-backdrop-enter .18s ease-out; }
+.score-drawer-shell { position: relative; width: 100%; height: 76vh; max-height: 82vh; overflow: hidden; border: 1px solid rgba(229,219,201,.98); border-radius: 30px; background: #fffdf9; box-shadow: 0 20px 60px rgba(55,43,27,.24); animation: score-drawer-sheet-enter .22s cubic-bezier(.22,.8,.3,1); }
+.score-drawer-shell.score-drawer-tsumo { height: 68vh; }
+.score-drawer-shell.score-drawer-ron { height: 82vh; }
+.score-drawer-shell.score-drawer-event { height: 76vh; }
+.score-drawer-shell.score-drawer-draw, .score-drawer-shell.score-drawer-custom { height: 66vh; }
+.score-drawer-handle { position: absolute; z-index: 12; left: 50%; top: 9px; width: 54px; height: 6px; border-radius: 999px; background: #d8d1c7; transform: translateX(-50%); pointer-events: none; }
+.score-dialog { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+.score-drawer-shell .score-page-scroll { width: 100%; height: 0; min-height: 0; flex: 1 1 auto; }
+.score-drawer-shell .score-page { min-height: 0; padding: 24px 18px 18px !important; box-sizing: border-box; background: #fffdf9; }
+.score-modal-header { position: sticky; z-index: 6; top: 0; margin: 0 -2px 8px; padding: 7px 2px 10px; display: flex; align-items: center; justify-content: space-between; gap: 16px; background: linear-gradient(180deg,#fffdf9 80%,rgba(255,253,249,.94)); }
+.score-modal-title-wrap text { display: block; }
+.score-modal-kicker { color: #a27f2e; font-size: 16px; font-weight: 850; letter-spacing: 2px; }
+.score-modal-title { margin-top: 2px; color: var(--text); font-size: 30px; font-weight: 950; line-height: 1.15; }
+.score-modal-close { width: 50px; height: 50px; line-height: 44px; margin: 0; padding: 0; flex: 0 0 50px; border: 1px solid var(--line); border-radius: 50%; background: #f6f2eb; color: #6e665b; font-size: 36px; font-weight: 500; }
+.score-modal-close::after { border: 0; }
+.score-drawer-shell .score-page .section-title { margin: 10px 0 8px; font-size: 21px; }
+.score-drawer-shell .score-page .picker { gap: 7px; }
+.score-drawer-shell .score-page .pick { padding: 9px 4px 8px; border-radius: 16px; }
+.score-drawer-shell .score-page .pick .avatar { width: 50px; height: 50px; margin-bottom: 6px; border-radius: 16px; }
+.score-drawer-shell .score-page .pick .avatar-initial { font-size: 23px !important; }
+.score-drawer-shell .score-page .pick-name { font-size: 18px; }
+.score-drawer-shell .score-page .pick-seat { margin-top: 2px; font-size: 14px; }
+.score-drawer-shell .score-page .pick-check { right: 4px; top: 4px; width: 24px; height: 24px; font-size: 15px; }
+.score-drawer-shell .score-page .ron-role-panel { margin-top: 4px; padding: 10px; border-radius: 20px; }
+.score-drawer-shell .score-page .ron-role-head .section-title { margin: 0; }
+.score-drawer-shell .score-page .ron-role-tabs { margin-top: 8px; gap: 8px; }
+.score-drawer-shell .score-page .ron-role-tab { min-height: 58px; padding: 8px 10px; border-radius: 16px; }
+.score-drawer-shell .score-page .role-slot-head, .score-drawer-shell .score-page .role-slot-name, .score-drawer-shell .score-page .role-slot-empty { font-size: 17px; }
+.score-drawer-shell .score-page .ron-role-guide { margin: 7px 2px 8px; font-size: 15px; line-height: 1.35; }
+.score-drawer-shell .score-page .ron-role-player-grid { gap: 6px; }
+.score-drawer-shell .score-page .ron-role-pick { padding: 10px 4px 8px; }
+.score-drawer-shell .score-page .ron-role-pick .avatar { width: 48px; height: 48px; margin-bottom: 5px; }
+.score-drawer-shell .score-page .winner-result-tabs { margin: 8px 0 0; }
+.score-drawer-shell .score-page .winner-outcome-card { margin-top: 8px; padding: 11px; border-radius: 20px; }
+.score-drawer-shell .score-page .winner-outcome-head { margin-bottom: 6px; }
+.score-drawer-shell .score-page .score-field, .score-drawer-shell .score-page .score-field.compact { margin: 8px 0 0; padding: 11px 13px; border-radius: 18px; }
+.score-drawer-shell .score-page .score-field.compact { grid-template-columns: 1fr 96px; }
+.score-drawer-shell .score-page .score-field > text, .score-drawer-shell .score-page .score-field.compact > text { font-size: 20px; }
+.score-drawer-shell .score-page .score-field input { height: 48px; font-size: 30px; }
+.score-drawer-shell .score-page .score-presets { margin-top: 8px; gap: 7px; }
+.score-drawer-shell .score-page .score-preset { height: 46px; line-height: 46px; border-radius: 14px; font-size: 18px; }
+.score-drawer-shell .score-page .advanced-option-toggle { margin-top: 9px; padding: 12px 14px; border-radius: 17px; }
+.score-drawer-shell .score-page .advanced-option-toggle > view text:first-child { font-size: 20px; }
+.score-drawer-shell .score-page .advanced-option-toggle > view text:last-child, .score-drawer-shell .score-page .advanced-option-toggle > text { font-size: 16px; }
+.score-drawer-shell .score-page .note-options { gap: 6px; }
+.score-drawer-shell .score-page .note { height: 46px; line-height: 46px; border-radius: 13px; font-size: 16px; }
+.score-drawer-shell .score-page .tile-record-entry { margin: 8px 0 2px; padding: 13px 14px; border-radius: 18px; }
+.score-drawer-shell .score-page .event-type-grid { gap: 7px; }
+.score-drawer-shell .score-page .event-type { height: 48px; line-height: 48px; border-radius: 14px; font-size: 18px; }
+.score-drawer-shell .score-page .event-preview-card, .score-drawer-shell .score-page .ron-settlement-card { margin-top: 9px; padding: 12px; border-radius: 18px; }
+.score-drawer-shell .score-page .event-preview-tip { margin-top: 7px; font-size: 15px; }
+.score-drawer-shell .score-page .edit-hand-tip { margin-bottom: 8px; padding: 9px 11px; border-radius: 14px; font-size: 15px; }
+.score-drawer-shell .score-page .score-bottom-spacer { height: 2px; }
+.score-drawer-shell .score-save-bar { position: static; z-index: 10; left: auto; right: auto; bottom: auto; flex: 0 0 auto; margin: 0; padding: 9px 16px 13px; border: 0; border-top: 1px solid rgba(232,223,207,.95); border-radius: 0; background: #fffdf9; box-shadow: 0 -10px 24px rgba(72,56,29,.06); backdrop-filter: none; }
+.score-drawer-shell .score-save-summary { margin-bottom: 7px; overflow: hidden; color: var(--text-secondary); font-size: 16px; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+.score-drawer-shell .score-save-bar .primary { height: 64px; line-height: 64px; margin: 0; border-radius: 18px; font-size: 24px; }
+.score-drawer-shell .tile-record-modal-backdrop { z-index: 82; }
 @keyframes score-drawer-backdrop-enter { from { opacity: 0; } to { opacity: 1; } }
-@keyframes score-drawer-sheet-enter { from { opacity: .78; transform: translate3d(0,42px,0); } to { opacity: 1; transform: translate3d(0,0,0); } }
+@keyframes score-drawer-sheet-enter { from { opacity: .74; transform: translate3d(0,32px,0) scale(.985); } to { opacity: 1; transform: translate3d(0,0,0) scale(1); } }
 
 @media (max-width: 360px) {
   .home-page, .tab-page { padding-left: 20px; padding-right: 20px; }
   .group-note-tag { display: none !important; }
-  .score-drawer-shell { height: 91vh; }
-  .score-drawer-shell .score-page { padding-left: 21px !important; padding-right: 21px !important; }
+  .score-drawer-backdrop { padding-left: 9px; padding-right: 9px; }
+  .score-drawer-shell.score-drawer-tsumo { height: 72vh; }
+  .score-drawer-shell.score-drawer-ron { height: 86vh; }
+  .score-drawer-shell.score-drawer-event { height: 80vh; }
+  .score-drawer-shell .score-page { padding-left: 14px !important; padding-right: 14px !important; }
 }
