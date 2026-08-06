@@ -227,14 +227,8 @@ export function GroupCreateScreen({ user, friends, loading, friendPickerOpen, on
   )
   const visibleFriends = useMemo(() => {
     const query = friendQuery.trim().toLocaleLowerCase()
-    return [...friends]
-      .filter(friend => !query || friend.name.toLocaleLowerCase().includes(query))
-      .sort((first, second) => {
-        const firstSelected = draftFriendIds.includes(first.id) ? 1 : 0
-        const secondSelected = draftFriendIds.includes(second.id) ? 1 : 0
-        return secondSelected - firstSelected || second.jointMatches - first.jointMatches || first.name.localeCompare(second.name, 'zh-CN')
-      })
-  }, [draftFriendIds, friendQuery, friends])
+    return friends.filter(friend => !query || friend.name.toLocaleLowerCase().includes(query))
+  }, [friendQuery, friends])
 
   function openFriendPicker() {
     setDraftFriendIds(friendIds)
@@ -306,7 +300,7 @@ export function GroupCreateScreen({ user, friends, loading, friendPickerOpen, on
     {friendPickerOpen && <View className='group-friend-picker-backdrop'>
       <View className='group-friend-picker-sheet'>
         <View className='group-friend-picker-head'>
-          <View><Text>选择牌友</Text><Text>已选 {draftFriendIds.length}/3 · 选中的牌友会优先显示</Text></View>
+          <View><Text>选择牌友</Text><Text>已选 {draftFriendIds.length}/3 · 列表位置保持不变</Text></View>
           <Button onClick={() => onFriendPickerOpenChange(false)}>×</Button>
         </View>
         {draftFriendIds.length > 0 && <ScrollView scrollX className='group-friend-picker-selected' showScrollbar={false}>
