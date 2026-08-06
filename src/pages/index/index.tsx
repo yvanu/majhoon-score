@@ -174,6 +174,7 @@ export default function Index() {
   const pendingPageScrollTop = useRef<number | null>(null)
   const pendingGroupCode = useRef('')
   const reviewReturnScreen = useRef<Screen>('home')
+  const backTrapRearmTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   Taro.useLoad<{ groupCode?: string }>(options => {
     const code = options.groupCode?.trim().toUpperCase() || ''
@@ -291,7 +292,15 @@ export default function Index() {
       return
     }
     const history = screenHistory.current
-    if (history.length <= 1) return
+    if (history.length <= 1) {
+      if (shouldTrapNativeBack(screenRef.current)) {
+        screenHistory.current = ['home']
+        screenRef.current = 'home'
+        setScreenState('home')
+        if (updateBackTrap) setBackTrapOpen(false)
+      }
+      return
+    }
     const current = screenRef.current
     history.pop()
     const previous = history[history.length - 1] || 'home'
@@ -310,13 +319,25 @@ export default function Index() {
     navigateBack(true)
   }
 
+  function scheduleBackTrapRearm() {
+    if (backTrapRearmTimer.current) clearTimeout(backTrapRearmTimer.current)
+    Taro.nextTick(() => {
+      setBackTrapOpen(shouldTrapNativeBack(screenRef.current))
+    })
+    backTrapRearmTimer.current = setTimeout(() => {
+      backTrapRearmTimer.current = null
+      setBackTrapOpen(shouldTrapNativeBack(screenRef.current))
+    }, 80)
+  }
+
   function handleNativeBack() {
     setBackTrapOpen(false)
     navigateBack(false)
+    scheduleBackTrapRearm()
   }
 
   function rearmBackTrap() {
-    if (shouldTrapNativeBack(screenRef.current)) setBackTrapOpen(true)
+    scheduleBackTrapRearm()
   }
 
   function updateRecentMatch(recentMatch: MatchSummary | null) {
