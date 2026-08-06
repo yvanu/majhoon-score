@@ -7,8 +7,8 @@ import { getPageTopInset } from './shared'
 
 const quickMessages = [
   { label: '我到了', icon: '✓' },
-  { label: '马上到', icon: '→' },
-  { label: '晚到10分钟', icon: '钟' },
+  { label: '马上到', icon: '➜' },
+  { label: '晚到10分钟', icon: '◷' },
   { label: '位置在哪？', icon: '⌖' },
   { label: '可以开始了', icon: '▷' },
   { label: '临时有事', icon: '!' },
@@ -70,7 +70,7 @@ export function GroupChatScreen({ group, user, loading: actionLoading, onBack, o
 
   const connectionCopy = useMemo(() => ({
     connecting: '连接中',
-    live: '实时',
+    live: '实时更新',
     polling: '自动刷新',
     closed: '已关闭',
   }[connectionStatus]), [connectionStatus])
