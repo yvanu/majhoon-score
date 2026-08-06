@@ -3,9 +3,16 @@ import Taro from '@tarojs/taro'
 import { Button, Input, ScrollView, Text, View } from '@tarojs/components'
 import type { AuthUser, GroupChatMessage, GroupChatStatus, GroupSession } from '@shared/types'
 import { api, AUTH_KEY, groupChatSocketUrl } from '../../services/api'
-import { Header, getPageTopInset } from './shared'
+import { getPageTopInset } from './shared'
 
-const quickMessages = ['我到了', '马上到', '晚到10分钟', '位置在哪？', '可以开始了', '临时有事']
+const quickMessages = [
+  { label: '我到了', icon: '✓' },
+  { label: '马上到', icon: '→' },
+  { label: '晚到10分钟', icon: '钟' },
+  { label: '位置在哪？', icon: '⌖' },
+  { label: '可以开始了', icon: '▷' },
+  { label: '临时有事', icon: '!' },
+]
 
 type ConnectionStatus = 'connecting' | 'live' | 'polling' | 'closed'
 
@@ -57,6 +64,9 @@ export function GroupChatScreen({ group, user, loading: actionLoading, onBack, o
   const readTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const canStart = group.is_owner && !group.match_id && group.confirmed_count === group.capacity && (group.status === 'recruiting' || group.status === 'full')
   const lastMessageId = messages.length ? `chat-message-${messages[messages.length - 1].id}` : ''
+  const remainingCount = Math.max(0, group.capacity - group.confirmed_count)
+  const textMessageCount = messages.filter(message => message.message_type === 'text').length
+  const showConversationGuide = !loading && textMessageCount <= 2
 
   const connectionCopy = useMemo(() => ({
     connecting: '连接中',
@@ -218,24 +228,31 @@ export function GroupChatScreen({ group, user, loading: actionLoading, onBack, o
 
   return <View className='group-chat-shell'>
     <View className='page group-chat-page' style={{ paddingTop: `${getPageTopInset()}px` }}>
-      <Header title='组局群聊' onBack={onBack} />
+      <View className='group-chat-nav'>
+        <Button className='group-chat-back' hoverClass='none' onClick={onBack}>‹</Button>
+        <Text className='group-chat-nav-title'>组局群聊</Text>
+        <View className='group-chat-nav-spacer' />
+      </View>
+
       <View className='group-chat-summary'>
+        <View className='group-chat-summary-icon'><Text>约</Text></View>
         <View className='grow'>
           <Text className='group-chat-summary-time'>{formatGroupTime(group.start_at)}</Text>
-          <Text className='group-chat-summary-location'>{group.location}</Text>
+          <Text className='group-chat-summary-location'><Text className='group-chat-location-mark'>⌖</Text>{group.location}</Text>
+          <Text className='group-chat-summary-note'>{remainingCount > 0 ? `还差${remainingCount}人` : '人员已齐'} · 发起人：{group.owner_name}</Text>
         </View>
         <View className='group-chat-summary-state'>
-          <Text>{group.confirmed_count}/{group.capacity}人</Text>
-          <Text className={connectionStatus === 'live' ? 'live' : ''}>{connectionCopy}</Text>
+          <Text className='group-chat-summary-count'><Text>{group.confirmed_count}</Text>/{group.capacity}人</Text>
+          <Text className={connectionStatus === 'live' ? 'live' : ''}><Text className='group-chat-live-dot'>●</Text>{connectionCopy}</Text>
         </View>
       </View>
 
-      <ScrollView scrollX className='group-chat-quick-scroll' showScrollbar={false}>
+      <ScrollView scrollX className='group-chat-quick-scroll' showScrollbar={false} enhanced>
         <View className='group-chat-quick-row'>{quickMessages.map(message => <Button
-          key={message}
+          key={message.label}
           disabled={sending || roomStatus === 'readonly'}
-          onClick={() => { void sendMessage(message) }}
-        >{message}</Button>)}</View>
+          onClick={() => { void sendMessage(message.label) }}
+        ><Text className='group-chat-quick-icon'>{message.icon}</Text><Text>{message.label}</Text></Button>)}</View>
       </ScrollView>
 
       <ScrollView
@@ -245,16 +262,14 @@ export function GroupChatScreen({ group, user, loading: actionLoading, onBack, o
         scrollIntoView={lastMessageId}
         scrollWithAnimation
       >
-        {loading && <View className='group-chat-empty'><Text>正在加载群聊消息…</Text></View>}
-        {!loading && !messages.length && <View className='group-chat-empty'>
-          <Text className='group-chat-empty-icon'>聊</Text>
-          <Text>还没有消息</Text>
-          <Text>和牌友确认一下时间与位置吧</Text>
-        </View>}
+        {loading && <View className='group-chat-loading'><Text>正在加载群聊消息…</Text></View>}
         {messages.map(message => {
           const mine = message.sender_user_id === user.id
+          const member = group.members.find(item => item.user_id === message.sender_user_id)
+          const palette = Number(member?.avatar_seed || Math.abs((message.sender_name || '').length)) % 6
           if (message.message_type === 'system') {
             return <View id={`chat-message-${message.id}`} className={`group-chat-system${message.event_type === 'group_full' ? ' action' : ''}`} key={message.id}>
+              <Text className='group-chat-system-icon'>{message.event_type === 'group_full' ? '✓' : '播'}</Text>
               <Text>{message.content}</Text>
               <Text>{formatChatTime(message.created_at)}</Text>
               {message.event_type === 'group_full' && canStart && <Button className='primary' disabled={actionLoading} onClick={onStart}>
@@ -263,14 +278,29 @@ export function GroupChatScreen({ group, user, loading: actionLoading, onBack, o
             </View>
           }
           return <View id={`chat-message-${message.id}`} className={`group-chat-message${mine ? ' mine' : ''}`} key={message.id}>
-            {!mine && <View className={`group-chat-avatar avatar-${Math.abs((message.sender_name || '').length) % 6}`}><Text>{memberInitial(message.sender_name || '牌友')}</Text></View>}
+            {!mine && <View className={`group-chat-avatar avatar-${palette}`}><Text>{memberInitial(message.sender_name || '牌友')}</Text></View>}
             <View className='group-chat-message-body'>
               {!mine && <Text className='group-chat-sender'>{message.sender_name || '牌友'}</Text>}
               <View className='group-chat-bubble'><Text>{message.content}</Text></View>
-              <Text className='group-chat-message-time'>{formatChatTime(message.created_at)}</Text>
+              <Text className='group-chat-message-time'>{formatChatTime(message.created_at)}{mine ? '  ✓' : ''}</Text>
             </View>
+            {mine && <View className={`group-chat-avatar avatar-${palette}`}><Text>{memberInitial(message.sender_name || '我')}</Text></View>}
           </View>
         })}
+        {showConversationGuide && <View className='group-chat-guide-card'>
+          <View className='group-chat-guide-main'>
+            <View className='group-chat-guide-visual'><Text>•••</Text><Text>••</Text></View>
+            <View className='grow'>
+              <Text className='group-chat-guide-title'>还没有太多消息</Text>
+              <Text className='group-chat-guide-copy'>可以先确认时间和位置，也可以使用上方快捷语</Text>
+            </View>
+          </View>
+          <View className='group-chat-guide-divider' />
+          <View className='group-chat-guide-progress'>
+            <Text>当前组局进度</Text>
+            <Text>已确认 <Text>{group.confirmed_count}</Text>/{group.capacity} 人</Text>
+          </View>
+        </View>}
         <View className='group-chat-list-spacer' />
       </ScrollView>
     </View>
@@ -279,16 +309,20 @@ export function GroupChatScreen({ group, user, loading: actionLoading, onBack, o
       {roomStatus === 'readonly'
         ? <View className='group-chat-readonly'><Text>本次组局已取消，群聊已关闭</Text></View>
         : <>
-          <Input
-            value={input}
-            maxlength={500}
-            cursorSpacing={18}
-            confirmType='send'
-            placeholder='输入消息…'
-            onInput={event => setInput(event.detail.value)}
-            onConfirm={() => { void sendMessage() }}
-          />
-          <Button className='primary' disabled={!input.trim() || sending} onClick={() => { void sendMessage() }}>
+          <View className='group-chat-input-shell'>
+            <Text className='group-chat-composer-icon'>☺</Text>
+            <Input
+              value={input}
+              maxlength={500}
+              cursorSpacing={22}
+              confirmType='send'
+              placeholder='输入消息…'
+              onInput={event => setInput(event.detail.value)}
+              onConfirm={() => { void sendMessage() }}
+            />
+            <Button className='group-chat-more' hoverClass='none' onClick={() => { void Taro.showToast({ title: '当前仅支持文字消息', icon: 'none' }) }}>＋</Button>
+          </View>
+          <Button className='primary group-chat-send' disabled={!input.trim() || sending} onClick={() => { void sendMessage() }}>
             {sending ? '发送中' : '发送'}
           </Button>
         </>}
