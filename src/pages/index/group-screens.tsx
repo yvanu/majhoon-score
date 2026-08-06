@@ -300,20 +300,9 @@ export function GroupCreateScreen({ user, friends, loading, friendPickerOpen, on
     {friendPickerOpen && <View className='group-friend-picker-backdrop'>
       <View className='group-friend-picker-sheet'>
         <View className='group-friend-picker-head'>
-          <View><Text>选择牌友</Text><Text>已选 {draftFriendIds.length}/3 · 列表位置保持不变</Text></View>
+          <View><Text>选择牌友</Text><Text>已选 {draftFriendIds.length}/3 · 直接在原位置勾选或取消</Text></View>
           <Button onClick={() => onFriendPickerOpenChange(false)}>×</Button>
         </View>
-        {draftFriendIds.length > 0 && <ScrollView scrollX className='group-friend-picker-selected' showScrollbar={false}>
-          <View className='group-friend-picker-selected-row'>{draftFriendIds.map(id => {
-            const friend = friends.find(item => item.id === id)
-            if (!friend) return null
-            return <View className='group-friend-picker-chip' key={friend.id} onClick={() => toggleDraftFriend(friend)}>
-              <FriendAvatar friend={friend} />
-              <Text>{friend.name}</Text>
-              <Text>×</Text>
-            </View>
-          })}</View>
-        </ScrollView>}
         <View className='group-friend-picker-search'>
           <Text>搜</Text>
           <Input value={friendQuery} maxlength={20} placeholder='搜索牌友昵称' onInput={event => setFriendQuery(event.detail.value)} />

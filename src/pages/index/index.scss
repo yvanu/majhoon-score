@@ -828,13 +828,6 @@ page { background: var(--page-bg); color: var(--text); }
 .group-friend-picker-head > view > text:last-child { margin-top: 5px; color: var(--text-muted); font-size: 16px; }
 .group-friend-picker-head button { width: 54px; height: 54px; line-height: 48px; margin: 0; padding: 0; border-radius: 17px; background: #f3efe8; color: #686157; font-size: 34px; }
 .group-friend-picker-head button::after { border: 0; }
-.group-friend-picker-selected { width: 100%; margin-top: 16px; flex: 0 0 auto; white-space: nowrap; }
-.group-friend-picker-selected-row { display: inline-flex; gap: 8px; padding-right: 10px; }
-.group-friend-picker-chip { min-width: 0; height: 56px; padding: 6px 9px 6px 6px; display: inline-flex; align-items: center; gap: 7px; box-sizing: border-box; border-radius: 18px; background: #fff3c7; }
-.group-friend-picker-chip .avatar { width: 42px; height: 42px; flex: 0 0 42px; border-radius: 14px; }
-.group-friend-picker-chip .avatar-initial { font-size: 18px !important; }
-.group-friend-picker-chip text:nth-child(2) { max-width: 120px; overflow: hidden; color: #684c05; font-size: 15px; font-weight: 850; text-overflow: ellipsis; white-space: nowrap; }
-.group-friend-picker-chip text:last-child { color: #99700c; font-size: 20px; font-weight: 900; }
 .group-friend-picker-search { height: 68px; margin-top: 16px; padding: 0 15px; display: flex; align-items: center; gap: 10px; flex: 0 0 68px; box-sizing: border-box; border: 1px solid var(--line); border-radius: 20px; background: #f7f4ee; }
 .group-friend-picker-search > text:first-child { width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; border-radius: 12px; background: #ebe5da; color: #766d61; font-size: 14px; font-weight: 900; }
 .group-friend-picker-search input { min-width: 0; height: 56px; flex: 1; color: var(--text); font-size: 20px; }
