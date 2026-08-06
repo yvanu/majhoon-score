@@ -11,7 +11,6 @@ import type {
   MahjongTile,
   Match,
   Player,
-  Stats,
 } from '@shared/types'
 import { MahjongTileFace } from './screens'
 import {
@@ -45,10 +44,6 @@ function outcomeHasBigPattern(outcome: HandOutcome) {
   return (outcome.note?.split('、') || []).some(note => bigHandOptions.has(note))
 }
 
-function handHasBigPattern(hand: Hand) {
-  return handOutcomes(hand).some(outcomeHasBigPattern)
-}
-
 function playerWinEntries(match: Match, playerId: string) {
   return match.hands.flatMap(hand => handOutcomes(hand)
     .filter(outcome => outcome.winner_player_id === playerId)
@@ -76,7 +71,95 @@ function handOutcomeText(match: Match, hand: Hand) {
   return '自定义计分'
 }
 
-export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing, undoNotice, closeDetailRequest, onDetailOpenChange, onAdd, onEdit, onUndo, onUndoNotice, onFinish, onViewStats, onCloseReview, reviewReturnLabel }: {
+type FinishedPlayerSummary = {
+  player: Player
+  wins: number
+  tsumo: number
+  bigHands: number
+  dealIns: number
+}
+
+type PointRelation = {
+  winnerId: string
+  loserId: string
+  count: number
+  score: number
+}
+
+type FinishedMatchSummary = {
+  totalHands: number
+  winCount: number
+  ronHands: number
+  tsumoHands: number
+  bigHands: number
+  eventCount: number
+  playerStats: FinishedPlayerSummary[]
+  playerStatsById: Map<string, FinishedPlayerSummary>
+  relations: PointRelation[]
+  largestGain: { player: Player; score: number } | null
+  completedNumber: Map<string, number>
+  recentHands: Hand[]
+}
+
+function summarizeFinishedMatch(match: Match): FinishedMatchSummary {
+  const completedHands = match.hands.filter(hand => hand.result_type !== 'event')
+  const playerStats = match.players.map(player => {
+    const wins = playerWinEntries(match, player.id)
+    return {
+      player,
+      wins: wins.length,
+      tsumo: wins.filter(entry => entry.hand.result_type === 'tsumo').length,
+      bigHands: wins.filter(entry => outcomeHasBigPattern(entry.outcome)).length,
+      dealIns: match.hands.filter(hand => hand.result_type === 'ron' && hand.loser_player_id === player.id).length,
+    }
+  })
+  const playerStatsById = new Map(playerStats.map(item => [item.player.id, item]))
+  const relationMap = new Map<string, PointRelation>()
+  match.hands.forEach(hand => {
+    if (hand.result_type !== 'ron' || !hand.loser_player_id) return
+    handOutcomes(hand).forEach(outcome => {
+      const key = `${hand.loser_player_id}:${outcome.winner_player_id}`
+      const current = relationMap.get(key) || {
+        winnerId: outcome.winner_player_id,
+        loserId: hand.loser_player_id!,
+        count: 0,
+        score: 0,
+      }
+      current.count += 1
+      current.score += Math.max(0, outcome.score)
+      relationMap.set(key, current)
+    })
+  })
+  let largestGain: { player: Player; score: number } | null = null
+  match.hands.forEach(hand => {
+    hand.scores.forEach(score => {
+      if (score.change <= 0 || score.change <= (largestGain?.score || 0)) return
+      const player = match.players.find(item => item.id === score.playerId)
+      if (player) largestGain = { player, score: score.change }
+    })
+  })
+  const completedNumber = new Map(
+    [...completedHands]
+      .sort((first, second) => first.sequence - second.sequence)
+      .map((hand, index) => [hand.id, index + 1]),
+  )
+  return {
+    totalHands: completedHands.length,
+    winCount: match.hands.flatMap(handOutcomes).length,
+    ronHands: match.hands.filter(hand => hand.result_type === 'ron').length,
+    tsumoHands: match.hands.filter(hand => hand.result_type === 'tsumo').length,
+    bigHands: match.hands.flatMap(handOutcomes).filter(outcomeHasBigPattern).length,
+    eventCount: match.hands.filter(hand => hand.result_type === 'event').length,
+    playerStats,
+    playerStatsById,
+    relations: [...relationMap.values()].sort((first, second) => second.count - first.count || second.score - first.score),
+    largestGain,
+    completedNumber,
+    recentHands: [...match.hands].sort((first, second) => second.sequence - first.sequence),
+  }
+}
+
+export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing, undoNotice, closeDetailRequest, onDetailOpenChange, onAdd, onEdit, onUndo, onUndoNotice, onFinish, onCloseReview, reviewReturnLabel }: {
   match: Match
   currentUserId: string | null
   canEdit: boolean
@@ -90,7 +173,6 @@ export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing
   onUndo: () => void
   onUndoNotice: () => void
   onFinish: () => void
-  onViewStats: () => void
   onCloseReview?: () => void
   reviewReturnLabel?: string
 }) {
@@ -100,6 +182,10 @@ export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing
       .sort((first, second) => second.score - first.score || first.seat - second.seat)
       .map((player, index) => [player.id, index + 1]),
   ), [match.players])
+  const finishedSummary = useMemo(
+    () => match.status === 'finished' ? summarizeFinishedMatch(match) : null,
+    [match],
+  )
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null)
   const [showLiveStats, setShowLiveStats] = useState(false)
   const [showHandHistory, setShowHandHistory] = useState(false)
@@ -131,16 +217,18 @@ export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing
     <View className='match-scoreboard'>{playersBySeat.map(player => {
       const rank = rankByPlayerId.get(player.id) || 1
       const isDealer = match.status === 'active' && player.seat === match.current_hand - 1
-      return <View className={`match-player-tile${player.user_id === currentUserId ? ' self' : ''}`} key={player.id} onClick={() => setSelectedPlayerId(player.id)}>
+      const result = finishedSummary?.playerStatsById.get(player.id)
+      return <View className={`match-player-tile${player.user_id === currentUserId ? ' self' : ''}${match.status === 'finished' ? ' finished' : ''}`} key={player.id} onClick={() => setSelectedPlayerId(player.id)}>
         <View className='match-player-head'><Text className='match-rank'>#{rank}</Text><Avatar player={player} isSelf={player.user_id === currentUserId} /></View>
         <View className='match-player-copy'>
           <Text className='match-player-name'>{player.name}</Text>
           <View className='match-player-labels'><Text>{['东', '南', '西', '北'][player.seat]}家</Text>{isDealer && <Text className='match-dealer-badge'>庄</Text>}</View>
+          {result && <Text className='match-player-result-meta'>胡 {result.wins} · 自摸 {result.tsumo} · 点炮 {result.dealIns}</Text>}
         </View>
         <Text className={`match-player-score ${player.score >= 0 ? 'positive' : 'negative'}`}>{player.score > 0 ? '+' : ''}{player.score}</Text>
       </View>
     })}</View>
-    <View className='match-action-dock'>
+    <View className={`match-action-dock${match.status === 'finished' ? ' finished' : ''}`}>
       {editable && undoNotice && <View className='recent-save-notice'><Text>已记录：{undoNotice}</Text><Button disabled={loading} onClick={onUndoNotice}>撤销</Button></View>}
       {editable && <View className='match-quick-section'>
         <View className='match-quick-heading'><Text>快速记分</Text><Text>选择本局结果</Text></View>
@@ -151,19 +239,97 @@ export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing
           <Button className='match-quick-action draw' disabled={loading} onClick={() => onAdd('draw')}><Text className='match-quick-title'>流局</Text><Text className='match-quick-copy'>确认后直接记录本局</Text></Button>
         </View>
       </View>}
-      <View className='match-insight-actions'>
-        <Button className='secondary half' disabled={!match.hands.length} onClick={() => setShowLiveStats(true)}>战况</Button>
-        <Button className='secondary half' disabled={!match.hands.length} onClick={() => setShowHandHistory(true)}>记录</Button>
-      </View>
-      {editable ? <View className='button-row match-secondary-actions'><Button className='secondary half' disabled={!match.hands.length || loading} onClick={onUndo}>撤销上一项</Button><Button className='secondary half match-finish-action' disabled={loading} onClick={onFinish}>结束本将</Button></View> : match.status === 'finished' ? <>
-        <Button className='primary match-final-stats-action' onClick={onViewStats}>查看最终战绩</Button>
+      {editable ? <>
+        <View className='match-insight-actions'>
+          <Button className='secondary half' disabled={!match.hands.length} onClick={() => setShowLiveStats(true)}>战况</Button>
+          <Button className='secondary half' disabled={!match.hands.length} onClick={() => setShowHandHistory(true)}>记录</Button>
+        </View>
+        <View className='button-row match-secondary-actions'><Button className='secondary half' disabled={!match.hands.length || loading} onClick={onUndo}>撤销上一项</Button><Button className='secondary half match-finish-action' disabled={loading} onClick={onFinish}>结束本将</Button></View>
+      </> : match.status === 'finished' && finishedSummary ? <>
+        <FinishedMatchDetails
+          match={match}
+          summary={finishedSummary}
+          currentUserId={currentUserId}
+          onOpenAllRecords={() => setShowHandHistory(true)}
+        />
         {onCloseReview && <Button className='secondary match-review-back-action' onClick={onCloseReview}>{reviewReturnLabel || '返回'}</Button>}
         <Text className='readonly'>本将已结束，当前为只读回顾</Text>
-      </> : <Text className='readonly'>当前为只读分享视图</Text>}
+      </> : <>
+        <View className='match-insight-actions'>
+          <Button className='secondary half' disabled={!match.hands.length} onClick={() => setShowLiveStats(true)}>战况</Button>
+          <Button className='secondary half' disabled={!match.hands.length} onClick={() => setShowHandHistory(true)}>记录</Button>
+        </View>
+        <Text className='readonly'>当前为只读分享视图</Text>
+      </>}
     </View>
     {selectedPlayer && <PlayerDetailModal player={selectedPlayer} match={match} onClose={() => setSelectedPlayerId(null)} />}
     {showLiveStats && <LiveMatchStatsModal match={match} currentUserId={currentUserId} onClose={() => setShowLiveStats(false)} />}
     {showHandHistory && <HandHistoryModal match={match} canEdit={editable} onEdit={hand => { setShowHandHistory(false); onEdit(hand) }} onClose={() => setShowHandHistory(false)} />}
+  </View>
+}
+
+function FinishedMatchDetails({ match, summary, currentUserId, onOpenAllRecords }: {
+  match: Match
+  summary: FinishedMatchSummary
+  currentUserId: string | null
+  onOpenAllRecords: () => void
+}) {
+  const [activeTab, setActiveTab] = useState<'battle' | 'records'>('battle')
+  const champion = [...summary.playerStats].sort((first, second) => second.player.score - first.player.score || first.player.seat - second.player.seat)[0]
+  const bigHandLeader = [...summary.playerStats].sort((first, second) => second.bigHands - first.bigHands || second.wins - first.wins)[0]
+  const dealInLeader = [...summary.playerStats].sort((first, second) => second.dealIns - first.dealIns || first.player.seat - second.player.seat)[0]
+  const recentHands = summary.recentHands.slice(0, 6)
+
+  function handDetail(hand: Hand) {
+    const outcomes = handOutcomes(hand)
+    if (outcomes.length) {
+      return outcomes.map(outcome => `${handPlayerName(match, outcome.winner_player_id)} +${outcome.score}${outcome.note ? ` · ${outcome.note.split('、').join('')}` : ''}`).join('；')
+    }
+    const changes = hand.scores
+      .filter(score => score.change !== 0)
+      .sort((first, second) => second.change - first.change)
+      .map(score => `${handPlayerName(match, score.playerId)} ${score.change > 0 ? '+' : ''}${score.change}`)
+      .join(' · ')
+    return changes || typeName[hand.result_type]
+  }
+
+  return <View className='finished-match-details'>
+    <View className='finished-overview-grid'>
+      <View><Text>完成局数</Text><Text>{summary.totalHands}</Text></View>
+      <View><Text>胡牌次数</Text><Text>{summary.winCount}</Text></View>
+      <View><Text>自摸次数</Text><Text>{summary.tsumoHands}</Text></View>
+      <View><Text>大胡次数</Text><Text>{summary.bigHands}</Text></View>
+    </View>
+    <View className='finished-section-tabs'>
+      <Button className={activeTab === 'battle' ? 'active' : ''} onClick={() => setActiveTab('battle')}>战况</Button>
+      <Button className={activeTab === 'records' ? 'active' : ''} onClick={() => setActiveTab('records')}>记录</Button>
+    </View>
+    {activeTab === 'battle' ? <View className='finished-panel'>
+      <View className='finished-panel-heading'><View><Text>本将亮点</Text><Text>从最终结果与逐局记录自动汇总</Text></View><Text>{summary.eventCount} 项局内事件</Text></View>
+      <View className='finished-highlight-grid'>
+        <View><Text>本将第一</Text><Text>{champion?.player.name || '—'}</Text><Text>{champion ? `${champion.player.score > 0 ? '+' : ''}${champion.player.score} 分` : '暂无'}</Text></View>
+        <View><Text>单局最高</Text><Text>{summary.largestGain?.player.name || '—'}</Text><Text>{summary.largestGain ? `+${summary.largestGain.score} 分` : '暂无'}</Text></View>
+        <View><Text>大胡最多</Text><Text>{bigHandLeader?.bigHands ? bigHandLeader.player.name : '暂无'}</Text><Text>{bigHandLeader?.bigHands ? `${bigHandLeader.bigHands} 次` : '0 次'}</Text></View>
+        <View><Text>点炮最多</Text><Text>{dealInLeader?.dealIns ? dealInLeader.player.name : '无人点炮'}</Text><Text>{dealInLeader?.dealIns ? `${dealInLeader.dealIns} 次` : '0 次'}</Text></View>
+      </View>
+      <View className='finished-panel-heading compact'><View><Text>四人战况</Text><Text>点击顶部玩家卡片可查看个人明细</Text></View></View>
+      <View className='finished-player-list'>{summary.playerStats.map(item => <View className='finished-player-row' key={item.player.id}>
+        <View className='finished-player-identity'><Avatar player={item.player} isSelf={item.player.user_id === currentUserId} /><View><Text>{item.player.name}</Text><Text>{seatLabels[item.player.seat]}家 · {item.player.score > 0 ? '+' : ''}{item.player.score}</Text></View></View>
+        <View className='finished-player-metrics'><Text>胡 {item.wins}</Text><Text>大胡 {item.bigHands}</Text><Text>自摸 {item.tsumo}</Text><Text className={item.dealIns ? 'danger-metric' : ''}>点炮 {item.dealIns}</Text></View>
+      </View>)}</View>
+      <View className='finished-panel-heading compact'><View><Text>点炮关系</Text><Text>按次数和分值排序</Text></View><Text>共 {summary.ronHands} 炮</Text></View>
+      <View className='finished-relation-list'>{summary.relations.length ? summary.relations.slice(0, 5).map(relation => <View className='finished-relation-row' key={`${relation.loserId}-${relation.winnerId}`}>
+        <Text>{handPlayerName(match, relation.loserId)} → {handPlayerName(match, relation.winnerId)}</Text>
+        <Text>{relation.count} 炮 · {relation.score} 分</Text>
+      </View>) : <Text className='finished-empty'>本将没有点炮记录</Text>}</View>
+    </View> : <View className='finished-panel finished-record-panel'>
+      <View className='finished-panel-heading'><View><Text>最近记录</Text><Text>优先展示本将最后发生的记录</Text></View><Text>共 {match.hands.length} 条</Text></View>
+      <View className='finished-record-list'>{recentHands.map(hand => <View className={`finished-record-row ${hand.result_type}`} key={hand.id}>
+        <View className='finished-record-index'><Text>{hand.result_type === 'event' ? '事件' : `第 ${summary.completedNumber.get(hand.id) || '-'} 局`}</Text><Text>{windName[hand.wind]}风 {hand.hand_number}局</Text></View>
+        <View className='finished-record-copy'><Text>{handOutcomeText(match, hand)}</Text><Text>{handDetail(hand)}</Text></View>
+      </View>)}</View>
+      {match.hands.length > recentHands.length && <Button className='secondary finished-all-records' onClick={onOpenAllRecords}>查看全部 {match.hands.length} 条记录</Button>}
+    </View>}
   </View>
 }
 
@@ -1105,17 +1271,5 @@ function EventRolePicker({
         <Text className='pick-name'>{player.name}</Text>
       </View>
     })}</View>
-  </View>
-}
-
-export function StatsScreen({ match, stats, currentUserId, onViewMatch, onClose, returnLabel }: { match: Match; stats: Stats; currentUserId: string | null; onViewMatch: () => void; onClose: () => void; returnLabel: string }) {
-  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null)
-  const selectedPlayer = match.players.find(player => player.id === selectedPlayerId) || null
-  return <View className='page' style={{ paddingTop: `${getPageTopInset()}px` }}><View className='stats-head'><Text className='eyebrow'>最终战绩</Text><Text className='title'>本将结束</Text><Text>共完成 {stats.totalHands} 局</Text></View>
-    {stats.players.map(player => <View className='score-card stats-card' key={player.id} onClick={() => setSelectedPlayerId(player.id)}>
-      <Text className='rank'>#{player.rank}</Text><Avatar player={player} large isSelf={player.user_id === currentUserId} /><View className='grow'><Text className='card-title'>{player.name}</Text><Text>胜率 {(player.winRate * 100).toFixed(0)}% · 放炮 {(player.dealInRate * 100).toFixed(0)}%</Text><Text>自摸占比 {(player.tsumoShare * 100).toFixed(0)}%</Text></View><Text className={player.score >= 0 ? 'positive' : 'negative'}>{player.score > 0 ? '+' : ''}{player.score}</Text>
-    </View>)}
-    <View className='button-row stats-actions'><Button className='secondary half' onClick={onViewMatch}>查看战况与记录</Button><Button className='primary half' onClick={onClose}>{returnLabel}</Button></View><Text className='summary'>分享码：{match.share_code}</Text>
-    {selectedPlayer && <PlayerDetailModal player={selectedPlayer} match={match} onClose={() => setSelectedPlayerId(null)} />}
   </View>
 }

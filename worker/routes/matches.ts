@@ -221,15 +221,18 @@ export function registerMatchRoutes(app: Hono<Env>) {
     const startedAt = performance.now()
     const idOrCode = c.req.param('id')
     const includeStatistics = c.req.query('includeStatistics') === '1'
+    const readOnly = c.req.query('readonly') === '1'
     let matchDuration = 0
     let permissionDuration = 0
     const matchRequest = getMatchBundle(c.env.DB, idOrCode, includeStatistics).finally(() => {
       matchDuration = performance.now() - startedAt
     })
     const permissionStartedAt = performance.now()
-    const permissionRequest = canWrite(c, idOrCode).finally(() => {
-      permissionDuration = performance.now() - permissionStartedAt
-    })
+    const permissionRequest = readOnly
+      ? Promise.resolve(false)
+      : canWrite(c, idOrCode).finally(() => {
+        permissionDuration = performance.now() - permissionStartedAt
+      })
     const [result, editable] = await Promise.all([matchRequest, permissionRequest])
     if (!result) return jsonError(c, '牌局不存在', 404)
     c.header('Server-Timing', [

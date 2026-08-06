@@ -63,12 +63,15 @@ export const api = {
   startGroupSession: (groupId: string) => request<{ group: GroupSession; match: Match; adminToken: string }>(`/api/group-sessions/${encodeURIComponent(groupId)}/start`, 'POST'),
   deleteHistoryMatch: (matchId: string) => request(`/api/me/matches/${matchId}`, 'DELETE'),
   createMatch: (players: MatchPlayerInput[]) => request<{ match: Match; adminToken: string }>('/api/matches', 'POST', { players }),
-  getMatch: (idOrCode: string, includeStatistics = false, adminToken = '') => request<{ match: Match; stats?: Stats; canEdit: boolean }>(
-    `/api/matches/${encodeURIComponent(idOrCode)}${includeStatistics ? '?includeStatistics=1' : ''}`,
-    'GET',
-    undefined,
-    adminToken,
-  ),
+  getMatch: (idOrCode: string, includeStatistics = false, adminToken = '', readOnly = false) => {
+    const query = [includeStatistics ? 'includeStatistics=1' : '', readOnly ? 'readonly=1' : ''].filter(Boolean).join('&')
+    return request<{ match: Match; stats?: Stats; canEdit: boolean }>(
+      `/api/matches/${encodeURIComponent(idOrCode)}${query ? `?${query}` : ''}`,
+      'GET',
+      undefined,
+      adminToken,
+    )
+  },
   addHand: (matchId: string, input: HandInput, token: string) =>
     request<HandMutationResult>(`/api/matches/${matchId}/hands`, 'POST', input, token),
   updateHand: (matchId: string, handId: string, input: HandInput, token: string) =>
