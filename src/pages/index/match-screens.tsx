@@ -448,12 +448,14 @@ const inHandEventOptions: InHandEventOption[] = [
 
 const inHandEventOptionMap = new Map(inHandEventOptions.map(option => [option.type, option]))
 
-export function ScoreScreen({ players, currentUserId, initialHand, initialType, loading, onBack, onSubmit }: {
+export function ScoreScreen({ players, currentUserId, initialHand, initialType, loading, closeTileEditorRequest, onTileEditorOpenChange, onBack, onSubmit }: {
   players: Player[]
   currentUserId: string | null
   initialHand: Hand | null
   initialType: HandType
   loading: boolean
+  closeTileEditorRequest: number
+  onTileEditorOpenChange: (open: boolean) => void
   onBack: () => void
   onSubmit: (input: HandInput, summary: string) => Promise<boolean>
 }) {
@@ -524,6 +526,16 @@ export function ScoreScreen({ players, currentUserId, initialHand, initialType, 
   const [tileRecord, setTileRecord] = useState<HandTileRecord>(() => initialTsumoOutcome?.tile_record ? cloneTileRecord(initialTsumoOutcome.tile_record) : emptyTileRecord())
   const [tileEditorTarget, setTileEditorTarget] = useState<'tsumo' | string | null>(null)
   const [showAdvanced, setShowAdvanced] = useState(Boolean(initialHand && (initialHand.note || initialHand.tile_record || initialOutcomes.some(outcome => outcome.note || outcome.tile_record))))
+
+  useEffect(() => {
+    onTileEditorOpenChange(Boolean(tileEditorTarget))
+  }, [onTileEditorOpenChange, tileEditorTarget])
+
+  useEffect(() => () => onTileEditorOpenChange(false), [onTileEditorOpenChange])
+
+  useEffect(() => {
+    if (closeTileEditorRequest > 0) setTileEditorTarget(null)
+  }, [closeTileEditorRequest])
   const canRecordTsumoTiles = type === 'tsumo' && winner === loggedPlayerId && notes.some(note => bigHandOptions.has(note))
   const isEditing = Boolean(initialHand)
   const ronTotal = ronWinnerIds.reduce((sum, id) => sum + Math.max(1, Math.round(Number(ronDrafts[id]?.amount) || 0)), 0)

@@ -145,6 +145,8 @@ export default function Index() {
   const [scoreEntryType, setScoreEntryType] = useState<HandType>('ron')
   const [scoreDrawerOpen, setScoreDrawerOpen] = useState(false)
   const [scoreDrawerKey, setScoreDrawerKey] = useState(0)
+  const [scoreTileEditorOpen, setScoreTileEditorOpen] = useState(false)
+  const [scoreTileEditorCloseRequest, setScoreTileEditorCloseRequest] = useState(0)
   const [lastSaveNotice, setLastSaveNotice] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle')
@@ -272,6 +274,11 @@ export default function Index() {
   function navigateBack(updateBackTrap: boolean) {
     if (dialog) {
       closeDialog(false)
+      return
+    }
+    if (scoreTileEditorOpen) {
+      setScoreTileEditorOpen(false)
+      setScoreTileEditorCloseRequest(current => current + 1)
       return
     }
     if (scoreDrawerOpen) {
@@ -1116,6 +1123,7 @@ export default function Index() {
 
   function closeScoreDrawer() {
     if (loading) return
+    setScoreTileEditorOpen(false)
     setScoreDrawerOpen(false)
     setEditingHandId(null)
   }
@@ -1125,6 +1133,7 @@ export default function Index() {
     setLastSaveNotice(null)
     setEditingHandId(null)
     setScoreEntryType(type)
+    setScoreTileEditorOpen(false)
     setScoreDrawerKey(current => current + 1)
     setScoreDrawerOpen(true)
   }
@@ -1134,6 +1143,7 @@ export default function Index() {
     setLastSaveNotice(null)
     setEditingHandId(hand.id)
     setScoreEntryType(hand.result_type)
+    setScoreTileEditorOpen(false)
     setScoreDrawerKey(current => current + 1)
     setScoreDrawerOpen(true)
   }
@@ -1394,6 +1404,8 @@ export default function Index() {
           initialHand={editingHandId ? match.hands.find(hand => hand.id === editingHandId) || null : null}
           initialType={scoreEntryType}
           loading={loading}
+          closeTileEditorRequest={scoreTileEditorCloseRequest}
+          onTileEditorOpenChange={setScoreTileEditorOpen}
           onBack={closeScoreDrawer}
           onSubmit={submitHand}
         />
