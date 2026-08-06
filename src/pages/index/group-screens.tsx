@@ -126,18 +126,21 @@ function GroupCard({ group, onOpen, onJoin }: { group: GroupSessionSummary; onOp
   </View>
 }
 
-export function GroupSessionsScreen({ groups, loading, onCreate, onOpen, onJoin, onOpenCode, onRefresh }: {
+export function GroupSessionsScreen({ groups, loading, tab, code, showCodeEntry, onTabChange, onCodeChange, onShowCodeEntryChange, onCreate, onOpen, onJoin, onOpenCode, onRefresh }: {
   groups: GroupSessionSummary[]
   loading: boolean
+  tab: 'open' | 'mine'
+  code: string
+  showCodeEntry: boolean
+  onTabChange: (tab: 'open' | 'mine') => void
+  onCodeChange: (code: string) => void
+  onShowCodeEntryChange: (show: boolean) => void
   onCreate: () => void
   onOpen: (group: GroupSessionSummary) => void
   onJoin: (group: GroupSessionSummary) => void
   onOpenCode: (code: string) => void
   onRefresh: () => void
 }) {
-  const [tab, setTab] = useState<'open' | 'mine'>('open')
-  const [code, setCode] = useState('')
-  const [showCodeEntry, setShowCodeEntry] = useState(false)
   const openCutoff = Date.now() - 6 * 3_600_000
   const openGroups = groups
     .filter(group => (group.status === 'recruiting' || group.status === 'full') && Date.parse(group.start_at) >= openCutoff)
@@ -161,21 +164,21 @@ export function GroupSessionsScreen({ groups, loading, onCreate, onOpen, onJoin,
           <Text className='group-action-icon'>＋</Text>
           <View><Text className='group-action-title'>发布组局</Text><Text className='group-action-note'>约三位牌友</Text></View>
         </View>
-        <View className={showCodeEntry ? 'group-action-tile active' : 'group-action-tile'} onClick={() => setShowCodeEntry(current => !current)}>
+        <View className={showCodeEntry ? 'group-action-tile active' : 'group-action-tile'} onClick={() => onShowCodeEntryChange(!showCodeEntry)}>
           <Text className='group-action-icon code'>码</Text>
           <View><Text className='group-action-title'>组局码加入</Text><Text className='group-action-note'>输入好友邀请码</Text></View>
         </View>
       </View>
       {showCodeEntry && <View className='group-code-entry'>
-        <Input value={code} maxlength={12} focus placeholder='输入好友发来的组局码' onInput={event => setCode(event.detail.value.trim().toUpperCase())} />
+        <Input value={code} maxlength={12} focus placeholder='输入好友发来的组局码' onInput={event => onCodeChange(event.detail.value.trim().toUpperCase())} />
         <Button disabled={!code.trim() || loading} onClick={() => onOpenCode(code.trim())}>查找</Button>
       </View>}
     </View>
     <View className='group-tabs'>
-      <View className={tab === 'open' ? 'group-tab active' : 'group-tab'} onClick={() => setTab('open')}>
+      <View className={tab === 'open' ? 'group-tab active' : 'group-tab'} onClick={() => onTabChange('open')}>
         <Text>正在组局</Text><Text className='group-tab-count'>{openGroups.length}</Text>
       </View>
-      <View className={tab === 'mine' ? 'group-tab active' : 'group-tab'} onClick={() => setTab('mine')}>
+      <View className={tab === 'mine' ? 'group-tab active' : 'group-tab'} onClick={() => onTabChange('mine')}>
         <Text>我的组局</Text><Text className='group-tab-count'>{myGroups.length}</Text>
       </View>
     </View>

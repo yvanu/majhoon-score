@@ -136,6 +136,10 @@ export default function Index() {
   const [friends, setFriends] = useState<Friend[]>([])
   const [groupSessions, setGroupSessions] = useState<GroupSessionSummary[]>([])
   const [activeGroup, setActiveGroup] = useState<GroupSession | null>(null)
+  const [groupListTab, setGroupListTab] = useState<'open' | 'mine'>('open')
+  const [groupCodeEntryOpen, setGroupCodeEntryOpen] = useState(false)
+  const [groupCodeInput, setGroupCodeInput] = useState('')
+  const [friendQuery, setFriendQuery] = useState('')
   const [historyLoading, setHistoryLoading] = useState(false)
   const [friendsLoading, setFriendsLoading] = useState(false)
   const [groupsLoading, setGroupsLoading] = useState(false)
@@ -152,14 +156,17 @@ export default function Index() {
   const [scoreDrawerKey, setScoreDrawerKey] = useState(0)
   const [scoreTileEditorOpen, setScoreTileEditorOpen] = useState(false)
   const [scoreTileEditorCloseRequest, setScoreTileEditorCloseRequest] = useState(0)
+  const [createFriendPickerOpen, setCreateFriendPickerOpen] = useState(false)
+  const [createFriendPickerCloseRequest, setCreateFriendPickerCloseRequest] = useState(0)
   const [groupFriendPickerOpen, setGroupFriendPickerOpen] = useState(false)
+  const [joinCode, setJoinCode] = useState('')
   const [matchDetailOpen, setMatchDetailOpen] = useState(false)
   const [matchDetailCloseRequest, setMatchDetailCloseRequest] = useState(0)
   const [lastSaveNotice, setLastSaveNotice] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle')
   const [dialog, setDialog] = useState<DialogState | null>(null)
-  const [nicknameReturn, setNicknameReturn] = useState<'home' | 'profile'>('home')
+  const [nicknameReturn, setNicknameReturn] = useState<Screen>('home')
   const dialogResolver = useRef<((confirmed: boolean) => void) | null>(null)
   const activePersonalStatsKey = useRef('')
   const personalStatsCache = useRef(new Map<string, { value: PersonalStatistics; loadedAt: number }>())
@@ -180,8 +187,11 @@ export default function Index() {
   const pageScrollTop = useRef(0)
   const friendListScrollTop = useRef(0)
   const groupListScrollTop = useRef(0)
+  const historyListScrollTop = useRef(0)
+  const historyVisibleCount = useRef(20)
   const pendingPageScrollTop = useRef<number | null>(null)
   const pendingGroupCode = useRef('')
+  const authSuccessScreen = useRef<Screen>('home')
   const reviewReturnScreen = useRef<Screen>('home')
   const matchReturnScreen = useRef<Screen>('home')
   const backTrapRearmTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -190,7 +200,7 @@ export default function Index() {
     const code = options.groupCode?.trim().toUpperCase() || ''
     if (!code) return
     pendingGroupCode.current = code
-    if (!Taro.getStorageSync<string>(AUTH_KEY)) setScreen('auth')
+    if (!Taro.getStorageSync<string>(AUTH_KEY)) showAuth('home')
   })
 
   Taro.useShareAppMessage(() => {
@@ -283,6 +293,15 @@ export default function Index() {
     setBackTrapOpen(shouldTrapNativeBack(next) && pendingPageScrollTop.current === null)
   }
 
+  function showAuth(successScreen: Screen = screenRef.current) {
+    authSuccessScreen.current = successScreen
+    setScreen('auth')
+  }
+
+  function inheritedMatchReturnScreen() {
+    return matchReturnScreen.current === 'match' ? 'home' : matchReturnScreen.current
+  }
+
   function navigateBack(updateBackTrap: boolean) {
     if (dialog) {
       closeDialog(false)
@@ -295,6 +314,11 @@ export default function Index() {
     }
     if (groupFriendPickerOpen) {
       setGroupFriendPickerOpen(false)
+      return
+    }
+    if (createFriendPickerOpen) {
+      setCreateFriendPickerOpen(false)
+      setCreateFriendPickerCloseRequest(current => current + 1)
       return
     }
     if (scoreDrawerOpen) {
@@ -510,7 +534,9 @@ export default function Index() {
   function reviewReturnLabel() {
     if (reviewReturnScreen.current === 'history') return '返回牌局列表'
     if (reviewReturnScreen.current === 'group-detail') return '返回组局详情'
-    return '返回首页'
+    if (reviewReturnScreen.current === 'groups') return '返回组局列表'
+    if (reviewReturnScreen.current === 'home') return '返回首页'
+    return '返回上一页'
   }
 
   async function openFinishedMatch(idOrCode: string) {
@@ -675,7 +701,7 @@ export default function Index() {
 
   function showGroups() {
     if (!user) {
-      setScreen('auth')
+      showAuth('groups')
       return
     }
     if (screenRef.current !== 'groups') pendingPageScrollTop.current = 0
@@ -688,7 +714,7 @@ export default function Index() {
 
   function showGroupCreate() {
     if (!user) {
-      setScreen('auth')
+      showAuth('groups')
       return
     }
     groupListScrollTop.current = pageScrollTop.current
@@ -722,15 +748,11 @@ export default function Index() {
       const result = await api.getGroupSession(code)
       updateGroupState(result.group)
     })
-    if (!succeeded && screenRef.current === 'group-detail') {
-      pendingPageScrollTop.current = groupListScrollTop.current
-      replaceScreen('groups')
-    }
+    if (!succeeded && screenRef.current === 'group-detail') navigateBack(true)
   }
 
   function closeGroup() {
-    pendingPageScrollTop.current = groupListScrollTop.current
-    setScreen('groups')
+    navigateBack(true)
   }
 
   async function createGroupSession(input: GroupSessionInput) {
@@ -847,6 +869,7 @@ export default function Index() {
   }
 
   function showCreate() {
+    setCreateFriendPickerOpen(false)
     setScreen('create')
     if (!user) return
     void loadFriends().catch(error => {
@@ -854,9 +877,14 @@ export default function Index() {
     })
   }
 
+  function showJoin() {
+    setJoinCode('')
+    setScreen('join')
+  }
+
   function showHistory() {
     if (!user) {
-      setScreen('auth')
+      showAuth('history')
       return
     }
     setScreen('history')
@@ -868,7 +896,7 @@ export default function Index() {
 
   function showDailyStats() {
     if (!user) {
-      setScreen('auth')
+      showAuth('daily')
       return
     }
     setScreen('daily')
@@ -880,7 +908,7 @@ export default function Index() {
 
   function showFriends() {
     if (!user) {
-      setScreen('auth')
+      showAuth('friends')
       return
     }
     setFriendStats(null)
@@ -928,8 +956,7 @@ export default function Index() {
   }
 
   function closeFriend() {
-    pendingPageScrollTop.current = friendListScrollTop.current
-    setScreen('friends')
+    navigateBack(true)
   }
 
   function personalStatisticsKey(dimension: StatisticsDimension, value: string) {
@@ -987,7 +1014,7 @@ export default function Index() {
     value: string = statisticsValue('month'),
   ) {
     if (!user) {
-      setScreen('auth')
+      showAuth('personal')
       return
     }
     const key = personalStatisticsKey(dimension, value)
@@ -1055,11 +1082,12 @@ export default function Index() {
     Taro.setStorageSync(AUTH_KEY, data.token)
     setUser(data.user)
     const saved = Taro.getStorageSync<{ id: string; token: string }>(CURRENT_KEY)
+    const target = authSuccessScreen.current
     if (needsNickname(data.user)) {
-      setNicknameReturn('home')
-      setScreen('nickname')
+      setNicknameReturn(target)
+      replaceScreen('nickname')
     } else {
-      setScreen('home')
+      replaceScreen(target)
     }
     void Taro.showToast({ title: '登录成功', icon: 'success' })
     void syncAfterLogin(saved?.id && saved?.token ? saved : null)
@@ -1078,7 +1106,7 @@ export default function Index() {
       const result = await api.updateProfile(displayName)
       setUser(result.user)
       invalidateStatisticsCaches()
-      setScreen(nicknameReturn)
+      replaceScreen(nicknameReturn)
       await Taro.showToast({ title: '牌桌昵称已保存', icon: 'success' })
     })
   }
@@ -1097,6 +1125,17 @@ export default function Index() {
     setFriends([])
     setGroupSessions([])
     setActiveGroup(null)
+    setGroupListTab('open')
+    setGroupCodeEntryOpen(false)
+    setGroupCodeInput('')
+    setFriendQuery('')
+    setJoinCode('')
+    setCreateFriendPickerOpen(false)
+    setGroupFriendPickerOpen(false)
+    historyListScrollTop.current = 0
+    historyVisibleCount.current = 20
+    friendListScrollTop.current = 0
+    groupListScrollTop.current = 0
     historyLoadedAt.current = 0
     friendsLoadedAt.current = 0
     groupsLoadedAt.current = 0
@@ -1156,7 +1195,7 @@ export default function Index() {
       setEditingHandId(null)
       if (data.status === 'finished') {
         setScoreDrawerOpen(false)
-        reviewReturnScreen.current = 'home'
+        reviewReturnScreen.current = inheritedMatchReturnScreen()
         cacheFinishedMatch(nextMatch)
         setReviewMatch(nextMatch)
         setMatch(null)
@@ -1259,7 +1298,7 @@ export default function Index() {
     })
     if (!confirmed) return
     const previousMatch = match
-    reviewReturnScreen.current = 'home'
+    reviewReturnScreen.current = inheritedMatchReturnScreen()
     const optimisticFinishedMatch: Match = { ...match, status: 'finished', finished_at: new Date().toISOString() }
     cacheFinishedMatch(optimisticFinishedMatch)
     setReviewMatch(optimisticFinishedMatch)
@@ -1311,41 +1350,53 @@ export default function Index() {
       syncStatus={syncStatus}
       onContinue={() => { matchReturnScreen.current = 'home'; setScreen('match') }}
       onStart={showCreate}
-      onJoin={() => setScreen('join')}
+      onJoin={showJoin}
       onOpen={(code, statusHint) => openMatch(code, statusHint)}
       onHistory={showHistory}
       onDaily={showDailyStats}
-      onLogin={() => setScreen('auth')}
+      onLogin={() => showAuth('home')}
     />}
     {screen === 'create' && <Create
       user={user}
       friends={friends}
       friendsLoading={friendsLoading}
-      onBack={() => setScreen('home')}
+      closePickerRequest={createFriendPickerCloseRequest}
+      onPickerOpenChange={setCreateFriendPickerOpen}
+      onBack={goBack}
       onCreate={createMatch}
       loading={loading}
     />}
-    {screen === 'join' && <Join onBack={() => setScreen('home')} onOpen={code => openMatch(code)} loading={loading} />}
-    {screen === 'auth' && <Auth onBack={() => setScreen('home')} onWechatLogin={wechatLogin} loading={loading} />}
+    {screen === 'join' && <Join code={joinCode} onCodeChange={setJoinCode} onBack={goBack} onOpen={code => openMatch(code)} loading={loading} />}
+    {screen === 'auth' && <Auth onBack={goBack} onWechatLogin={wechatLogin} loading={loading} />}
     {screen === 'nickname' && user && <NicknameScreen
       user={user}
       required={needsNickname(user)}
       loading={loading}
-      onBack={() => setScreen(nicknameReturn)}
+      onBack={goBack}
       onSave={saveDisplayName}
     />}
     {screen === 'history' && user && <HistoryScreen
       matches={history}
       loading={historyLoading || loading}
+      initialVisibleCount={historyVisibleCount.current}
+      scrollTop={historyListScrollTop.current}
+      onVisibleCountChange={count => { historyVisibleCount.current = count }}
+      onScroll={scrollTop => { historyListScrollTop.current = scrollTop }}
       onOpen={current => openMatch(current.id, current.status)}
       onDelete={deleteHistoryMatch}
     />}
     {screen === 'daily' && (dailyStats
-      ? <DailyStatsScreen stats={dailyStats} onBack={() => setScreen('home')} />
+      ? <DailyStatsScreen stats={dailyStats} onBack={goBack} />
       : <LoadingScreen title='今日战绩' message={dailyStatsLoading ? '正在加载今日战绩…' : '暂无今日战绩数据'} onBack={goBack} />)}
     {screen === 'groups' && user && <GroupSessionsScreen
       groups={groupSessions}
       loading={groupsLoading}
+      tab={groupListTab}
+      code={groupCodeInput}
+      showCodeEntry={groupCodeEntryOpen}
+      onTabChange={setGroupListTab}
+      onCodeChange={setGroupCodeInput}
+      onShowCodeEntryChange={setGroupCodeEntryOpen}
       onCreate={showGroupCreate}
       onOpen={openGroup}
       onJoin={group => { void quickJoinGroupSession(group) }}
@@ -1379,6 +1430,8 @@ export default function Index() {
     {screen === 'friends' && user && <FriendsScreen
       friends={friends}
       loading={friendsLoading}
+      query={friendQuery}
+      onQueryChange={setFriendQuery}
       onOpen={openFriend}
     />}
     {screen === 'friend' && (friendStats
@@ -1391,7 +1444,7 @@ export default function Index() {
     {screen === 'personal' && (personalStats ? <PersonalStatisticsScreen
       statistics={personalStats}
       loading={personalStatsLoadingKey === activePersonalStatsKey.current}
-      onBack={() => setScreen('profile')}
+      onBack={goBack}
       onChange={showPersonalStatistics}
     /> : <LoadingScreen title='我的战绩' message='正在汇总牌局与大胡记录…' onBack={goBack} />)}
     {screen === 'profile' && <ProfileScreen
@@ -1401,7 +1454,7 @@ export default function Index() {
       syncStatus={syncStatus}
       onHistory={showHistory}
       onPersonalStatistics={() => showPersonalStatistics()}
-      onLogin={() => setScreen('auth')}
+      onLogin={() => showAuth('profile')}
       onLogout={logout}
       onEditNickname={() => { setNicknameReturn('profile'); setScreen('nickname') }}
       showDialog={showDialog}

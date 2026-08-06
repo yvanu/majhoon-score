@@ -144,10 +144,12 @@ export function DailyStatsScreen({ stats, onBack }: { stats: DailyStats; onBack:
   </View>
 }
 
-export function Create({ user, friends, friendsLoading, onBack, onCreate, loading }: {
+export function Create({ user, friends, friendsLoading, closePickerRequest, onPickerOpenChange, onBack, onCreate, loading }: {
   user: AuthUser | null
   friends: Friend[]
   friendsLoading: boolean
+  closePickerRequest: number
+  onPickerOpenChange: (open: boolean) => void
   onBack: () => void
   onCreate: (players: MatchPlayerInput[]) => void
   loading: boolean
@@ -155,6 +157,16 @@ export function Create({ user, friends, friendsLoading, onBack, onCreate, loadin
   const [players, setPlayers] = useState<MatchPlayerInput[]>(Array.from({ length: 4 }, () => ({ name: '' })))
   const [pickerSeat, setPickerSeat] = useState<number | null>(null)
   const names = players.map(player => player.name.trim())
+
+  useEffect(() => {
+    onPickerOpenChange(pickerSeat !== null)
+  }, [pickerSeat, onPickerOpenChange])
+
+  useEffect(() => () => onPickerOpenChange(false), [onPickerOpenChange])
+
+  useEffect(() => {
+    if (closePickerRequest > 0) setPickerSeat(null)
+  }, [closePickerRequest])
   const valid = names.every(Boolean) && new Set(names.map(name => name.toLocaleLowerCase())).size === 4
 
   function updateName(index: number, name: string) {
@@ -212,15 +224,14 @@ export function Create({ user, friends, friendsLoading, onBack, onCreate, loadin
   </View>
 }
 
-export function Join({ onBack, onOpen, loading }: { onBack: () => void; onOpen: (code: string) => void; loading: boolean }) {
-  const [code, setCode] = useState('')
+export function Join({ code, onCodeChange, onBack, onOpen, loading }: { code: string; onCodeChange: (code: string) => void; onBack: () => void; onOpen: (code: string) => void; loading: boolean }) {
 
   async function scan() {
     try {
       const result = await Taro.scanCode({ onlyFromCamera: false })
       const value = normalizeJoinCode(result.result)
       if (!value) throw new Error('未识别到有效分享码')
-      setCode(value)
+      onCodeChange(value)
     } catch (error) {
       const detail = error as { errMsg?: string; message?: string }
       if (/cancel/i.test(detail.errMsg || '')) return
@@ -235,12 +246,12 @@ export function Join({ onBack, onOpen, loading }: { onBack: () => void; onOpen: 
       await Taro.showToast({ title: '剪贴板中没有分享码', icon: 'none' })
       return
     }
-    setCode(value)
+    onCodeChange(value)
   }
 
   return <View className='page' style={{ paddingTop: `${getPageTopInset()}px` }}><Header title='加入牌局' onBack={onBack} />
     <View className='join-hero'><Text className='join-symbol'>#</Text><Text className='card-title'>输入或扫描分享码</Text><Text>加入后可实时查看当前比分</Text></View>
-    <View className='field join-field'><Text>分享码或牌局 ID</Text><Input value={code} maxlength={64} placeholder='例如 AB12CD' onInput={event => setCode(normalizeJoinCode(event.detail.value))} /></View>
+    <View className='field join-field'><Text>分享码或牌局 ID</Text><Input value={code} maxlength={64} placeholder='例如 AB12CD' onInput={event => onCodeChange(normalizeJoinCode(event.detail.value))} /></View>
     <View className='join-tools'><Button className='secondary half' onClick={scan}>扫码识别</Button><Button className='secondary half' onClick={paste}>从剪贴板粘贴</Button></View>
     <Button className='primary' disabled={!code.trim() || loading} onClick={() => onOpen(code.trim())}>{loading ? '正在加入…' : '加入牌局'}</Button>
   </View>
@@ -319,22 +330,41 @@ function matchDayLabel(value: string) {
     : `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`
 }
 
-export function HistoryScreen({ matches, loading, onOpen, onDelete }: {
+export function HistoryScreen({ matches, loading, initialVisibleCount, scrollTop, onVisibleCountChange, onScroll, onOpen, onDelete }: {
   matches: MatchSummary[]
   loading: boolean
+  initialVisibleCount: number
+  scrollTop: number
+  onVisibleCountChange: (count: number) => void
+  onScroll: (scrollTop: number) => void
   onOpen: (match: MatchSummary) => void
   onDelete: (id: string) => void
 }) {
-  const [visibleCount, setVisibleCount] = useState(TAB_LIST_PAGE_SIZE)
+  const [visibleCount, setVisibleCount] = useState(Math.max(TAB_LIST_PAGE_SIZE, initialVisibleCount))
   useEffect(() => {
-    setVisibleCount(current => Math.min(current, Math.max(TAB_LIST_PAGE_SIZE, matches.length)))
-  }, [matches.length])
+    setVisibleCount(current => {
+      const next = Math.min(current, Math.max(TAB_LIST_PAGE_SIZE, matches.length))
+      if (next !== current) onVisibleCountChange(next)
+      return next
+    })
+  }, [matches.length, onVisibleCountChange])
   const visibleMatches = matches.slice(0, visibleCount)
 
   return <View className='page tab-page history-page' style={{ paddingTop: `${getPageTopInset()}px` }}><View className='page-title-row compact-title-row'><View><Text className='eyebrow'>牌局记录</Text><Text className='title-small'>我的牌局</Text></View><Text className='count-badge'>{matches.length}</Text></View>
     {loading && !matches.length && <View className='empty'><Text className='empty-icon'>🀫</Text><Text className='card-title'>正在加载牌局</Text></View>}
     {!loading && !matches.length && <View className='empty'><Text className='empty-icon'>🀫</Text><Text className='card-title'>暂无历史牌局</Text><Text>登录后创建的牌局会显示在这里</Text></View>}
-    <ScrollView scrollY lowerThreshold={120} className='history-list' onScrollToLower={() => setVisibleCount(current => Math.min(matches.length, current + TAB_LIST_PAGE_SIZE))}>{visibleMatches.map((current, index) => {
+    <ScrollView
+      scrollY
+      scrollTop={scrollTop}
+      lowerThreshold={120}
+      className='history-list'
+      onScroll={event => onScroll(event.detail.scrollTop)}
+      onScrollToLower={() => setVisibleCount(current => {
+        const next = Math.min(matches.length, current + TAB_LIST_PAGE_SIZE)
+        onVisibleCountChange(next)
+        return next
+      })}
+    >{visibleMatches.map((current, index) => {
       const dayKey = matchDayKey(current.created_at)
       const previousDayKey = index > 0 ? matchDayKey(visibleMatches[index - 1].created_at) : ''
       return <View className='history-entry' key={current.id}>
@@ -355,12 +385,13 @@ export function HistoryScreen({ matches, loading, onOpen, onDelete }: {
   </View>
 }
 
-export function FriendsScreen({ friends, loading, onOpen }: {
+export function FriendsScreen({ friends, loading, query, onQueryChange, onOpen }: {
   friends: Friend[]
   loading: boolean
+  query: string
+  onQueryChange: (query: string) => void
   onOpen: (friend: Friend) => void
 }) {
-  const [query, setQuery] = useState('')
   const normalizedQuery = query.trim().toLocaleLowerCase()
   const visibleFriends = [...friends]
     .sort((left, right) => (right.lastPlayedAt ? Date.parse(right.lastPlayedAt) : 0) - (left.lastPlayedAt ? Date.parse(left.lastPlayedAt) : 0) || right.jointMatches - left.jointMatches)
@@ -373,8 +404,8 @@ export function FriendsScreen({ friends, loading, onOpen }: {
     </View>
     {!!friends.length && <View className='friend-search'>
       <Text>⌕</Text>
-      <Input value={query} maxlength={12} placeholder='搜索牌友昵称' onInput={event => setQuery(event.detail.value)} />
-      {query && <Text className='friend-search-clear' onClick={() => setQuery('')}>×</Text>}
+      <Input value={query} maxlength={12} placeholder='搜索牌友昵称' onInput={event => onQueryChange(event.detail.value)} />
+      {query && <Text className='friend-search-clear' onClick={() => onQueryChange('')}>×</Text>}
     </View>}
     {loading && !friends.length && <View className='empty'><Text className='empty-icon'>友</Text><Text className='card-title'>正在加载牌友</Text></View>}
     {!loading && !friends.length && <View className='empty'>
