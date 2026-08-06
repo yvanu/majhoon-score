@@ -389,32 +389,21 @@ function TileRecordModal({ record, onCancel, onConfirm }: {
   onConfirm: (record: HandTileRecord) => void
 }) {
   const [draft, setDraft] = useState<HandTileRecord>(() => cloneTileRecord(record))
-  let windowHeight = 720
-  let safeBottom = 0
-  try {
-    const windowInfo = Taro.getWindowInfo()
-    windowHeight = windowInfo.windowHeight || windowHeight
-    safeBottom = Math.max(0, windowHeight - (windowInfo.safeArea?.bottom || windowHeight))
-  } catch (error) {
-    console.warn('Unable to read window safe area:', error)
-  }
-  const actionBottomPadding = Math.max(12, safeBottom + 12)
-  const desiredTop = getPageTopInset()
-  const modalTop = Math.min(desiredTop, Math.max(56, windowHeight - 360))
-  const modalHeight = Math.max(360, windowHeight - modalTop)
 
   return <View className='modal-backdrop tile-record-modal-backdrop' onClick={onCancel}>
-    <View className='tile-record-modal' style={{ height: `${modalHeight}px` }} onClick={event => event.stopPropagation()}>
-      <View className='tile-record-modal-header'>
-        <View><Text className='eyebrow'>大胡牌谱</Text><Text className='title-small'>录入大胡牌谱</Text></View>
-        <Button className='close-button' onClick={onCancel}>×</Button>
+    <View className='tile-record-modal' onClick={event => event.stopPropagation()}>
+      <View className='score-modal-header tile-record-modal-header'>
+        <View className='score-modal-title-wrap'>
+          <Text className='score-modal-kicker'>快捷录入</Text>
+          <Text className='score-modal-title'>录入大胡牌谱</Text>
+        </View>
+        <Button className='score-modal-close' onClick={onCancel}>×</Button>
       </View>
       <Text className='tile-record-modal-tip'>先选择碰、明杠、暗杠、手牌或胡的牌，再点击下方麻将牌；已录入的牌可点击删除。</Text>
-      <ScrollView scrollY className='tile-record-modal-scroll'>
+      <ScrollView scrollY className='tile-record-modal-scroll' showScrollbar={false}>
         <TileRecordEditor record={draft} onChange={setDraft} />
-        <View className='tile-record-modal-scroll-spacer' style={{ paddingBottom: `${actionBottomPadding}px` }} />
       </ScrollView>
-      <View className='tile-record-modal-actions' style={{ paddingBottom: `${actionBottomPadding}px` }}>
+      <View className='tile-record-modal-actions'>
         <Button className='secondary' onClick={onCancel}>取消</Button>
         <Button className='tile-record-clear' disabled={!hasTileRecordContent(draft)} onClick={() => setDraft(emptyTileRecord())}>清空</Button>
         <Button className='primary' onClick={() => onConfirm(cloneTileRecord(draft))}>完成</Button>

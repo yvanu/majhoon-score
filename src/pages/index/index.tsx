@@ -174,6 +174,7 @@ export default function Index() {
   const pendingPageScrollTop = useRef<number | null>(null)
   const pendingGroupCode = useRef('')
   const reviewReturnScreen = useRef<Screen>('home')
+  const matchReturnScreen = useRef<Screen>('home')
   const backTrapRearmTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   Taro.useLoad<{ groupCode?: string }>(options => {
@@ -287,6 +288,15 @@ export default function Index() {
       return
     }
     if (screenRef.current === 'nickname' && needsNickname(user)) return
+    if (screenRef.current === 'review') {
+      setScreen('stats')
+      return
+    }
+    if (screenRef.current === 'match') {
+      const target = matchReturnScreen.current === 'match' ? 'home' : matchReturnScreen.current
+      setScreen(target)
+      return
+    }
     if (screenRef.current === 'stats') {
       closeMatchReview()
       return
@@ -491,6 +501,7 @@ export default function Index() {
         setMatch(data.match)
         setMatchCanEdit(data.canEdit)
         setAdminToken(saved?.id === data.match.id ? saved.token || '' : '')
+        matchReturnScreen.current = previousScreen
         replaceScreen('match')
         return
       }
@@ -526,6 +537,7 @@ export default function Index() {
       setMatch(null)
       setMatchCanEdit(false)
     }
+    matchReturnScreen.current = previousScreen
     setScreen('match')
     setMatchRefreshing(true)
 
@@ -796,6 +808,7 @@ export default function Index() {
       Taro.setStorageSync(CURRENT_KEY, { id: result.match.id, token: result.adminToken })
       invalidateStatisticsCaches()
       groupsLoadedAt.current = 0
+      matchReturnScreen.current = 'group-detail'
       setScreen('match')
       await Taro.showToast({ title: '牌局已创建', icon: 'success' })
       void refreshDashboard().catch(error => {
@@ -976,6 +989,7 @@ export default function Index() {
       setAdminToken(data.adminToken)
       setMatchCanEdit(true)
       Taro.setStorageSync(CURRENT_KEY, { id: data.match.id, token: data.adminToken })
+      matchReturnScreen.current = 'home'
       setScreen('match')
       friendsLoadedAt.current = 0
       invalidateStatisticsCaches()
@@ -1265,7 +1279,7 @@ export default function Index() {
       recentMatch={history[0] || null}
       dailyStats={dailyStats}
       syncStatus={syncStatus}
-      onContinue={() => setScreen('match')}
+      onContinue={() => { matchReturnScreen.current = 'home'; setScreen('match') }}
       onStart={showCreate}
       onJoin={() => setScreen('join')}
       onOpen={(code, statusHint) => openMatch(code, statusHint)}
