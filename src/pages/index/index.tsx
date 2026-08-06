@@ -739,8 +739,9 @@ export default function Index() {
       groupsLoadedAt.current = 0
       updateGroupState(result.group)
       pendingPageScrollTop.current = 0
-      setScreen('group-detail')
-      await Taro.showToast({ title: '组局已发起', icon: 'success' })
+      setGroupFriendPickerOpen(false)
+      setScreen('groups')
+      await Taro.showToast({ title: '组局已发布', icon: 'success' })
     })
   }
 
