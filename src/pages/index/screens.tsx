@@ -636,60 +636,71 @@ export function ProfileScreen({ user, matches, dailyStats, syncStatus, onHistory
   }
 
   return <View className='page tab-page profile-page' style={{ paddingTop: `${getPageTopInset()}px` }}>
-    <View className='profile-main'>
-      <View className='profile-head'>
-        <View className='profile-avatar'>雀</View>
-        <View className='grow profile-account-copy'>
-          <Text className='title-small'>{displayUserName(user)}</Text>
-          <Text>{user ? '个人牌局与战绩已绑定当前账号' : '登录后同步牌局、牌友和个人战绩'}</Text>
-        </View>
-        <Button className='profile-edit-action' onClick={user ? onEditNickname : onLogin}>{user ? '编辑' : '登录'}</Button>
-      </View>
-
-      <View className='profile-overview-grid'>
-        <View className='profile-overview-card'>
-          <Text className='profile-overview-label'>全部牌局</Text>
-          <Text className='profile-overview-value'>{matches.length}</Text>
-          <Text className='profile-overview-note'>累计记录</Text>
-        </View>
-        <View className='profile-overview-card'>
-          <Text className='profile-overview-label'>今日牌局</Text>
-          <Text className='profile-overview-value'>{dailyStats?.matchCount || 0}</Text>
-          <Text className='profile-overview-note'>今天完成</Text>
-        </View>
-        <View className='profile-overview-card'>
-          <Text className='profile-overview-label'>今日局数</Text>
-          <Text className='profile-overview-value'>{dailyStats?.handCount || 0}</Text>
-          <Text className='profile-overview-note'>计分局数</Text>
-        </View>
-        <View className={`profile-overview-card sync ${syncStatus}`}>
-          <Text className='profile-overview-label'>数据同步</Text>
-          <View className='profile-sync-value'><Text className='profile-sync-dot'>●</Text><Text>{syncValue}</Text></View>
-          <Text className='profile-overview-note'>{syncText}</Text>
+    <View className='profile-identity'>
+      <View className='profile-avatar'>雀</View>
+      <View className='grow profile-identity-copy'>
+        <Text className='profile-name'>{displayUserName(user)}</Text>
+        <View className={`profile-status-pill ${syncStatus}`}>
+          <Text className='profile-status-dot'>●</Text>
+          <Text>{syncText}</Text>
         </View>
       </View>
+      <Button className='profile-settings-trigger' onClick={user ? onEditNickname : onLogin}>
+        <View className='profile-edit-glyph'><View /></View>
+      </Button>
+    </View>
 
-      <View className='profile-primary-actions'>
-        <View className='profile-primary-action stats' onClick={user ? onPersonalStatistics : onLogin}>
-          <View className='profile-primary-icon'>战</View>
-          <Text className='profile-primary-title'>我的战绩</Text>
-          <Text className='profile-primary-note'>胡牌、大胡与周期统计</Text>
-          <Text className='profile-primary-arrow'>›</Text>
+    <View className='profile-feature-row'>
+      <View className='profile-feature-card stats' onClick={user ? onPersonalStatistics : onLogin}>
+        <View className='profile-feature-copy'>
+          <Text className='profile-feature-eyebrow'>核心数据</Text>
+          <Text className='profile-feature-title'>我的战绩</Text>
+          <Text className='profile-feature-note'>按日、月、年查看胡牌与大胡统计</Text>
         </View>
-        <View className='profile-primary-action records' onClick={user ? onHistory : onLogin}>
-          <View className='profile-primary-icon'>局</View>
-          <Text className='profile-primary-title'>牌局记录</Text>
-          <Text className='profile-primary-note'>查看全部历史牌局</Text>
-          <Text className='profile-primary-arrow'>›</Text>
-        </View>
+        <View className='profile-feature-action'><Text>查看</Text><Text>›</Text></View>
+        <View className='profile-feature-decoration'><View /><View /><View /></View>
       </View>
+      <View className='profile-feature-card records' onClick={user ? onHistory : onLogin}>
+        <Text className='profile-feature-eyebrow'>牌局记录</Text>
+        <Text className='profile-record-count'>{matches.length}</Text>
+        <Text className='profile-record-unit'>累计牌局</Text>
+        <View className='profile-record-arrow'>›</View>
+      </View>
+    </View>
 
-      <Text className='profile-section-title'>账号与设置</Text>
-      <View className='settings-card'>
-        {user && <View className='setting-row' onClick={onEditNickname}><View><Text className='setting-title'>牌桌昵称</Text><Text className='setting-subnote'>{displayUserName(user)}</Text></View><Text className='card-arrow'>›</Text></View>}
-        <View className='setting-row'><View><Text className='setting-title'>数据同步</Text><Text className={`setting-note ${syncStatus}`}>{syncText}</Text></View><Text className={`setting-sync-mark ${syncStatus}`}>●</Text></View>
-        <View className='setting-row' onClick={showPrivacy}><Text className='setting-title'>隐私说明</Text><Text className='card-arrow'>›</Text></View>
-        <View className='setting-row' onClick={showAgreement}><Text className='setting-title'>用户协议</Text><Text className='card-arrow'>›</Text></View>
+    <View className='profile-data-card'>
+      <View className='profile-data-head'>
+        <View><Text className='profile-data-title'>我的数据</Text><Text className='profile-data-subtitle'>累计与今日计分概览</Text></View>
+        <View className={`profile-data-sync ${syncStatus}`}><Text>●</Text><Text>{syncValue}</Text></View>
+      </View>
+      <View className='profile-data-grid'>
+        <View><Text>{matches.length}</Text><Text>全部牌局</Text></View>
+        <View><Text>{dailyStats?.matchCount || 0}</Text><Text>今日牌局</Text></View>
+        <View><Text>{dailyStats?.handCount || 0}</Text><Text>今日局数</Text></View>
+      </View>
+    </View>
+
+    <Text className='profile-section-title'>账号与服务</Text>
+    <View className='settings-card profile-service-list'>
+      {user && <View className='setting-row profile-service-row' onClick={onEditNickname}>
+        <View className='profile-service-icon nickname'><View /><View /></View>
+        <View className='grow'><Text className='setting-title'>牌桌昵称</Text><Text className='setting-subnote'>{displayUserName(user)}</Text></View>
+        <Text className='card-arrow'>›</Text>
+      </View>}
+      <View className='setting-row profile-service-row'>
+        <View className='profile-service-icon sync'><View /><View /></View>
+        <View className='grow'><Text className='setting-title'>数据同步</Text><Text className={`setting-note ${syncStatus}`}>{syncText}</Text></View>
+        <Text className={`setting-sync-mark ${syncStatus}`}>●</Text>
+      </View>
+      <View className='setting-row profile-service-row' onClick={showPrivacy}>
+        <View className='profile-service-icon privacy'><View /></View>
+        <Text className='setting-title grow'>隐私说明</Text>
+        <Text className='card-arrow'>›</Text>
+      </View>
+      <View className='setting-row profile-service-row' onClick={showAgreement}>
+        <View className='profile-service-icon agreement'><View /><View /><View /></View>
+        <Text className='setting-title grow'>用户协议</Text>
+        <Text className='card-arrow'>›</Text>
       </View>
     </View>
 
