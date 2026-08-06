@@ -602,7 +602,8 @@ export function ProfileScreen({ user, matches, dailyStats, syncStatus, onHistory
   onEditNickname: () => void
   showDialog: ShowDialog
 }) {
-  const syncText = syncStatus === 'syncing' ? '正在同步' : syncStatus === 'offline' ? '同步失败，请检查网络' : '数据已同步'
+  const syncText = !user ? '登录后同步' : syncStatus === 'syncing' ? '正在同步' : syncStatus === 'offline' ? '同步失败，请检查网络' : '数据已同步'
+  const syncValue = !user ? '未登录' : syncStatus === 'syncing' ? '同步中' : syncStatus === 'offline' ? '异常' : '正常'
 
   async function showPrivacy() {
     await showDialog({
@@ -635,25 +636,67 @@ export function ProfileScreen({ user, matches, dailyStats, syncStatus, onHistory
   }
 
   return <View className='page tab-page profile-page' style={{ paddingTop: `${getPageTopInset()}px` }}>
-    <View className='profile-head'><View className='profile-avatar'>雀</View><View className='grow'><Text className='title-small'>{displayUserName(user)}</Text><Text>{user ? '牌局数据已绑定当前账号' : '登录后同步历史牌局'}</Text></View><Button className='profile-action' onClick={user ? onHistory : onLogin}>{user ? '记录' : '登录'}</Button></View>
-    <View className='profile-stats'>
-      <View><Text className='profile-number'>{matches.length}</Text><Text>全部牌局</Text></View>
-      <View><Text className='profile-number'>{dailyStats?.matchCount || 0}</Text><Text>今日牌局</Text></View>
-      <View><Text className='profile-number'>{dailyStats?.handCount || 0}</Text><Text>今日局数</Text></View>
+    <View className='profile-main'>
+      <View className='profile-head'>
+        <View className='profile-avatar'>雀</View>
+        <View className='grow profile-account-copy'>
+          <Text className='title-small'>{displayUserName(user)}</Text>
+          <Text>{user ? '个人牌局与战绩已绑定当前账号' : '登录后同步牌局、牌友和个人战绩'}</Text>
+        </View>
+        <Button className='profile-edit-action' onClick={user ? onEditNickname : onLogin}>{user ? '编辑' : '登录'}</Button>
+      </View>
+
+      <View className='profile-overview-grid'>
+        <View className='profile-overview-card'>
+          <Text className='profile-overview-label'>全部牌局</Text>
+          <Text className='profile-overview-value'>{matches.length}</Text>
+          <Text className='profile-overview-note'>累计记录</Text>
+        </View>
+        <View className='profile-overview-card'>
+          <Text className='profile-overview-label'>今日牌局</Text>
+          <Text className='profile-overview-value'>{dailyStats?.matchCount || 0}</Text>
+          <Text className='profile-overview-note'>今天完成</Text>
+        </View>
+        <View className='profile-overview-card'>
+          <Text className='profile-overview-label'>今日局数</Text>
+          <Text className='profile-overview-value'>{dailyStats?.handCount || 0}</Text>
+          <Text className='profile-overview-note'>计分局数</Text>
+        </View>
+        <View className={`profile-overview-card sync ${syncStatus}`}>
+          <Text className='profile-overview-label'>数据同步</Text>
+          <View className='profile-sync-value'><Text className='profile-sync-dot'>●</Text><Text>{syncValue}</Text></View>
+          <Text className='profile-overview-note'>{syncText}</Text>
+        </View>
+      </View>
+
+      <View className='profile-primary-actions'>
+        <View className='profile-primary-action stats' onClick={user ? onPersonalStatistics : onLogin}>
+          <View className='profile-primary-icon'>战</View>
+          <Text className='profile-primary-title'>我的战绩</Text>
+          <Text className='profile-primary-note'>胡牌、大胡与周期统计</Text>
+          <Text className='profile-primary-arrow'>›</Text>
+        </View>
+        <View className='profile-primary-action records' onClick={user ? onHistory : onLogin}>
+          <View className='profile-primary-icon'>局</View>
+          <Text className='profile-primary-title'>牌局记录</Text>
+          <Text className='profile-primary-note'>查看全部历史牌局</Text>
+          <Text className='profile-primary-arrow'>›</Text>
+        </View>
+      </View>
+
+      <Text className='profile-section-title'>账号与设置</Text>
+      <View className='settings-card'>
+        {user && <View className='setting-row' onClick={onEditNickname}><View><Text className='setting-title'>牌桌昵称</Text><Text className='setting-subnote'>{displayUserName(user)}</Text></View><Text className='card-arrow'>›</Text></View>}
+        <View className='setting-row'><View><Text className='setting-title'>数据同步</Text><Text className={`setting-note ${syncStatus}`}>{syncText}</Text></View><Text className={`setting-sync-mark ${syncStatus}`}>●</Text></View>
+        <View className='setting-row' onClick={showPrivacy}><Text className='setting-title'>隐私说明</Text><Text className='card-arrow'>›</Text></View>
+        <View className='setting-row' onClick={showAgreement}><Text className='setting-title'>用户协议</Text><Text className='card-arrow'>›</Text></View>
+      </View>
     </View>
-    {user && <View className='personal-statistics-entry' onClick={onPersonalStatistics}>
-      <View className='personal-statistics-entry-icon'>战</View>
-      <View className='grow'><Text className='card-title'>我的战绩</Text><Text>按日、月、年查看胡牌与大胡统计</Text></View>
-      <Text className='card-arrow'>›</Text>
-    </View>}
-    <View className='settings-card'>
-      {user && <View className='setting-row' onClick={onEditNickname}><View><Text className='setting-title'>牌桌昵称</Text><Text className='setting-subnote'>{displayUserName(user)}</Text></View><Text className='card-arrow'>›</Text></View>}
-      <View className='setting-row'><View><Text className='setting-title'>数据同步</Text><Text className={`setting-note ${syncStatus}`}>{syncText}</Text></View><Text className={`setting-sync-mark ${syncStatus}`}>●</Text></View>
-      <View className='setting-row' onClick={showPrivacy}><Text className='setting-title'>隐私说明</Text><Text className='card-arrow'>›</Text></View>
-      <View className='setting-row' onClick={showAgreement}><Text className='setting-title'>用户协议</Text><Text className='card-arrow'>›</Text></View>
+
+    <View className='profile-footer'>
+      {user && <Button className='danger-link' onClick={confirmLogout}>退出登录</Button>}
+      <Text className='version-text'>雀记 · 微信小程序</Text>
     </View>
-    {user && <Button className='danger-link' onClick={confirmLogout}>退出登录</Button>}
-    <Text className='version-text'>雀记 · 微信小程序</Text>
   </View>
 }
 
