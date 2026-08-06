@@ -50,6 +50,20 @@ function formatGroupTime(value: string) {
   return `${day} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
 }
 
+function formatConversationTime(value: string | null) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (!Number.isFinite(date.getTime())) return ''
+  const now = new Date()
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
+  if (date.toDateString() === now.toDateString()) {
+    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+  }
+  if (date.toDateString() === yesterday.toDateString()) return '昨天'
+  return `${date.getMonth() + 1}/${date.getDate()}`
+}
+
 function memberInitial(name: string) {
   return [...name.trim()][0] || '友'
 }
@@ -127,17 +141,18 @@ function GroupCard({ group, onOpen, onJoin }: { group: GroupSessionSummary; onOp
   </View>
 }
 
-export function GroupSessionsScreen({ groups, loading, tab, code, showCodeEntry, onTabChange, onCodeChange, onShowCodeEntryChange, onCreate, onOpen, onJoin, onOpenCode, onRefresh }: {
+export function GroupSessionsScreen({ groups, loading, tab, code, showCodeEntry, onTabChange, onCodeChange, onShowCodeEntryChange, onCreate, onOpen, onOpenChat, onJoin, onOpenCode, onRefresh }: {
   groups: GroupSessionSummary[]
   loading: boolean
-  tab: 'open' | 'mine'
+  tab: 'open' | 'mine' | 'chats'
   code: string
   showCodeEntry: boolean
-  onTabChange: (tab: 'open' | 'mine') => void
+  onTabChange: (tab: 'open' | 'mine' | 'chats') => void
   onCodeChange: (code: string) => void
   onShowCodeEntryChange: (show: boolean) => void
   onCreate: () => void
   onOpen: (group: GroupSessionSummary) => void
+  onOpenChat: (group: GroupSessionSummary) => void
   onJoin: (group: GroupSessionSummary) => void
   onOpenCode: (code: string) => void
   onRefresh: () => void
@@ -156,6 +171,14 @@ export function GroupSessionsScreen({ groups, loading, tab, code, showCodeEntry,
         ? Date.parse(right.start_at) - Date.parse(left.start_at)
         : Date.parse(left.start_at) - Date.parse(right.start_at)
     })
+  const conversations = myGroups
+    .slice()
+    .sort((left, right) => {
+      const leftActivity = Date.parse(left.chat_last_message_at || left.updated_at || left.created_at)
+      const rightActivity = Date.parse(right.chat_last_message_at || right.updated_at || right.created_at)
+      return rightActivity - leftActivity
+    })
+  const totalUnread = conversations.reduce((total, group) => total + group.chat_unread_count, 0)
   const visible = tab === 'open' ? openGroups : myGroups
 
   return <View className='page tab-page groups-page' style={{ paddingTop: `${getPageTopInset()}px` }}>
@@ -182,27 +205,69 @@ export function GroupSessionsScreen({ groups, loading, tab, code, showCodeEntry,
       <View className={tab === 'mine' ? 'group-tab active' : 'group-tab'} onClick={() => onTabChange('mine')}>
         <Text>我的组局</Text><Text className='group-tab-count'>{myGroups.length}</Text>
       </View>
-    </View>
-    <View className='group-list-head'>
-      <View>
-        <Text>{tab === 'open' ? '可加入牌桌' : '我的组局'}</Text>
-        <Text>{visible.length} 场 · {tab === 'open' ? '按开始时间排序' : '未结束优先'}</Text>
+      <View className={tab === 'chats' ? 'group-tab active' : 'group-tab'} onClick={() => onTabChange('chats')}>
+        <Text>群聊</Text><Text className={`group-tab-count${totalUnread > 0 ? ' unread' : ''}`}>{totalUnread > 0 ? totalUnread : conversations.length}</Text>
       </View>
-      <Button className='group-refresh' disabled={loading} onClick={onRefresh}>{loading ? '刷新中…' : '↻ 刷新'}</Button>
     </View>
-    {loading && !groups.length && <View className='empty group-empty'><Text className='empty-icon'>桌</Text><Text className='card-title'>正在加载组局</Text></View>}
-    {!loading && !visible.length && <View className='empty group-empty'>
-      <Text className='empty-icon'>桌</Text>
-      <Text className='card-title'>{tab === 'open' ? '还没有正在招募的组局' : '你还没有组局记录'}</Text>
-      <Text>{tab === 'open' ? '可以先发起一桌，再邀请牌友加入' : '发起或加入组局后会显示在这里'}</Text>
-      <Button className='secondary group-empty-action' onClick={onCreate}>发起第一个组局</Button>
-    </View>}
-    <View className='group-list'>{visible.map(group => <GroupCard
-      group={group}
-      onOpen={() => onOpen(group)}
-      onJoin={() => onJoin(group)}
-      key={group.id}
-    />)}</View>
+    {tab === 'chats' ? <>
+      <View className='group-list-head chat-list-head'>
+        <View>
+          <Text>组局群聊</Text>
+          <Text>{totalUnread > 0 ? `${totalUnread} 条未读 · 最新消息优先` : `${conversations.length} 个会话 · 最新消息优先`}</Text>
+        </View>
+        <Button className='group-refresh' disabled={loading} onClick={onRefresh}>{loading ? '刷新中…' : '↻ 刷新'}</Button>
+      </View>
+      {loading && !groups.length && <View className='empty group-empty'><Text className='empty-icon'>聊</Text><Text className='card-title'>正在加载群聊</Text></View>}
+      {!loading && !conversations.length && <View className='empty group-empty chat-list-empty'>
+        <Text className='empty-icon'>聊</Text>
+        <Text className='card-title'>还没有组局群聊</Text>
+        <Text>发起或加入组局后，会话会固定显示在这里</Text>
+      </View>}
+      <View className='chat-conversation-list'>{conversations.map(group => {
+        const status = statusCopy[group.status]
+        const preview = group.chat_last_message_preview || (group.status === 'cancelled' ? '组局已取消，群聊已关闭' : '暂无消息，点击进入群聊')
+        return <View className='chat-conversation-card' key={group.id} onClick={() => onOpenChat(group)}>
+          <View className={`chat-conversation-avatar ${status.tone}`}><Text>聊</Text></View>
+          <View className='chat-conversation-main'>
+            <View className='chat-conversation-title-row'>
+              <Text className='chat-conversation-title'>{group.location}</Text>
+              <Text className='chat-conversation-time'>{formatConversationTime(group.chat_last_message_at)}</Text>
+            </View>
+            <View className='chat-conversation-preview-row'>
+              <Text className={`chat-conversation-preview${group.chat_unread_count > 0 ? ' unread' : ''}`}>{preview}</Text>
+              {group.chat_unread_count > 0 && <Text className='group-chat-unread-badge'>{group.chat_unread_count > 99 ? '99+' : group.chat_unread_count}</Text>}
+            </View>
+            <View className='chat-conversation-meta'>
+              <Text>{formatGroupTime(group.start_at)}</Text>
+              <Text className={`group-status ${status.tone}`}>{status.label}</Text>
+              <Text>{group.confirmed_count}/{group.capacity} 人</Text>
+            </View>
+          </View>
+          <Text className='chat-conversation-arrow'>›</Text>
+        </View>
+      })}</View>
+    </> : <>
+      <View className='group-list-head'>
+        <View>
+          <Text>{tab === 'open' ? '可加入牌桌' : '我的组局'}</Text>
+          <Text>{visible.length} 场 · {tab === 'open' ? '按开始时间排序' : '未结束优先'}</Text>
+        </View>
+        <Button className='group-refresh' disabled={loading} onClick={onRefresh}>{loading ? '刷新中…' : '↻ 刷新'}</Button>
+      </View>
+      {loading && !groups.length && <View className='empty group-empty'><Text className='empty-icon'>桌</Text><Text className='card-title'>正在加载组局</Text></View>}
+      {!loading && !visible.length && <View className='empty group-empty'>
+        <Text className='empty-icon'>桌</Text>
+        <Text className='card-title'>{tab === 'open' ? '还没有正在招募的组局' : '你还没有组局记录'}</Text>
+        <Text>{tab === 'open' ? '可以先发起一桌，再邀请牌友加入' : '发起或加入组局后会显示在这里'}</Text>
+        <Button className='secondary group-empty-action' onClick={onCreate}>发起第一个组局</Button>
+      </View>}
+      <View className='group-list'>{visible.map(group => <GroupCard
+        group={group}
+        onOpen={() => onOpen(group)}
+        onJoin={() => onJoin(group)}
+        key={group.id}
+      />)}</View>
+    </>}
   </View>
 }
 

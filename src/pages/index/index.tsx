@@ -141,7 +141,7 @@ export default function Index() {
   const [friends, setFriends] = useState<Friend[]>([])
   const [groupSessions, setGroupSessions] = useState<GroupSessionSummary[]>([])
   const [activeGroup, setActiveGroup] = useState<GroupSession | null>(null)
-  const [groupListTab, setGroupListTab] = useState<'open' | 'mine'>('open')
+  const [groupListTab, setGroupListTab] = useState<'open' | 'mine' | 'chats'>('open')
   const [groupCodeEntryOpen, setGroupCodeEntryOpen] = useState(false)
   const [groupCodeInput, setGroupCodeInput] = useState('')
   const [friendQuery, setFriendQuery] = useState('')
@@ -362,7 +362,7 @@ export default function Index() {
     if (current === 'friend' && previous === 'friends') {
       pendingPageScrollTop.current = friendListScrollTop.current
     }
-    if ((current === 'group-detail' || current === 'group-create') && previous === 'groups') {
+    if ((current === 'group-detail' || current === 'group-create' || current === 'group-chat') && previous === 'groups') {
       pendingPageScrollTop.current = groupListScrollTop.current
     }
     screenRef.current = previous
@@ -767,6 +767,14 @@ export default function Index() {
     // 组局详情和群聊都属于需要拦截原生左滑返回的子页面。
     // 此处不能临时关闭 PageContainer，否则其离场事件会被误判为用户返回，
     // 导致群聊页面刚打开就立即退回组局详情。
+    setScreen('group-chat')
+  }
+
+  function openGroupChatFromList(group: GroupSessionSummary) {
+    if (!user) return
+    groupListScrollTop.current = pageScrollTop.current
+    pendingPageScrollTop.current = 0
+    setActiveGroup(group)
     setScreen('group-chat')
   }
 
@@ -1396,6 +1404,10 @@ export default function Index() {
           : screen === 'home'
             ? 'home'
             : null
+  const unreadChatCount = groupSessions.reduce(
+    (total, group) => total + ((group.is_owner || group.is_member) ? group.chat_unread_count : 0),
+    0,
+  )
 
   return <View className='app'>
     <View key={activeTab ? 'bottom-tabs' : screen} className={activeTab ? 'screen-transition tab-screen-transition' : 'screen-transition'}>
@@ -1456,6 +1468,7 @@ export default function Index() {
       onShowCodeEntryChange={setGroupCodeEntryOpen}
       onCreate={showGroupCreate}
       onOpen={openGroup}
+      onOpenChat={openGroupChatFromList}
       onJoin={group => { void quickJoinGroupSession(group) }}
       onOpenCode={code => { void openGroupByCode(code) }}
       onRefresh={() => { groupsLoadedAt.current = 0; void loadGroups(true).catch(error => console.error('Refresh groups failed:', error)) }}
@@ -1577,6 +1590,7 @@ export default function Index() {
     </View>
     {activeTab && <BottomNav
       active={activeTab}
+      unreadChats={unreadChatCount}
       onHome={() => setScreen('home')}
       onMatches={showHistory}
       onGroups={showGroups}

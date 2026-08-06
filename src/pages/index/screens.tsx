@@ -879,8 +879,9 @@ function BottomNavIcon({ type }: { type: BottomNavKey }) {
   </View>
 }
 
-export function BottomNav({ active, onHome, onMatches, onGroups, onFriends, onProfile }: {
+export function BottomNav({ active, unreadChats, onHome, onMatches, onGroups, onFriends, onProfile }: {
   active: BottomNavKey
+  unreadChats: number
   onHome: () => void
   onMatches: () => void
   onGroups: () => void
@@ -896,7 +897,10 @@ export function BottomNav({ active, onHome, onMatches, onGroups, onFriends, onPr
   ]
   return <View className='bottom-nav'>{items.map(item => <View key={item.key} className={active === item.key ? 'nav-item active' : 'nav-item'} onClick={item.action}>
     <View className='nav-active-mark' />
-    <BottomNavIcon type={item.key} />
+    <View className='nav-icon-wrap'>
+      <BottomNavIcon type={item.key} />
+      {item.key === 'groups' && unreadChats > 0 && <Text className='nav-unread-badge'>{unreadChats > 99 ? '99+' : unreadChats}</Text>}
+    </View>
     <Text className='nav-label'>{item.label}</Text>
   </View>)}</View>
 }
