@@ -764,7 +764,9 @@ export default function Index() {
 
   function openGroupChat() {
     if (!activeGroup || !user) return
-    pendingPageScrollTop.current = 0
+    // 组局详情和群聊都属于需要拦截原生左滑返回的子页面。
+    // 此处不能临时关闭 PageContainer，否则其离场事件会被误判为用户返回，
+    // 导致群聊页面刚打开就立即退回组局详情。
     setScreen('group-chat')
   }
 
