@@ -1228,7 +1228,10 @@ page { background: var(--page-bg); color: var(--text); }
 .group-list-card-action text:last-child { font-size: 29px; line-height: 1; }
 
 /* 已结束牌局：直接展示最终比分、战况和逐局记录 */
-.match-player-tile.finished { min-height: 172px; }
+.finished-review-page { height: 100vh; min-height: 0; overflow: hidden; }
+.finished-review-scroll { width: 100%; height: 100%; box-sizing: border-box; }
+.match-content-scroll { width: 100%; overflow: visible; }
+.match-player-tile.finished { min-height: 160px; }
 .match-player-result-meta { display: block; margin-top: 7px; overflow: hidden; color: #81786c; font-size: 15px; font-weight: 750; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
 .match-action-dock.finished { margin-top: 15px; }
 .finished-match-details { width: 100%; }

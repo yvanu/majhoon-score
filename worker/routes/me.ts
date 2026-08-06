@@ -27,22 +27,34 @@ export function registerMeRoutes(app: Hono<Env>) {
     const requestedLimit = Number(c.req.query('limit') || 100)
     const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(100, Math.round(requestedLimit))) : 100
     const result = await c.env.DB.prepare(`
+      WITH owned_matches AS (
+        SELECT id, share_code, status, current_wind, current_hand, created_at, finished_at
+        FROM matches
+        WHERE owner_user_id = ?
+        ORDER BY created_at DESC
+        LIMIT ?
+      ),
+      hand_counts AS (
+        SELECT h.match_id, COUNT(*) hand_count
+        FROM hands h
+        JOIN owned_matches m ON m.id = h.match_id
+        WHERE h.result_type <> 'event'
+        GROUP BY h.match_id
+      ),
+      player_names AS (
+        SELECT p.match_id, GROUP_CONCAT(p.name) player_names
+        FROM players p
+        JOIN owned_matches m ON m.id = p.match_id
+        GROUP BY p.match_id
+      )
       SELECT m.id, m.share_code, m.status, m.current_wind, m.current_hand,
              m.created_at, m.finished_at,
-             (
-               SELECT COUNT(*)
-               FROM hands h
-               WHERE h.match_id = m.id AND h.result_type <> 'event'
-             ) hand_count,
-             (
-               SELECT GROUP_CONCAT(p.name)
-               FROM players p
-               WHERE p.match_id = m.id
-             ) player_names
-      FROM matches m
-      WHERE m.owner_user_id = ?
+             COALESCE(h.hand_count, 0) hand_count,
+             COALESCE(p.player_names, '') player_names
+      FROM owned_matches m
+      LEFT JOIN hand_counts h ON h.match_id = m.id
+      LEFT JOIN player_names p ON p.match_id = m.id
       ORDER BY m.created_at DESC
-      LIMIT ?
     `).bind(user.id, limit).all<Record<string, unknown>>()
     const queriedAt = performance.now()
 

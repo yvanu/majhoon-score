@@ -56,6 +56,7 @@ const MATCH_CACHE_KEY = 'mahjong-current-match-cache-v1'
 type DashboardSnapshot = {
   user: AuthUser
   recentMatch: MatchSummary | null
+  matches?: MatchSummary[]
   dailyStats: DailyStats | null
 }
 
@@ -125,7 +126,13 @@ export default function Index() {
   const [reviewMatch, setReviewMatch] = useState<Match | null>(null)
   const [dailyStats, setDailyStats] = useState<DailyStats | null>(dashboardSnapshot?.dailyStats ?? null)
   const [user, setUser] = useState<AuthUser | null>(dashboardSnapshot?.user ?? null)
-  const [history, setHistory] = useState<MatchSummary[]>(dashboardSnapshot?.recentMatch ? [dashboardSnapshot.recentMatch] : [])
+  const [history, setHistory] = useState<MatchSummary[]>(
+    dashboardSnapshot?.matches?.length
+      ? dashboardSnapshot.matches
+      : dashboardSnapshot?.recentMatch
+        ? [dashboardSnapshot.recentMatch]
+        : [],
+  )
   const [friends, setFriends] = useState<Friend[]>([])
   const [groupSessions, setGroupSessions] = useState<GroupSessionSummary[]>([])
   const [activeGroup, setActiveGroup] = useState<GroupSession | null>(null)
@@ -215,6 +222,7 @@ export default function Index() {
     Taro.setStorageSync(DASHBOARD_CACHE_KEY, {
       user,
       recentMatch: history[0] ?? null,
+      matches: history,
       dailyStats,
     })
   }, [user, history, dailyStats])
@@ -387,6 +395,9 @@ export default function Index() {
       tasks.push(api.recentMatch().then(data => {
         updateRecentMatch(data.matches[0] ?? null)
       }))
+      void loadHistory(true).catch(error => {
+        console.error('Prefetch match history failed:', error)
+      })
       tasks.push(loadDailyStats(true))
     } else {
       Taro.removeStorageSync(DASHBOARD_CACHE_KEY)

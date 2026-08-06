@@ -210,7 +210,14 @@ export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing
     await Taro.setClipboardData({ data: match.share_code })
   }
 
-  return <View className='page match-page' style={{ paddingTop: `${getPageTopInset()}px` }}><View className='match-head compact'>
+  return <View className={`page match-page${match.status === 'finished' ? ' finished-review-page' : ''}`} style={{ paddingTop: `${getPageTopInset()}px` }}>
+    <ScrollView
+      scrollY={match.status === 'finished'}
+      enhanced
+      showScrollbar={false}
+      className={match.status === 'finished' ? 'finished-review-scroll' : 'match-content-scroll'}
+    >
+      <View className='match-head compact'>
     <View className='match-heading'><Text className='eyebrow'>{match.status === 'finished' ? '本将已结束' : `${windName[match.current_wind]}风 · 第 ${match.current_hand} 局`}</Text><View className='match-title-line'><Text className='title-small'>{match.status === 'finished' ? '牌局战况' : '本将计分'}</Text>{refreshing && <Text className='match-refreshing'>同步中</Text>}</View></View>
     <Button className='code match-share-code' onClick={share}><Text>分享码</Text><Text>{match.share_code}</Text></Button>
   </View>
@@ -262,6 +269,7 @@ export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing
         <Text className='readonly'>当前为只读分享视图</Text>
       </>}
     </View>
+    </ScrollView>
     {selectedPlayer && <PlayerDetailModal player={selectedPlayer} match={match} onClose={() => setSelectedPlayerId(null)} />}
     {showLiveStats && <LiveMatchStatsModal match={match} currentUserId={currentUserId} onClose={() => setShowLiveStats(false)} />}
     {showHandHistory && <HandHistoryModal match={match} canEdit={editable} onEdit={hand => { setShowHandHistory(false); onEdit(hand) }} onClose={() => setShowHandHistory(false)} />}
