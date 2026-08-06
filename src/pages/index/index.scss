@@ -1210,7 +1210,24 @@ page { background: var(--page-bg); color: var(--text); }
 .bottom-nav { left: 0; right: 0; bottom: 0; height: calc(112px + env(safe-area-inset-bottom)); padding: 12px 18px calc(10px + env(safe-area-inset-bottom)); border: 0; border-top: 1px solid rgba(214,205,192,.82); border-radius: 24px 24px 0 0; background: rgba(255,253,249,.98); box-shadow: 0 -7px 22px rgba(72,56,29,.07); backdrop-filter: blur(18px); }
 .nav-item { position: relative; gap: 3px; border-radius: 0; color: #77736d; font-size: 22px; font-weight: 700; }
 .nav-active-mark { position: absolute; top: -4px; left: 50%; width: 34px; height: 5px; border-radius: 999px; background: #d79a00; opacity: 0; transform: translateX(-50%) scaleX(.55); transition: opacity .16s ease, transform .2s ease; }
-.nav-icon { width: 48px; height: 42px; line-height: 42px; border-radius: 0; background: transparent; color: inherit; font-size: 28px; font-weight: 850; }
+.nav-icon { position: relative; width: 48px; height: 42px; flex: 0 0 42px; border-radius: 0; background: transparent; color: inherit; }
+.nav-icon-part { position: absolute; box-sizing: border-box; color: inherit; }
+.nav-icon-home .one { left: 13px; top: 18px; width: 22px; height: 18px; border: 3px solid currentColor; border-top: 0; border-radius: 0 0 5px 5px; }
+.nav-icon-home .two { left: 15px; top: 6px; width: 19px; height: 19px; border-left: 3px solid currentColor; border-top: 3px solid currentColor; border-radius: 3px 0 0; transform: rotate(45deg); }
+.nav-icon-home .three { left: 22px; top: 26px; width: 5px; height: 10px; border-radius: 3px 3px 0 0; background: currentColor; }
+.nav-icon-matches .one { left: 13px; top: 5px; width: 22px; height: 31px; border: 3px solid currentColor; border-radius: 6px; }
+.nav-icon-matches .two { left: 19px; top: 12px; width: 5px; height: 5px; border-radius: 50%; background: currentColor; box-shadow: 8px 0 0 currentColor, 0 9px 0 currentColor, 8px 9px 0 currentColor; }
+.nav-icon-matches .three { display: none; }
+.nav-icon-groups .one { left: 15px; top: 12px; width: 18px; height: 18px; border: 3px solid currentColor; border-radius: 6px; }
+.nav-icon-groups .two { left: 22px; top: 3px; width: 5px; height: 5px; border-radius: 50%; background: currentColor; box-shadow: 0 31px 0 currentColor, -15px 15px 0 currentColor, 15px 15px 0 currentColor; }
+.nav-icon-groups .three { display: none; }
+.nav-icon-friends .one { left: 11px; top: 7px; width: 10px; height: 10px; border: 3px solid currentColor; border-radius: 50%; }
+.nav-icon-friends .two { left: 6px; top: 21px; width: 20px; height: 15px; border: 3px solid currentColor; border-radius: 12px 12px 5px 5px; }
+.nav-icon-friends .three { right: 9px; top: 10px; width: 9px; height: 9px; border: 3px solid currentColor; border-radius: 50%; }
+.nav-icon-friends .three::after { position: absolute; top: 9px; right: -7px; width: 15px; height: 13px; box-sizing: border-box; border: 3px solid currentColor; border-left-color: transparent; border-radius: 10px 10px 5px 5px; content: ''; }
+.nav-icon-profile .one { left: 19px; top: 5px; width: 11px; height: 11px; border: 3px solid currentColor; border-radius: 50%; }
+.nav-icon-profile .two { left: 12px; top: 20px; width: 25px; height: 17px; border: 3px solid currentColor; border-radius: 15px 15px 6px 6px; }
+.nav-icon-profile .three { display: none; }
 .nav-label { line-height: 1.1; }
 .nav-item.active { background: transparent; color: #9a6b00; font-weight: 900; }
 .nav-item.active .nav-active-mark { opacity: 1; transform: translateX(-50%) scaleX(1); }
