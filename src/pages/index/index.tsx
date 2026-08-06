@@ -143,6 +143,8 @@ export default function Index() {
   const [adminToken, setAdminToken] = useState(() => Taro.getStorageSync<{ token?: string }>(CURRENT_KEY)?.token || '')
   const [editingHandId, setEditingHandId] = useState<string | null>(null)
   const [scoreEntryType, setScoreEntryType] = useState<HandType>('ron')
+  const [scoreDrawerOpen, setScoreDrawerOpen] = useState(false)
+  const [scoreDrawerKey, setScoreDrawerKey] = useState(0)
   const [lastSaveNotice, setLastSaveNotice] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle')
@@ -270,6 +272,10 @@ export default function Index() {
   function navigateBack(updateBackTrap: boolean) {
     if (dialog) {
       closeDialog(false)
+      return
+    }
+    if (scoreDrawerOpen) {
+      closeScoreDrawer()
       return
     }
     if (screenRef.current === 'nickname' && needsNickname(user)) return
@@ -1079,6 +1085,7 @@ export default function Index() {
       invalidateStatisticsCaches()
       setEditingHandId(null)
       if (data.status === 'finished') {
+        setScoreDrawerOpen(false)
         reviewReturnScreen.current = 'home'
         setReviewMatch(nextMatch)
         setMatch(null)
@@ -1096,18 +1103,21 @@ export default function Index() {
         await Taro.showToast({ title: '北4过庄，本将结束', icon: 'success' })
         return
       }
-      const keepRecordingCurrentHand = input.type === 'event' && !handId
-      if (!keepRecordingCurrentHand) {
-        if (!handId) setLastSaveNotice(summary)
-        setScreen('match')
-      }
+      if (!handId) setLastSaveNotice(summary)
+      setScoreDrawerOpen(false)
       await Taro.showToast({
         title: input.type === 'event'
-          ? handId ? '事件已修改' : '事件已记录，可继续录入'
+          ? handId ? '事件已修改' : '事件已记录'
           : handId ? '本局已修改' : data.retained_dealer ? '已保存，庄家连庄' : '计分已保存',
         icon: 'success',
       })
     })
+  }
+
+  function closeScoreDrawer() {
+    if (loading) return
+    setScoreDrawerOpen(false)
+    setEditingHandId(null)
   }
 
   function openScoreEntry(type: Exclude<HandType, 'custom'>) {
@@ -1115,7 +1125,8 @@ export default function Index() {
     setLastSaveNotice(null)
     setEditingHandId(null)
     setScoreEntryType(type)
-    setScreen('score')
+    setScoreDrawerKey(current => current + 1)
+    setScoreDrawerOpen(true)
   }
 
   function editHand(hand: Hand) {
@@ -1123,7 +1134,8 @@ export default function Index() {
     setLastSaveNotice(null)
     setEditingHandId(hand.id)
     setScoreEntryType(hand.result_type)
-    setScreen('score')
+    setScoreDrawerKey(current => current + 1)
+    setScoreDrawerOpen(true)
   }
 
   async function quickRecordDraw() {
@@ -1337,15 +1349,6 @@ export default function Index() {
       onFinish={finish}
       onViewStats={() => setScreen('stats')}
     /> : <LoadingScreen title='牌局详情' message='正在加载玩家、计分和牌局记录…' onBack={goBack} />)}
-    {screen === 'score' && match && <ScoreScreen
-      players={match.players}
-      currentUserId={user?.id || null}
-      initialHand={editingHandId ? match.hands.find(hand => hand.id === editingHandId) || null : null}
-      initialType={scoreEntryType}
-      loading={loading}
-      onBack={() => { setEditingHandId(null); setScreen('match') }}
-      onSubmit={submitHand}
-    />}
     {screen === 'review' && (reviewMatch ? <MatchScreen
       match={reviewMatch}
       currentUserId={user?.id || null}
@@ -1381,6 +1384,21 @@ export default function Index() {
       onFriends={showFriends}
       onProfile={showProfile}
     />}
+    {scoreDrawerOpen && match && <View className='score-drawer-backdrop'>
+      <View className='score-drawer-shell'>
+        <View className='score-drawer-handle' />
+        <ScoreScreen
+          key={`${scoreDrawerKey}:${editingHandId || scoreEntryType}`}
+          players={match.players}
+          currentUserId={user?.id || null}
+          initialHand={editingHandId ? match.hands.find(hand => hand.id === editingHandId) || null : null}
+          initialType={scoreEntryType}
+          loading={loading}
+          onBack={closeScoreDrawer}
+          onSubmit={submitHand}
+        />
+      </View>
+    </View>}
     {dialog && <ConfirmDialog
       dialog={dialog}
       onCancel={() => closeDialog(false)}

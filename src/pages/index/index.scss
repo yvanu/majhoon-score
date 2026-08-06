@@ -1231,7 +1231,24 @@ page { background: var(--page-bg); color: var(--text); }
 .group-list-card-action.view { background: #f1efeb; color: #554f48; }
 .group-list-card-action text:last-child { font-size: 29px; line-height: 1; }
 
+/* 牌局内录分抽屉：保留比分上下文，表单与操作独立滚动 */
+.score-drawer-backdrop { position: fixed; z-index: 70; inset: 0; display: flex; align-items: flex-end; background: rgba(48,42,33,.38); backdrop-filter: blur(8px); animation: score-drawer-backdrop-enter .2s ease-out; }
+.score-drawer-shell { position: relative; width: 100%; height: 88vh; max-height: 92vh; overflow: hidden; border-radius: 34px 34px 0 0; background: #fffdf9; box-shadow: 0 -22px 58px rgba(55,43,27,.2); animation: score-drawer-sheet-enter .24s cubic-bezier(.22,.8,.3,1); }
+.score-drawer-handle { position: absolute; z-index: 8; left: 50%; top: 12px; width: 72px; height: 8px; border-radius: 999px; background: #d8d1c7; transform: translateX(-50%); }
+.score-drawer-shell .score-page-scroll { width: 100%; height: 100%; }
+.score-drawer-shell .score-page { min-height: 100%; padding: 32px 26px calc(190px + constant(safe-area-inset-bottom)) !important; padding-bottom: calc(190px + env(safe-area-inset-bottom)) !important; background: #fffdf9; }
+.score-drawer-shell .score-page .header { position: sticky; z-index: 6; top: 0; margin: 0 -4px 16px; padding: 12px 4px 12px; background: linear-gradient(180deg,#fffdf9 76%,rgba(255,253,249,.92)); }
+.score-drawer-shell .score-page .header .title-small { font-size: 36px; }
+.score-drawer-shell .score-page .icon-button { width: 62px; height: 62px; line-height: 54px; border-radius: 19px; font-size: 42px; }
+.score-drawer-shell .score-save-bar { position: absolute; z-index: 10; left: 18px; right: 18px; bottom: calc(10px + constant(safe-area-inset-bottom)); bottom: calc(10px + env(safe-area-inset-bottom)); }
+.score-drawer-shell .score-save-summary { font-size: 18px; }
+.score-drawer-shell .score-save-bar .primary { height: 78px; line-height: 78px; font-size: 28px; }
+@keyframes score-drawer-backdrop-enter { from { opacity: 0; } to { opacity: 1; } }
+@keyframes score-drawer-sheet-enter { from { opacity: .78; transform: translate3d(0,42px,0); } to { opacity: 1; transform: translate3d(0,0,0); } }
+
 @media (max-width: 360px) {
   .home-page, .tab-page { padding-left: 20px; padding-right: 20px; }
   .group-note-tag { display: none !important; }
+  .score-drawer-shell { height: 91vh; }
+  .score-drawer-shell .score-page { padding-left: 21px !important; padding-right: 21px !important; }
 }

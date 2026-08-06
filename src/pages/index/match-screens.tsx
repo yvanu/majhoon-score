@@ -550,7 +550,7 @@ export function ScoreScreen({ players, currentUserId, initialHand, initialType, 
       : initialHand.result_type === 'custom'
         ? ['ron', 'tsumo', 'draw', 'custom']
         : ['ron', 'tsumo', 'draw']
-    : ['ron', 'tsumo', 'draw', 'event']
+    : [initialType]
 
   function changeType(nextType: HandType) {
     setType(nextType)
@@ -899,7 +899,7 @@ export function ScoreScreen({ players, currentUserId, initialHand, initialType, 
         <View className='event-preview-card'>
           <View className='event-preview-head'><Text>本次分数变化</Text><Text>{eventType}</Text></View>
           <View className='event-preview-grid'>{eventScores.map(score => <View key={score.playerId}><Text>{players.find(player => player.id === score.playerId)?.name}</Text><Text className={score.change > 0 ? 'positive' : score.change < 0 ? 'negative' : ''}>{score.change > 0 ? '+' : ''}{score.change}</Text></View>)}</View>
-          <Text className='event-preview-tip'>记录后立即更新比分并留在当前局，可继续记录其他事件，或切换到点炮、自摸、流局完成本局。</Text>
+          <Text className='event-preview-tip'>记录后立即更新比分并关闭窗口；如本局还有其他事件，可再次打开“局内事件”继续记录。</Text>
         </View>
       </>}
     </>}
