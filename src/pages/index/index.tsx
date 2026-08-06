@@ -152,6 +152,7 @@ export default function Index() {
   const [scoreDrawerKey, setScoreDrawerKey] = useState(0)
   const [scoreTileEditorOpen, setScoreTileEditorOpen] = useState(false)
   const [scoreTileEditorCloseRequest, setScoreTileEditorCloseRequest] = useState(0)
+  const [groupFriendPickerOpen, setGroupFriendPickerOpen] = useState(false)
   const [matchDetailOpen, setMatchDetailOpen] = useState(false)
   const [matchDetailCloseRequest, setMatchDetailCloseRequest] = useState(0)
   const [lastSaveNotice, setLastSaveNotice] = useState<string | null>(null)
@@ -290,6 +291,10 @@ export default function Index() {
     if (scoreTileEditorOpen) {
       setScoreTileEditorOpen(false)
       setScoreTileEditorCloseRequest(current => current + 1)
+      return
+    }
+    if (groupFriendPickerOpen) {
+      setGroupFriendPickerOpen(false)
       return
     }
     if (scoreDrawerOpen) {
@@ -688,6 +693,7 @@ export default function Index() {
     }
     groupListScrollTop.current = pageScrollTop.current
     pendingPageScrollTop.current = 0
+    setGroupFriendPickerOpen(false)
     setScreen('group-create')
     void loadFriends().catch(error => {
       console.error('Prefetch friends for group creation failed:', error)
@@ -1349,6 +1355,8 @@ export default function Index() {
       user={user}
       friends={friends}
       loading={loading}
+      friendPickerOpen={groupFriendPickerOpen}
+      onFriendPickerOpenChange={setGroupFriendPickerOpen}
       onBack={goBack}
       onCreate={createGroupSession}
     />}

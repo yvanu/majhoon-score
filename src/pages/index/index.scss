@@ -796,18 +796,68 @@ page { background: var(--page-bg); color: var(--text); }
 .group-location-field,.group-note-field { margin-bottom: 0; border-color: var(--line); background: #fff; }
 .group-location-field input { color: var(--text); }
 .group-note-field textarea { width: 100%; min-height: 130px; color: var(--text); font-size: 23px; line-height: 1.55; }
-.group-friend-options { display: grid; gap: 12px; }
-.group-friend-option { padding: 17px 18px; display: flex; align-items: center; gap: 15px; border: 2px solid var(--line); border-radius: 24px; background: #fff; }
-.group-friend-option.selected { border-color: #e2b12d; background: #fff8dc; box-shadow: 0 0 0 3px rgba(201,145,0,.08); }
-.group-friend-option .avatar { width: 60px; height: 60px; border-radius: 19px; }
-.group-friend-option .avatar-initial { font-size: 27px !important; }
-.group-friend-option .card-title { margin-bottom: 4px; font-size: 24px !important; }
-.group-friend-check { width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #f3efe7; color: #8c8171; font-size: 25px; font-weight: 950; }
-.group-friend-option.selected .group-friend-check { background: #e4ad1d; color: #fff; }
-.group-friend-empty { padding: 24px; border: 1px dashed var(--line); border-radius: 23px; color: var(--text-muted); font-size: 19px; line-height: 1.5; text-align: center; }
-.group-create-summary { margin-top: 24px; padding: 19px 22px; border-radius: 22px; background: #f7f3eb; }
-.group-create-summary text { display: block; color: var(--text-secondary); font-size: 19px; }
-.group-create-summary text:first-child { margin-bottom: 6px; color: var(--text); font-size: 23px; font-weight: 900; }
+.group-create-shell { position: relative; width: 100%; height: 100vh; overflow: hidden; background: var(--page-bg); }
+.group-create-scroll { height: 100%; }
+.group-create-page { padding-bottom: 0; }
+.group-invite-card { padding: 20px; border: 1px solid var(--line); border-radius: 24px; background: #fff; box-shadow: 0 8px 22px rgba(72,56,29,.04); }
+.group-invite-card:active { opacity: .92; transform: scale(.992); }
+.group-invite-card-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.group-invite-card-head > view { min-width: 0; flex: 1; }
+.group-invite-card-head text { display: block; }
+.group-invite-card-head > view > text:first-child { color: var(--text); font-size: 22px; font-weight: 900; }
+.group-invite-card-head > view > text:last-child { margin-top: 5px; color: var(--text-muted); font-size: 16px; line-height: 1.4; }
+.group-invite-card-head > text { flex: 0 0 auto; color: #9b720e; font-size: 18px; font-weight: 850; }
+.group-selected-friends { margin-top: 16px; display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
+.group-selected-friend { min-width: 0; padding: 11px 7px 10px; border-radius: 17px; background: #f8f5ef; text-align: center; }
+.group-selected-friend .avatar { width: 48px; height: 48px; margin: 0 auto; border-radius: 15px; }
+.group-selected-friend .avatar-initial { font-size: 21px !important; }
+.group-selected-friend > text { display: block; margin-top: 6px; overflow: hidden; color: var(--text); font-size: 14px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.group-create-dock-spacer { height: calc(150px + env(safe-area-inset-bottom)); }
+.group-create-action-dock { position: fixed; z-index: 18; left: 0; right: 0; bottom: 0; padding: 12px 24px calc(12px + env(safe-area-inset-bottom)); display: flex; align-items: center; gap: 14px; box-sizing: border-box; border-top: 1px solid rgba(225,217,204,.92); background: rgba(255,253,249,.96); box-shadow: 0 -10px 30px rgba(72,56,29,.08); backdrop-filter: blur(16px); }
+.group-create-action-copy { min-width: 0; flex: 1; }
+.group-create-action-copy text { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.group-create-action-copy text:first-child { color: var(--text); font-size: 18px; font-weight: 900; }
+.group-create-action-copy text:last-child { margin-top: 4px; color: var(--text-muted); font-size: 14px; }
+.group-create-submit { width: 220px; height: 78px; line-height: 78px; margin: 0; flex: 0 0 220px; border-radius: 23px; font-size: 24px; }
+.group-friend-picker-backdrop { position: fixed; z-index: 80; inset: 0; padding: calc(28px + env(safe-area-inset-top)) 22px calc(28px + env(safe-area-inset-bottom)); display: flex; align-items: center; justify-content: center; box-sizing: border-box; background: rgba(45,39,31,.34); backdrop-filter: blur(4px); }
+.group-friend-picker-sheet { width: 100%; max-width: 680px; height: 82vh; max-height: 1040px; padding: 24px 22px 20px; display: flex; flex-direction: column; box-sizing: border-box; border: 1px solid #e7ded1; border-radius: 30px; background: #fffdf9; box-shadow: 0 28px 80px rgba(58,44,26,.24); }
+.group-friend-picker-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.group-friend-picker-head > view { min-width: 0; flex: 1; }
+.group-friend-picker-head text { display: block; }
+.group-friend-picker-head > view > text:first-child { color: var(--text); font-size: 28px; font-weight: 950; }
+.group-friend-picker-head > view > text:last-child { margin-top: 5px; color: var(--text-muted); font-size: 16px; }
+.group-friend-picker-head button { width: 54px; height: 54px; line-height: 48px; margin: 0; padding: 0; border-radius: 17px; background: #f3efe8; color: #686157; font-size: 34px; }
+.group-friend-picker-head button::after { border: 0; }
+.group-friend-picker-selected { width: 100%; margin-top: 16px; flex: 0 0 auto; white-space: nowrap; }
+.group-friend-picker-selected-row { display: inline-flex; gap: 8px; padding-right: 10px; }
+.group-friend-picker-chip { min-width: 0; height: 56px; padding: 6px 9px 6px 6px; display: inline-flex; align-items: center; gap: 7px; box-sizing: border-box; border-radius: 18px; background: #fff3c7; }
+.group-friend-picker-chip .avatar { width: 42px; height: 42px; flex: 0 0 42px; border-radius: 14px; }
+.group-friend-picker-chip .avatar-initial { font-size: 18px !important; }
+.group-friend-picker-chip text:nth-child(2) { max-width: 120px; overflow: hidden; color: #684c05; font-size: 15px; font-weight: 850; text-overflow: ellipsis; white-space: nowrap; }
+.group-friend-picker-chip text:last-child { color: #99700c; font-size: 20px; font-weight: 900; }
+.group-friend-picker-search { height: 68px; margin-top: 16px; padding: 0 15px; display: flex; align-items: center; gap: 10px; flex: 0 0 68px; box-sizing: border-box; border: 1px solid var(--line); border-radius: 20px; background: #f7f4ee; }
+.group-friend-picker-search > text:first-child { width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; border-radius: 12px; background: #ebe5da; color: #766d61; font-size: 14px; font-weight: 900; }
+.group-friend-picker-search input { min-width: 0; height: 56px; flex: 1; color: var(--text); font-size: 20px; }
+.group-friend-picker-search > text:last-child { flex: 0 0 auto; color: var(--text-muted); font-size: 15px; }
+.group-friend-picker-list { width: 100%; height: 0; min-height: 0; margin-top: 12px; flex: 1 1 auto; }
+.group-friend-picker-item { min-height: 80px; padding: 12px 6px; display: flex; align-items: center; gap: 13px; box-sizing: border-box; border-bottom: 1px solid #f0ebe3; }
+.group-friend-picker-item.selected { background: #fffaf0; }
+.group-friend-picker-item.disabled { opacity: .42; }
+.group-friend-picker-item .avatar { width: 52px; height: 52px; flex: 0 0 52px; border-radius: 17px; }
+.group-friend-picker-item .avatar-initial { font-size: 23px !important; }
+.group-friend-picker-item .grow text { display: block; }
+.group-friend-picker-item .grow text:first-child { overflow: hidden; color: var(--text); font-size: 20px; font-weight: 900; text-overflow: ellipsis; white-space: nowrap; }
+.group-friend-picker-item .grow text:last-child { margin-top: 4px; color: var(--text-muted); font-size: 15px; }
+.group-friend-picker-check { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; flex: 0 0 40px; border-radius: 50%; background: #f0ece5; color: #8f8679; font-size: 22px; font-weight: 950; }
+.group-friend-picker-item.selected .group-friend-picker-check { background: #dca718; color: #fff; }
+.group-friend-picker-empty { padding: 54px 20px; text-align: center; }
+.group-friend-picker-empty text { display: block; }
+.group-friend-picker-empty text:first-child { color: var(--text); font-size: 22px; font-weight: 900; }
+.group-friend-picker-empty text:last-child { margin-top: 8px; color: var(--text-muted); font-size: 16px; line-height: 1.5; }
+.group-friend-picker-actions { padding-top: 14px; display: grid; grid-template-columns: 160px minmax(0,1fr); gap: 10px; flex: 0 0 auto; border-top: 1px solid #eee7dc; }
+.group-friend-picker-actions button { height: 70px; line-height: 70px; margin: 0; border-radius: 20px; font-size: 21px; }
+.group-friend-picker-actions .secondary { margin-top: 0; background: #f3efe8; }
+.group-friend-picker-actions .primary { margin-top: 0; }
 .group-detail-owner { display: block; margin-top: 18px; color: var(--text-secondary); font-size: 20px; }
 .group-detail-note { display: block; margin-top: 15px; padding: 15px 17px; border-radius: 18px; background: rgba(255,255,255,.68); color: var(--text-secondary); font-size: 19px; line-height: 1.5; }
 .group-code-row { margin-top: 18px; padding-top: 17px; border-top: 1px solid #eee0b9; color: var(--text-secondary); font-size: 18px; }
