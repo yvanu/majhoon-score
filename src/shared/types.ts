@@ -10,6 +10,8 @@ export type MahjongTile =
 export type StatisticsDimension = 'day' | 'month' | 'year'
 export type GroupSessionStatus = 'recruiting' | 'full' | 'active' | 'finished' | 'cancelled'
 export type GroupMemberStatus = 'invited' | 'confirmed'
+export type GroupChatStatus = 'active' | 'readonly'
+export type GroupChatMessageType = 'text' | 'system'
 
 export interface HandTileRecord {
   pongs: MahjongTile[]
@@ -72,6 +74,33 @@ export interface GroupSessionMember {
   joined_at: string
 }
 
+export interface GroupChatMessage {
+  id: string
+  room_id: string
+  sender_user_id: string | null
+  sender_name: string | null
+  sequence: number
+  message_type: GroupChatMessageType
+  content: string
+  event_type: string | null
+  payload: Record<string, unknown> | null
+  client_message_id: string | null
+  created_at: string
+  recalled_at: string | null
+}
+
+export interface GroupChatRoomSnapshot {
+  id: string
+  group_session_id: string
+  status: GroupChatStatus
+  latest_sequence: number
+}
+
+export interface GroupChatSnapshot {
+  room: GroupChatRoomSnapshot
+  messages: GroupChatMessage[]
+}
+
 export interface GroupSessionSummary {
   id: string
   share_code: string
@@ -87,6 +116,9 @@ export interface GroupSessionSummary {
   match_id: string | null
   created_at: string
   updated_at: string
+  chat_unread_count: number
+  chat_last_message_preview: string | null
+  chat_last_message_at: string | null
   members: GroupSessionMember[]
   is_owner: boolean
   is_member: boolean

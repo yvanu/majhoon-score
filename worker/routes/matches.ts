@@ -1,4 +1,4 @@
-import type { Hono } from 'hono'
+import type { Context, Hono } from 'hono'
 import type { Hand, HandInput, Wind } from '../../src/shared/types'
 import { canWrite, currentUser } from '../auth-service'
 import {
@@ -18,6 +18,26 @@ import { bigHandPatterns, validateHand, validatePlayers } from '../validation'
 
 const inHandEventTypes = new Set(['明杠', '暗杠', '花杠', '被跟圈', '四风归一'])
 const northFourRetentionEvents = new Set(['被跟圈', '花杠', '四风归一'])
+
+async function publishGroupMatchFinished(c: Context<Env>, matchId: string) {
+  const group = await c.env.DB.prepare('SELECT id FROM group_sessions WHERE match_id = ? LIMIT 1')
+    .bind(matchId).first<{ id: string }>()
+  if (!group) return
+  c.executionCtx.waitUntil(
+    c.env.GROUP_CHAT.getByName(group.id).publishSystem({
+      roomId: group.id,
+      content: '本次牌局已结束，群聊仍可继续使用',
+      eventType: 'match_finished',
+      payload: { matchId },
+    }).catch(error => {
+      console.error(JSON.stringify({
+        event: 'group_chat_match_finished_failed',
+        roomId: group.id,
+        message: error instanceof Error ? error.message : String(error),
+      }))
+    }),
+  )
+}
 
 export function shouldRetainDealer(
   input: HandInput,
@@ -367,7 +387,12 @@ export function registerMatchRoutes(app: Hono<Env>) {
         SET current_wind = ?, current_hand = ?, status = ?, finished_at = ?, updated_at = ?
         WHERE id = ?
       `).bind(next.wind, next.hand, nextStatus, finishedAt, createdAt, id),
+      ...(finishesMatch ? [c.env.DB.prepare(`
+        UPDATE group_sessions SET status = 'finished', updated_at = ?
+        WHERE match_id = ? AND status = 'active'
+      `).bind(createdAt, id)] : []),
     ])
+    if (finishesMatch) await publishGroupMatchFinished(c, id)
     const completedAt = performance.now()
     c.header('Server-Timing', [
       `authorize;dur=${(authorizedAt - startedAt).toFixed(1)}`,
@@ -524,6 +549,7 @@ export function registerMatchRoutes(app: Hono<Env>) {
         WHERE match_id = ? AND status = 'active'
       `).bind(timestamp, id),
     ])
+    await publishGroupMatchFinished(c, id)
     return c.json({ match: await getMatch(c.env.DB, id) })
   })
 

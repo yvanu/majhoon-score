@@ -7,6 +7,7 @@ import type {
   DailyStats,
   Friend,
   FriendStatistics,
+  GroupChatMessage,
   GroupMemberStatus,
   GroupSession,
   GroupSessionInput,
@@ -46,6 +47,7 @@ import {
   SettingsScreen,
 } from './screens'
 import { GroupCreateScreen, GroupDetailScreen, GroupSessionsScreen } from './group-screens'
+import { GroupChatScreen } from './chat-screen'
 import { MatchScreen, ScoreScreen } from './match-screens'
 import { readUserPreferences, saveUserPreferences } from './preferences'
 import './index.scss'
@@ -760,6 +762,33 @@ export default function Index() {
     navigateBack(true)
   }
 
+  function openGroupChat() {
+    if (!activeGroup || !user) return
+    pendingPageScrollTop.current = 0
+    setScreen('group-chat')
+  }
+
+  function markActiveGroupChatRead() {
+    if (!activeGroup) return
+    setActiveGroup(current => current ? { ...current, chat_unread_count: 0 } : current)
+    setGroupSessions(current => current.map(group => group.id === activeGroup.id ? { ...group, chat_unread_count: 0 } : group))
+  }
+
+  function updateActiveGroupChatActivity(message: GroupChatMessage) {
+    if (!activeGroup) return
+    const preview = message.content
+    setActiveGroup(current => current ? {
+      ...current,
+      chat_last_message_preview: preview,
+      chat_last_message_at: message.created_at,
+    } : current)
+    setGroupSessions(current => current.map(group => group.id === activeGroup.id ? {
+      ...group,
+      chat_last_message_preview: preview,
+      chat_last_message_at: message.created_at,
+    } : group))
+  }
+
   async function createGroupSession(input: GroupSessionInput) {
     await run(async () => {
       const result = await api.createGroupSession(input)
@@ -1453,8 +1482,18 @@ export default function Index() {
           onCancel={cancelGroupSession}
           onStart={startGroupSession}
           onOpenMatch={matchId => openMatch(matchId, activeGroup.status === 'finished' ? 'finished' : 'active')}
+          onOpenChat={openGroupChat}
         />
       : <LoadingScreen title='组局详情' message='正在加载时间、地点和参与成员…' onBack={goBack} />)}
+    {screen === 'group-chat' && user && activeGroup && <GroupChatScreen
+      group={activeGroup}
+      user={user}
+      loading={loading}
+      onBack={goBack}
+      onStart={startGroupSession}
+      onRead={markActiveGroupChatRead}
+      onActivity={updateActiveGroupChatActivity}
+    />}
     {screen === 'friends' && user && <FriendsScreen
       friends={friends}
       loading={friendsLoading}

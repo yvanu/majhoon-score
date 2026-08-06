@@ -1,10 +1,15 @@
 import Taro from '@tarojs/taro'
-import type { AuthResult, AuthUser, DailyStats, Friend, FriendStatistics, GroupMemberStatus, GroupSession, GroupSessionInput, GroupSessionSummary, HandInput, HandMutationResult, Match, MatchPlayerInput, MatchSummary, PersonalStatistics, StatisticsDimension, Stats } from '@shared/types'
+import type { AuthResult, AuthUser, DailyStats, Friend, FriendStatistics, GroupChatMessage, GroupChatSnapshot, GroupMemberStatus, GroupSession, GroupSessionInput, GroupSessionSummary, HandInput, HandMutationResult, Match, MatchPlayerInput, MatchSummary, PersonalStatistics, StatisticsDimension, Stats } from '@shared/types'
 
 export const AUTH_KEY = 'mahjong-auth-token'
 export const CURRENT_KEY = 'mahjong-current'
 
 export const API_BASE_URL = process.env.TARO_APP_API_BASE || ''
+
+export function groupChatSocketUrl(groupId: string) {
+  const base = API_BASE_URL.replace(/\/$/, '').replace(/^http:/, 'ws:').replace(/^https:/, 'wss:')
+  return `${base}/api/group-sessions/${encodeURIComponent(groupId)}/chat/socket`
+}
 
 type RequestError = Error & { errMsg?: string }
 
@@ -61,6 +66,19 @@ export const api = {
   ),
   cancelGroupSession: (groupId: string) => request<{ group: GroupSession }>(`/api/group-sessions/${encodeURIComponent(groupId)}/cancel`, 'POST'),
   startGroupSession: (groupId: string) => request<{ group: GroupSession; match: Match; adminToken: string }>(`/api/group-sessions/${encodeURIComponent(groupId)}/start`, 'POST'),
+  groupChat: (groupId: string, after = 0) => request<GroupChatSnapshot>(
+    `/api/group-sessions/${encodeURIComponent(groupId)}/chat${after > 0 ? `?after=${after}` : ''}`,
+  ),
+  sendGroupChatMessage: (groupId: string, content: string, clientMessageId: string) => request<{ message: GroupChatMessage }>(
+    `/api/group-sessions/${encodeURIComponent(groupId)}/chat/messages`,
+    'POST',
+    { content, clientMessageId },
+  ),
+  markGroupChatRead: (groupId: string, sequence: number) => request<{ ok: true }>(
+    `/api/group-sessions/${encodeURIComponent(groupId)}/chat/read`,
+    'POST',
+    { sequence },
+  ),
   deleteHistoryMatch: (matchId: string) => request(`/api/me/matches/${matchId}`, 'DELETE'),
   createMatch: (players: MatchPlayerInput[]) => request<{ match: Match; adminToken: string }>('/api/matches', 'POST', { players }),
   getMatch: (idOrCode: string, includeStatistics = false, adminToken = '', readOnly = false) => {

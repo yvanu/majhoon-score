@@ -17,6 +17,20 @@
       "custom_domain": true
     }
   ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "GROUP_CHAT",
+        "class_name": "GroupChatRoom"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["GroupChatRoom"]
+    }
+  ],
   "d1_databases": [
     {
       "binding": "DB",

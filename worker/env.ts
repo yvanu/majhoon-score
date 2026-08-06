@@ -1,5 +1,8 @@
+import type { GroupChatRoom } from './group-chat-room'
+
 export type Bindings = {
   DB: D1Database
+  GROUP_CHAT: DurableObjectNamespace<GroupChatRoom>
   WECHAT_APP_ID: string
   WECHAT_APP_SECRET: string
 }

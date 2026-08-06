@@ -60,7 +60,7 @@ export function shiftStatisticsValue(dimension: StatisticsDimension, value: stri
   return String(Number(value) + amount)
 }
 
-export type Screen = 'home' | 'create' | 'join' | 'auth' | 'nickname' | 'history' | 'daily' | 'groups' | 'group-create' | 'group-detail' | 'friends' | 'friend' | 'personal' | 'profile' | 'settings' | 'match' | 'review'
+export type Screen = 'home' | 'create' | 'join' | 'auth' | 'nickname' | 'history' | 'daily' | 'groups' | 'group-create' | 'group-detail' | 'group-chat' | 'friends' | 'friend' | 'personal' | 'profile' | 'settings' | 'match' | 'review'
 export type TileRecordSection = 'pongs' | 'exposedKongs' | 'concealedKongs' | 'hand' | 'winningTile'
 export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'offline'
 export type DialogVariant = 'default' | 'danger' | 'info' | 'error'

@@ -90,7 +90,10 @@ function GroupCard({ group, onOpen, onJoin }: { group: GroupSessionSummary; onOp
   return <View className='group-list-card' onClick={onOpen}>
     <View className='group-list-card-head'>
       <Text className='group-list-card-title'>{group.location}</Text>
-      <Text className={`group-status ${status.tone}`}>{status.label}</Text>
+      <View className='group-card-status-wrap'>
+        {group.chat_unread_count > 0 && <Text className='group-chat-unread-badge'>{group.chat_unread_count > 99 ? '99+' : group.chat_unread_count}</Text>}
+        <Text className={`group-status ${status.tone}`}>{status.label}</Text>
+      </View>
     </View>
     <View className='group-list-card-meta'>
       <Text className='group-list-card-time'>{formatGroupTime(group.start_at)}</Text>
@@ -338,7 +341,7 @@ function memberStatusText(member: GroupSessionMember) {
   return member.status === 'confirmed' ? '已确认' : '已邀请 · 待确认'
 }
 
-export function GroupDetailScreen({ group, currentUserId, loading, onBack, onJoin, onLeave, onUpdateMember, onRemoveMember, onCancel, onStart, onOpenMatch }: {
+export function GroupDetailScreen({ group, currentUserId, loading, onBack, onJoin, onLeave, onUpdateMember, onRemoveMember, onCancel, onStart, onOpenMatch, onOpenChat }: {
   group: GroupSession
   currentUserId: string
   loading: boolean
@@ -350,6 +353,7 @@ export function GroupDetailScreen({ group, currentUserId, loading, onBack, onJoi
   onCancel: () => void
   onStart: () => void
   onOpenMatch: (matchId: string) => void
+  onOpenChat: () => void
 }) {
   const status = statusCopy[group.status]
   const myMember = group.members.find(member => member.user_id === currentUserId)
@@ -357,6 +361,7 @@ export function GroupDetailScreen({ group, currentUserId, loading, onBack, onJoi
   const canJoin = !group.is_member && group.status === 'recruiting' && group.confirmed_count < group.capacity
   const canLeave = Boolean(myMember && myMember.role !== 'owner' && (group.status === 'recruiting' || group.status === 'full'))
   const canStart = group.is_owner && !group.match_id && group.confirmed_count === group.capacity && (group.status === 'recruiting' || group.status === 'full')
+  const canOpenChat = Boolean(myMember?.status === 'confirmed')
 
   async function copyInvite() {
     await Taro.setClipboardData({ data: group.share_code })
@@ -393,6 +398,20 @@ export function GroupDetailScreen({ group, currentUserId, loading, onBack, onJoi
         <GroupMemberAvatar empty />
         <View className='grow'><Text className='card-title'>等待牌友加入</Text><Text className='group-member-status'>可通过组局码邀请</Text></View>
       </View>)}
+    </View>
+
+    <View className={`group-chat-entry${canOpenChat ? '' : ' disabled'}`} onClick={() => { if (canOpenChat) onOpenChat() }}>
+      <View className='group-chat-entry-icon'><Text>聊</Text></View>
+      <View className='grow'>
+        <View className='group-chat-entry-title-row'>
+          <Text className='group-chat-entry-title'>组局群聊</Text>
+          {group.chat_unread_count > 0 && <Text className='group-chat-unread-badge'>{group.chat_unread_count > 99 ? '99+' : group.chat_unread_count}</Text>}
+        </View>
+        <Text className='group-chat-entry-preview'>{canOpenChat
+          ? group.chat_last_message_preview || '和牌友确认一下时间与位置'
+          : '确认加入组局后即可参与群聊'}</Text>
+      </View>
+      <Text className='group-chat-entry-arrow'>{canOpenChat ? '›' : '锁'}</Text>
     </View>
 
     {group.status === 'active' && group.match_id && <Button className='primary group-primary-action' onClick={() => onOpenMatch(group.match_id!)}>进入正在进行的牌局</Button>}

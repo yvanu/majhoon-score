@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { jsonError, now } from './core'
 import type { Env } from './env'
 import { registerAuthRoutes } from './routes/auth'
+import { registerChatRoutes } from './routes/chat'
 import { registerGroupRoutes } from './routes/groups'
 import { registerMatchRoutes } from './routes/matches'
 import { registerMeRoutes } from './routes/me'
@@ -38,6 +39,7 @@ app.get('/api/health', c => c.json({ ok: true, service: 'mahjong-score-wechat', 
 registerAuthRoutes(app)
 registerMeRoutes(app)
 registerGroupRoutes(app)
+registerChatRoutes(app)
 registerMatchRoutes(app)
 
 app.notFound(c => jsonError(c, '接口不存在', 404))
@@ -46,4 +48,5 @@ app.onError((error, c) => {
   return jsonError(c, '服务器处理失败', 500)
 })
 
+export { GroupChatRoom } from './group-chat-room'
 export default app

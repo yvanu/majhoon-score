@@ -1,4 +1,4 @@
-import type { Hono } from 'hono'
+import type { Context, Hono } from 'hono'
 import type {
   AuthUser,
   GroupMemberStatus,
@@ -27,12 +27,43 @@ type StoredGroup = {
   match_id: string | null
   created_at: string
   updated_at: string
+  chat_unread_count: number | string
+  chat_last_message_preview: string | null
+  chat_last_message_at: string | null
 }
 
 type StoredMember = GroupSessionMember & { group_session_id: string }
 
 function userDisplayName(user: AuthUser) {
   return user.display_name?.trim() || user.username
+}
+
+function publishChatSystem(c: Context<Env>, roomId: string, content: string, eventType: string, payload?: Record<string, unknown>) {
+  c.executionCtx.waitUntil(
+    c.env.GROUP_CHAT.getByName(roomId).publishSystem({ roomId, content, eventType, payload }).catch(error => {
+      console.error(JSON.stringify({
+        event: 'group_chat_system_message_failed',
+        roomId,
+        eventType,
+        message: error instanceof Error ? error.message : String(error),
+      }))
+    }),
+  )
+}
+
+async function activateChatMember(db: D1Database, roomId: string, userId: string, joinedAt: string) {
+  await db.prepare(`
+    INSERT INTO group_chat_members(room_id, user_id, joined_at, left_at, last_read_sequence, notification_level)
+    VALUES(?, ?, ?, NULL, 0, 'important')
+    ON CONFLICT(room_id, user_id) DO UPDATE SET left_at = NULL, joined_at = excluded.joined_at
+  `).bind(roomId, userId, joinedAt).run()
+}
+
+async function deactivateChatMember(db: D1Database, roomId: string, userId: string, leftAt: string) {
+  await db.prepare(`
+    UPDATE group_chat_members SET left_at = ?
+    WHERE room_id = ? AND user_id = ? AND left_at IS NULL
+  `).bind(leftAt, roomId, userId).run()
 }
 
 function parseCreateInput(value: unknown) {
@@ -55,6 +86,9 @@ function mapGroup(row: StoredGroup, members: GroupSessionMember[], userId: strin
     capacity: Number(row.capacity),
     confirmed_count: Number(row.confirmed_count),
     invited_count: Number(row.invited_count),
+    chat_unread_count: Number(row.chat_unread_count || 0),
+    chat_last_message_preview: row.chat_last_message_preview,
+    chat_last_message_at: row.chat_last_message_at,
     members,
     is_owner: row.owner_user_id === userId,
     is_member: row.owner_user_id === userId || members.some(member => member.user_id === userId),
@@ -95,12 +129,21 @@ async function loadGroup(db: D1Database, idOrCode: string, userId: string): Prom
            gs.start_at, gs.location, gs.note, gs.capacity, gs.status, gs.match_id,
            gs.created_at, gs.updated_at,
            (SELECT COUNT(*) FROM group_session_members gm WHERE gm.group_session_id = gs.id AND gm.status = 'confirmed') confirmed_count,
-           (SELECT COUNT(*) FROM group_session_members gm WHERE gm.group_session_id = gs.id AND gm.status = 'invited') invited_count
+           (SELECT COUNT(*) FROM group_session_members gm WHERE gm.group_session_id = gs.id AND gm.status = 'invited') invited_count,
+           COALESCE((
+             SELECT COUNT(*)
+             FROM group_chat_messages msg
+             JOIN group_chat_members cm ON cm.room_id = msg.room_id
+             WHERE msg.room_id = gs.id AND cm.user_id = ? AND cm.left_at IS NULL
+               AND msg.sequence > cm.last_read_sequence
+           ), 0) chat_unread_count,
+           (SELECT content FROM group_chat_messages msg WHERE msg.room_id = gs.id ORDER BY sequence DESC LIMIT 1) chat_last_message_preview,
+           (SELECT created_at FROM group_chat_messages msg WHERE msg.room_id = gs.id ORDER BY sequence DESC LIMIT 1) chat_last_message_at
     FROM group_sessions gs
     JOIN users u ON u.id = gs.owner_user_id
     WHERE gs.id = ? OR gs.share_code = ? COLLATE NOCASE
     LIMIT 1
-  `).bind(idOrCode, idOrCode).first<StoredGroup>()
+  `).bind(userId, idOrCode, idOrCode).first<StoredGroup>()
   if (!row) return null
   const members = await loadMembers(db, [row.id])
   return mapGroup(row, members.get(row.id) ?? [], userId)
@@ -150,7 +193,16 @@ export function registerGroupRoutes(app: Hono<Env>) {
              gs.start_at, gs.location, gs.note, gs.capacity, gs.status, gs.match_id,
              gs.created_at, gs.updated_at,
              (SELECT COUNT(*) FROM group_session_members gm WHERE gm.group_session_id = gs.id AND gm.status = 'confirmed') confirmed_count,
-             (SELECT COUNT(*) FROM group_session_members gm WHERE gm.group_session_id = gs.id AND gm.status = 'invited') invited_count
+             (SELECT COUNT(*) FROM group_session_members gm WHERE gm.group_session_id = gs.id AND gm.status = 'invited') invited_count,
+             COALESCE((
+               SELECT COUNT(*)
+               FROM group_chat_messages msg
+               JOIN group_chat_members cm ON cm.room_id = msg.room_id
+               WHERE msg.room_id = gs.id AND cm.user_id = ? AND cm.left_at IS NULL
+                 AND msg.sequence > cm.last_read_sequence
+             ), 0) chat_unread_count,
+             (SELECT content FROM group_chat_messages msg WHERE msg.room_id = gs.id ORDER BY sequence DESC LIMIT 1) chat_last_message_preview,
+             (SELECT created_at FROM group_chat_messages msg WHERE msg.room_id = gs.id ORDER BY sequence DESC LIMIT 1) chat_last_message_at
       FROM group_sessions gs
       JOIN users u ON u.id = gs.owner_user_id
       WHERE (gs.status IN ('recruiting', 'full') AND gs.start_at >= ?)
@@ -164,7 +216,7 @@ export function registerGroupRoutes(app: Hono<Env>) {
         CASE WHEN gs.status IN ('recruiting', 'full') THEN gs.start_at END ASC,
         CASE WHEN gs.status NOT IN ('recruiting', 'full') THEN gs.created_at END DESC
       LIMIT 80
-    `).bind(new Date(Date.now() - 6 * 3_600_000).toISOString(), user.id, user.id).all<StoredGroup>()
+    `).bind(user.id, new Date(Date.now() - 6 * 3_600_000).toISOString(), user.id, user.id).all<StoredGroup>()
     const members = await loadMembers(c.env.DB, result.results.map(row => row.id))
     const groups: GroupSessionSummary[] = result.results.map(row => mapGroup(row, members.get(row.id) ?? [], user.id))
     return c.json({ groups })
@@ -202,11 +254,23 @@ export function registerGroupRoutes(app: Hono<Env>) {
         INSERT INTO group_session_members(id, group_session_id, user_id, friend_id, name, avatar_seed, role, status, joined_at, updated_at)
         VALUES(?, ?, ?, NULL, ?, ?, 'owner', 'confirmed', ?, ?)
       `).bind(uid(), groupId, user.id, ownerName, avatarSeed(ownerName), createdAt, createdAt),
+      c.env.DB.prepare(`
+        INSERT INTO group_chat_rooms(id, group_session_id, status, next_sequence, created_at)
+        VALUES(?, ?, 'active', 0, ?)
+      `).bind(groupId, groupId, createdAt),
+      c.env.DB.prepare(`
+        INSERT INTO group_chat_members(room_id, user_id, joined_at, left_at, last_read_sequence, notification_level)
+        VALUES(?, ?, ?, NULL, 0, 'important')
+      `).bind(groupId, user.id, createdAt),
       ...selectedFriends.map(friend => c.env.DB.prepare(`
         INSERT INTO group_session_members(id, group_session_id, user_id, friend_id, name, avatar_seed, role, status, joined_at, updated_at)
         VALUES(?, ?, NULL, ?, ?, ?, 'member', 'invited', ?, ?)
       `).bind(uid(), groupId, friend.id, friend.name, Number(friend.avatar_seed), createdAt, createdAt)),
     ])
+    publishChatSystem(c, groupId, `${ownerName}发起了组局`, 'group_created', {
+      startAt: input.startAt,
+      location: input.location,
+    })
     const group = await loadGroup(c.env.DB, groupId, user.id)
     return c.json({ group }, 201)
   })
@@ -248,7 +312,12 @@ export function registerGroupRoutes(app: Hono<Env>) {
         VALUES(?, ?, ?, NULL, ?, ?, 'member', 'confirmed', ?, ?)
       `).bind(uid(), id, user.id, name, avatarSeed(name), joinedAt, joinedAt).run()
     }
-    await syncGroupStatus(c.env.DB, id)
+    await activateChatMember(c.env.DB, id, user.id, joinedAt)
+    const nextStatus = await syncGroupStatus(c.env.DB, id)
+    publishChatSystem(c, id, `${name}加入了组局`, 'member_joined', { userId: user.id })
+    if (nextStatus === 'full') {
+      publishChatSystem(c, id, '四位牌友已到齐，可以开始记分了', 'group_full')
+    }
     return c.json({ group: await loadGroup(c.env.DB, id, user.id) })
   })
 
@@ -260,11 +329,16 @@ export function registerGroupRoutes(app: Hono<Env>) {
     if (!group) return jsonError(c, '组局不存在', 404)
     if (group.owner_user_id === user.id) return jsonError(c, '发起人不能退出，请取消组局', 409)
     if (!['recruiting', 'full'].includes(group.status)) return jsonError(c, '当前组局不能退出', 409)
+    const leavingMember = group.members.find(member => member.user_id === user.id)
     await c.env.DB.prepare(`
       DELETE FROM group_session_members
       WHERE group_session_id = ? AND user_id = ? AND role = 'member'
     `).bind(id, user.id).run()
+    const leftAt = now()
+    await deactivateChatMember(c.env.DB, id, user.id, leftAt)
     await syncGroupStatus(c.env.DB, id)
+    publishChatSystem(c, id, `${leavingMember?.name || userDisplayName(user)}退出了组局`, 'member_left', { userId: user.id })
+    c.executionCtx.waitUntil(c.env.GROUP_CHAT.getByName(id).disconnectUser(user.id))
     return c.json({ group: await loadGroup(c.env.DB, id, user.id) })
   })
 
@@ -284,11 +358,21 @@ export function registerGroupRoutes(app: Hono<Env>) {
     if (status === 'confirmed' && member.status !== 'confirmed' && group.confirmed_count >= group.capacity) {
       return jsonError(c, '组局人数已满', 409)
     }
+    const updatedAt = now()
     await c.env.DB.prepare(`
       UPDATE group_session_members SET status = ?, updated_at = ?
       WHERE id = ? AND group_session_id = ?
-    `).bind(status, now(), member.id, id).run()
-    await syncGroupStatus(c.env.DB, id)
+    `).bind(status, updatedAt, member.id, id).run()
+    if (member.user_id) {
+      if (status === 'confirmed') await activateChatMember(c.env.DB, id, member.user_id, member.joined_at)
+      else {
+        await deactivateChatMember(c.env.DB, id, member.user_id, updatedAt)
+        c.executionCtx.waitUntil(c.env.GROUP_CHAT.getByName(id).disconnectUser(member.user_id))
+      }
+    }
+    const nextStatus = await syncGroupStatus(c.env.DB, id)
+    publishChatSystem(c, id, `${member.name}${status === 'confirmed' ? '已确认参加组局' : '被设为待确认'}`, status === 'confirmed' ? 'member_confirmed' : 'member_unconfirmed', { userId: member.user_id })
+    if (nextStatus === 'full') publishChatSystem(c, id, '四位牌友已到齐，可以开始记分了', 'group_full')
     return c.json({ group: await loadGroup(c.env.DB, id, user.id) })
   })
 
@@ -305,7 +389,12 @@ export function registerGroupRoutes(app: Hono<Env>) {
     await c.env.DB.prepare(`
       DELETE FROM group_session_members WHERE id = ? AND group_session_id = ?
     `).bind(member.id, id).run()
+    if (member.user_id) {
+      await deactivateChatMember(c.env.DB, id, member.user_id, now())
+      c.executionCtx.waitUntil(c.env.GROUP_CHAT.getByName(id).disconnectUser(member.user_id))
+    }
     await syncGroupStatus(c.env.DB, id)
+    publishChatSystem(c, id, `${member.name}已被移出组局`, 'member_removed', { userId: member.user_id })
     return c.json({ group: await loadGroup(c.env.DB, id, user.id) })
   })
 
@@ -317,9 +406,12 @@ export function registerGroupRoutes(app: Hono<Env>) {
     if (!group) return jsonError(c, '组局不存在', 404)
     if (!group.is_owner) return jsonError(c, '只有发起人可以取消组局', 401)
     if (!['recruiting', 'full'].includes(group.status)) return jsonError(c, '当前组局不能取消', 409)
+    const cancelledAt = now()
     await c.env.DB.prepare(`
       UPDATE group_sessions SET status = 'cancelled', updated_at = ? WHERE id = ?
-    `).bind(now(), id).run()
+    `).bind(cancelledAt, id).run()
+    publishChatSystem(c, id, '发起人取消了本次组局', 'group_cancelled')
+    c.executionCtx.waitUntil(c.env.GROUP_CHAT.getByName(id).setRoomStatus(id, 'readonly'))
     return c.json({ group: await loadGroup(c.env.DB, id, user.id) })
   })
 
@@ -362,6 +454,7 @@ export function registerGroupRoutes(app: Hono<Env>) {
     ])
     const match = await getMatch(c.env.DB, matchId)
     if (!match) return jsonError(c, '创建牌局失败，请重试', 500)
+    publishChatSystem(c, id, '牌局已创建，四位牌友可以开始记分了', 'match_started', { matchId })
     return c.json({ group: await loadGroup(c.env.DB, id, user.id), match: match as Match, adminToken }, 201)
   })
 }
