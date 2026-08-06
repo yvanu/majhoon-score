@@ -11,6 +11,7 @@ import type {
   MahjongTile,
   Match,
   Player,
+  UserPreferences,
 } from '@shared/types'
 import { MahjongTileFace } from './screens'
 import {
@@ -21,6 +22,7 @@ import {
   getPageTopInset,
   noteOptions,
   seatLabels,
+  sortMahjongTiles,
   tileGroups,
   tileLabel,
   typeName,
@@ -479,7 +481,12 @@ function tileRecordPhysicalCount(record: HandTileRecord) {
     (record.winningTile ? 1 : 0)
 }
 
-function TileRecordEditor({ record, onChange }: { record: HandTileRecord; onChange: (record: HandTileRecord) => void }) {
+function TileRecordEditor({ record, autoSort, highlightMatchingTiles, onChange }: {
+  record: HandTileRecord
+  autoSort: boolean
+  highlightMatchingTiles: boolean
+  onChange: (record: HandTileRecord) => void
+}) {
   const [active, setActive] = useState<TileRecordSection>('hand')
   const sections: Array<{ key: TileRecordSection; label: string; hint: string }> = [
     { key: 'pongs', label: '碰', hint: `${record.pongs.length} 组` },
@@ -519,6 +526,12 @@ function TileRecordEditor({ record, onChange }: { record: HandTileRecord; onChan
     if (tileRecordPhysicalCount(next) > 14 + kongCount) {
       void Taro.showToast({ title: '当前碰杠数量下，手牌张数过多', icon: 'none' })
       return
+    }
+    if (autoSort) {
+      next.pongs = sortMahjongTiles(next.pongs)
+      next.exposedKongs = sortMahjongTiles(next.exposedKongs)
+      next.concealedKongs = sortMahjongTiles(next.concealedKongs)
+      next.hand = sortMahjongTiles(next.hand)
     }
     onChange(next)
   }
@@ -565,14 +578,16 @@ function TileRecordEditor({ record, onChange }: { record: HandTileRecord; onChan
       <View className='tile-palette-heading'><Text>点击麻将牌录入“{currentSection.label}”</Text><Text>每种牌最多 4 张</Text></View>
       {tileGroups.map(group => <View className='tile-palette-group' key={group.name}>
         <Text className='tile-palette-group-name'>{group.name}</Text>
-        <View className='tile-palette-grid'>{group.tiles.map(tile => <View className='tile-palette-item' key={tile} onClick={() => addTile(tile)}><MahjongTileFace tile={tile} compact /></View>)}</View>
+        <View className='tile-palette-grid'>{group.tiles.map(tile => <View className={highlightMatchingTiles && tileCopyCount(record, tile) ? 'tile-palette-item selected' : 'tile-palette-item'} key={tile} onClick={() => addTile(tile)}><MahjongTileFace tile={tile} compact /></View>)}</View>
       </View>)}
     </View>
   </View>
 }
 
-function TileRecordModal({ record, onCancel, onConfirm }: {
+function TileRecordModal({ record, autoSort, highlightMatchingTiles, onCancel, onConfirm }: {
   record: HandTileRecord
+  autoSort: boolean
+  highlightMatchingTiles: boolean
   onCancel: () => void
   onConfirm: (record: HandTileRecord) => void
 }) {
@@ -589,7 +604,7 @@ function TileRecordModal({ record, onCancel, onConfirm }: {
       </View>
       <Text className='tile-record-modal-tip'>先选择碰、明杠、暗杠、手牌或胡的牌，再点击下方麻将牌；已录入的牌可点击删除。</Text>
       <ScrollView scrollY className='tile-record-modal-scroll' showScrollbar={false}>
-        <TileRecordEditor record={draft} onChange={setDraft} />
+        <TileRecordEditor record={draft} autoSort={autoSort} highlightMatchingTiles={highlightMatchingTiles} onChange={setDraft} />
       </ScrollView>
       <View className='tile-record-modal-actions'>
         <Button className='secondary' onClick={onCancel}>取消</Button>
@@ -624,11 +639,12 @@ const inHandEventOptions: InHandEventOption[] = [
 
 const inHandEventOptionMap = new Map(inHandEventOptions.map(option => [option.type, option]))
 
-export function ScoreScreen({ players, currentUserId, initialHand, initialType, loading, closeTileEditorRequest, onTileEditorOpenChange, onBack, onSubmit }: {
+export function ScoreScreen({ players, currentUserId, initialHand, initialType, preferences, loading, closeTileEditorRequest, onTileEditorOpenChange, onBack, onSubmit }: {
   players: Player[]
   currentUserId: string | null
   initialHand: Hand | null
   initialType: HandType
+  preferences: UserPreferences
   loading: boolean
   closeTileEditorRequest: number
   onTileEditorOpenChange: (open: boolean) => void
@@ -648,7 +664,8 @@ export function ScoreScreen({ players, currentUserId, initialHand, initialType, 
     ? initialHand.loser_player_id
     : ''
   const initialScores = initialHand?.scores || []
-  const initialTsumoPayment = Math.abs(initialScores.find(score => score.playerId !== initialWinner && score.change < 0)?.change || 50)
+  const defaultQuickScore = preferences.quickScores[0]
+  const initialTsumoPayment = Math.abs(initialScores.find(score => score.playerId !== initialWinner && score.change < 0)?.change || defaultQuickScore)
   const initialTsumoOutcome = initialHand?.result_type === 'tsumo' ? initialOutcomes[0] : undefined
   const initialEventType = initialHand?.result_type === 'event' && inHandEventOptionMap.has(initialHand.note as InHandEventType)
     ? initialHand.note as InHandEventType
@@ -663,8 +680,8 @@ export function ScoreScreen({ players, currentUserId, initialHand, initialType, 
   const initialEventAmount = initialHand?.result_type === 'event'
     ? Math.abs(initialScores.find(score => score.playerId === (initialEventOption.allPay
       ? players.find(player => player.id !== initialEventPlayer)?.id
-      : initialEventPayer))?.change || initialEventOption.defaultAmount)
-    : initialEventOption.defaultAmount
+      : initialEventPayer))?.change || preferences.eventDefaults[initialEventType])
+    : preferences.eventDefaults[initialEventType]
   const [type, setType] = useState<HandType>(initialHand?.result_type || initialType)
   const [winner, setWinner] = useState(initialWinner)
   const [loser, setLoser] = useState(initialLoser)
@@ -679,12 +696,12 @@ export function ScoreScreen({ players, currentUserId, initialHand, initialType, 
       ? initialOutcomes.find(item => item.winner_player_id === player.id)
       : undefined
     return [player.id, {
-      amount: String(outcome?.score || 50),
+      amount: String(outcome?.score || defaultQuickScore),
       notes: outcome?.note?.split('、').filter(Boolean) || [],
       tileRecord: outcome?.tile_record ? cloneTileRecord(outcome.tile_record) : emptyTileRecord(),
     }]
   })))
-  const [tsumoPayment, setTsumoPayment] = useState(String(initialHand?.result_type === 'tsumo' ? initialTsumoPayment : 50))
+  const [tsumoPayment, setTsumoPayment] = useState(String(initialHand?.result_type === 'tsumo' ? initialTsumoPayment : defaultQuickScore))
   const [eventType, setEventType] = useState<InHandEventType>(initialEventType)
   const [eventPlayer, setEventPlayer] = useState(initialEventPlayer)
   const [eventPayer, setEventPayer] = useState(initialEventPayer)
@@ -740,16 +757,23 @@ export function ScoreScreen({ players, currentUserId, initialHand, initialType, 
         : ['ron', 'tsumo', 'draw']
     : [initialType]
 
+  function feedback() {
+    if (!preferences.hapticFeedback) return
+    void Taro.vibrateShort({ type: 'light' }).catch(() => undefined)
+  }
+
   function changeType(nextType: HandType) {
+    feedback()
     setType(nextType)
     setTileEditorTarget(null)
   }
 
   function updateRonDraft(playerId: string, updater: (draft: WinnerDraft) => WinnerDraft) {
-    setRonDrafts(current => ({ ...current, [playerId]: updater(current[playerId] || { amount: '50', notes: [], tileRecord: emptyTileRecord() }) }))
+    setRonDrafts(current => ({ ...current, [playerId]: updater(current[playerId] || { amount: String(defaultQuickScore), notes: [], tileRecord: emptyTileRecord() }) }))
   }
 
   function selectRonPlayer(playerId: string) {
+    feedback()
     if (playerId === loser) {
       setLoser('')
       setRonSelectionRole('loser')
@@ -794,6 +818,7 @@ export function ScoreScreen({ players, currentUserId, initialHand, initialType, 
   }
 
   function toggleMultiRonMode() {
+    feedback()
     if (multiRonEnabled) {
       const retainedWinnerId = ronWinnerIds.includes(activeRonWinnerId)
         ? activeRonWinnerId
@@ -808,6 +833,7 @@ export function ScoreScreen({ players, currentUserId, initialHand, initialType, 
   }
 
   function toggleRonNote(playerId: string, option: string) {
+    feedback()
     updateRonDraft(playerId, draft => {
       const nextNotes = draft.notes.includes(option) ? draft.notes.filter(item => item !== option) : [...draft.notes, option]
       return {
@@ -819,6 +845,7 @@ export function ScoreScreen({ players, currentUserId, initialHand, initialType, 
   }
 
   function toggleNote(option: string) {
+    feedback()
     const next = notes.includes(option) ? notes.filter(item => item !== option) : [...notes, option]
     setNotes(next)
     if (!next.some(note => bigHandOptions.has(note))) setTileRecord(emptyTileRecord())
@@ -830,9 +857,9 @@ export function ScoreScreen({ players, currentUserId, initialHand, initialType, 
   }
 
   function selectEventType(nextType: InHandEventType) {
-    const nextOption = inHandEventOptionMap.get(nextType)!
+    feedback()
     setEventType(nextType)
-    setEventAmount(String(nextOption.defaultAmount))
+    setEventAmount(String(preferences.eventDefaults[nextType]))
     setEventSelectionRole(nextType === '明杠' ? 'payer' : 'player')
     if (nextType !== '明杠') setEventPayer('')
     else if (eventPayer === eventPlayer) setEventPayer('')
@@ -846,6 +873,7 @@ export function ScoreScreen({ players, currentUserId, initialHand, initialType, 
   }
 
   function selectEventRolePlayer(playerId: string) {
+    feedback()
     if (playerId === eventPayer) {
       setEventPayer('')
       setEventSelectionRole('payer')
@@ -1031,7 +1059,7 @@ export function ScoreScreen({ players, currentUserId, initialHand, initialType, 
       })}</View>}
       {displayedRonWinner && displayedRonDraft && <View className='winner-outcome-card'>
         <View className='winner-outcome-head'><Text className='card-title'>{displayedRonWinner.name}的结果</Text></View>
-        <View className='field score-field compact'><Text>获得分数</Text><Input type='number' value={displayedRonDraft.amount} cursorSpacing={28} onInput={event => updateRonDraft(displayedRonWinner.id, current => ({ ...current, amount: event.detail.value }))} /><View className='score-presets'><Button className={displayedRonDraft.amount === '50' ? 'score-preset active' : 'score-preset'} onClick={() => updateRonDraft(displayedRonWinner.id, current => ({ ...current, amount: '50' }))}>50</Button><Button className={displayedRonDraft.amount === '70' ? 'score-preset active' : 'score-preset'} onClick={() => updateRonDraft(displayedRonWinner.id, current => ({ ...current, amount: '70' }))}>70</Button><Button className='score-preset' onClick={() => adjustScore(displayedRonDraft.amount, 5, value => updateRonDraft(displayedRonWinner.id, current => ({ ...current, amount: value })))}>+5</Button><Button className='score-preset' onClick={() => adjustScore(displayedRonDraft.amount, -5, value => updateRonDraft(displayedRonWinner.id, current => ({ ...current, amount: value })))}>-5</Button></View></View>
+        <View className='field score-field compact'><Text>获得分数</Text><Input type='number' value={displayedRonDraft.amount} cursorSpacing={28} onInput={event => updateRonDraft(displayedRonWinner.id, current => ({ ...current, amount: event.detail.value }))} /><View className='score-presets'><Button className={displayedRonDraft.amount === String(preferences.quickScores[0]) ? 'score-preset active' : 'score-preset'} onClick={() => updateRonDraft(displayedRonWinner.id, current => ({ ...current, amount: String(preferences.quickScores[0]) }))}>{preferences.quickScores[0]}</Button><Button className={displayedRonDraft.amount === String(preferences.quickScores[1]) ? 'score-preset active' : 'score-preset'} onClick={() => updateRonDraft(displayedRonWinner.id, current => ({ ...current, amount: String(preferences.quickScores[1]) }))}>{preferences.quickScores[1]}</Button><Button className='score-preset' onClick={() => adjustScore(displayedRonDraft.amount, 5, value => updateRonDraft(displayedRonWinner.id, current => ({ ...current, amount: value })))}>+5</Button><Button className='score-preset' onClick={() => adjustScore(displayedRonDraft.amount, -5, value => updateRonDraft(displayedRonWinner.id, current => ({ ...current, amount: value })))}>-5</Button></View></View>
         <View className='advanced-option-toggle' onClick={() => setShowAdvanced(current => !current)}>
           <View><Text>牌型与牌谱</Text><Text>{displayedRonDraft.notes.length ? `已选 ${displayedRonDraft.notes.length} 项` : '普通胡牌可不填写'}</Text></View>
           <Text>{showAdvanced ? '收起⌃' : '展开⌄'}</Text>
@@ -1054,8 +1082,8 @@ export function ScoreScreen({ players, currentUserId, initialHand, initialType, 
     </>}
 
     {type === 'tsumo' && <>
-      <PlayerPicker title='胡牌者' players={players} currentUserId={currentUserId} selected={winner} onSelect={setWinner} />
-      <View className='field score-field'><Text>每人支付</Text><Input type='number' value={tsumoPayment} cursorSpacing={28} onInput={event => setTsumoPayment(event.detail.value)} /><View className='score-presets'><Button className={tsumoPayment === '50' ? 'score-preset active' : 'score-preset'} onClick={() => setTsumoPayment('50')}>50</Button><Button className={tsumoPayment === '70' ? 'score-preset active' : 'score-preset'} onClick={() => setTsumoPayment('70')}>70</Button><Button className='score-preset' onClick={() => adjustScore(tsumoPayment, 5, setTsumoPayment)}>+5</Button><Button className='score-preset' onClick={() => adjustScore(tsumoPayment, -5, setTsumoPayment)}>-5</Button></View></View>
+      <PlayerPicker title='胡牌者' players={players} currentUserId={currentUserId} selected={winner} onSelect={playerId => { feedback(); setWinner(playerId) }} />
+      <View className='field score-field'><Text>每人支付</Text><Input type='number' value={tsumoPayment} cursorSpacing={28} onInput={event => setTsumoPayment(event.detail.value)} /><View className='score-presets'><Button className={tsumoPayment === String(preferences.quickScores[0]) ? 'score-preset active' : 'score-preset'} onClick={() => setTsumoPayment(String(preferences.quickScores[0]))}>{preferences.quickScores[0]}</Button><Button className={tsumoPayment === String(preferences.quickScores[1]) ? 'score-preset active' : 'score-preset'} onClick={() => setTsumoPayment(String(preferences.quickScores[1]))}>{preferences.quickScores[1]}</Button><Button className='score-preset' onClick={() => adjustScore(tsumoPayment, 5, setTsumoPayment)}>+5</Button><Button className='score-preset' onClick={() => adjustScore(tsumoPayment, -5, setTsumoPayment)}>-5</Button></View></View>
       <View className='advanced-option-toggle' onClick={() => setShowAdvanced(current => !current)}>
         <View><Text>牌型与牌谱</Text><Text>{notes.length ? `已选 ${notes.length} 项` : '普通自摸可不填写'}</Text></View>
         <Text>{showAdvanced ? '收起⌃' : '展开⌄'}</Text>
@@ -1105,6 +1133,8 @@ export function ScoreScreen({ players, currentUserId, initialHand, initialType, 
   </View>
   {activeTileRecord && <TileRecordModal
     record={activeTileRecord}
+    autoSort={preferences.autoSortTileRecord}
+    highlightMatchingTiles={preferences.highlightMatchingTiles}
     onCancel={() => setTileEditorTarget(null)}
     onConfirm={record => {
       if (tileEditorTarget === 'tsumo') setTileRecord(record)

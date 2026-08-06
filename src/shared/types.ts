@@ -194,6 +194,17 @@ export interface PersonalStatistics {
   featuredBigHand: FeaturedBigHand | null
 }
 
+export interface UserPreferences {
+  confirmBeforeScoreSubmit: boolean
+  hapticFeedback: boolean
+  quickScores: [number, number]
+  autoSortTileRecord: boolean
+  highlightMatchingTiles: boolean
+  eventDefaults: Record<InHandEventType, number>
+  defaultGroupLocation: string
+  defaultGroupLeadMinutes: 30 | 60 | 120
+}
+
 export interface PlayerStat extends Player {
   rank: number
   wins: number

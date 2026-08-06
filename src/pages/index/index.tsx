@@ -20,6 +20,7 @@ import type {
   MatchSummary,
   PersonalStatistics,
   StatisticsDimension,
+  UserPreferences,
 } from '@shared/types'
 import { api, AUTH_KEY, CURRENT_KEY } from '../../services/api'
 import {
@@ -42,9 +43,11 @@ import {
   NicknameScreen,
   PersonalStatisticsScreen,
   ProfileScreen,
+  SettingsScreen,
 } from './screens'
 import { GroupCreateScreen, GroupDetailScreen, GroupSessionsScreen } from './group-screens'
 import { MatchScreen, ScoreScreen } from './match-screens'
+import { readUserPreferences, saveUserPreferences } from './preferences'
 import './index.scss'
 
 const TAB_CACHE_TTL = 60_000
@@ -165,6 +168,7 @@ export default function Index() {
   const [lastSaveNotice, setLastSaveNotice] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle')
+  const [preferences, setPreferences] = useState<UserPreferences>(() => readUserPreferences())
   const [dialog, setDialog] = useState<DialogState | null>(null)
   const [nicknameReturn, setNicknameReturn] = useState<Screen>('home')
   const dialogResolver = useRef<((confirmed: boolean) => void) | null>(null)
@@ -988,6 +992,19 @@ export default function Index() {
     return request
   }
 
+  function updatePreferences(next: UserPreferences) {
+    saveUserPreferences(next)
+    setPreferences(next)
+  }
+
+  function showSettings() {
+    if (!user) {
+      showAuth('settings')
+      return
+    }
+    setScreen('settings')
+  }
+
   function showProfile() {
     setScreen('profile')
     if (!user) return
@@ -998,8 +1015,8 @@ export default function Index() {
     const value = statisticsValue(dimension)
     const key = personalStatisticsKey(dimension, value)
     const generation = personalStatsGeneration.current
-    const cached = personalStatsCache.current.get(key)?.value
-    if (cached) setPersonalStats(cached)
+    const cached = personalStatsCache.current.get(key)?.value ?? null
+    setPersonalStats(cached)
     void loadPersonalStatistics(dimension, value).then(result => {
       if (personalStatsGeneration.current === generation &&
           (screenRef.current === 'profile' || activePersonalStatsKey.current === key)) {
@@ -1186,6 +1203,14 @@ export default function Index() {
   async function submitHand(input: HandInput, summary: string): Promise<boolean> {
     if (!match || !matchCanEdit || match.status !== 'active') return false
     const handId = editingHandId
+    if (preferences.confirmBeforeScoreSubmit) {
+      const confirmed = await showDialog({
+        title: handId ? '确认修改记录' : '确认保存记录',
+        content: summary,
+        confirmText: handId ? '确认修改' : '确认保存',
+      })
+      if (!confirmed) return false
+    }
     return run(async () => {
       const data = handId
         ? await api.updateHand(match.id, handId, input, adminToken)
@@ -1409,6 +1434,8 @@ export default function Index() {
       friends={friends}
       loading={loading}
       friendPickerOpen={groupFriendPickerOpen}
+      defaultLocation={preferences.defaultGroupLocation}
+      defaultLeadMinutes={preferences.defaultGroupLeadMinutes}
       onFriendPickerOpenChange={setGroupFriendPickerOpen}
       onBack={goBack}
       onCreate={createGroupSession}
@@ -1445,19 +1472,27 @@ export default function Index() {
     {screen === 'personal' && (personalStats ? <PersonalStatisticsScreen
       statistics={personalStats}
       loading={personalStatsLoadingKey === activePersonalStatsKey.current}
+      autoSortTileRecord={preferences.autoSortTileRecord}
       onBack={goBack}
       onChange={showPersonalStatistics}
     /> : <LoadingScreen title='我的战绩' message='正在汇总牌局与大胡记录…' onBack={goBack} />)}
     {screen === 'profile' && <ProfileScreen
       user={user}
-      matches={history}
-      dailyStats={dailyStats}
+      statistics={personalStats}
+      statisticsLoading={personalStatsLoadingKey === personalStatisticsKey('month', statisticsValue('month'))}
       syncStatus={syncStatus}
-      onHistory={showHistory}
+      onSettings={showSettings}
       onPersonalStatistics={() => showPersonalStatistics()}
       onLogin={() => showAuth('profile')}
+    />}
+    {screen === 'settings' && <SettingsScreen
+      user={user}
+      preferences={preferences}
+      syncStatus={syncStatus}
+      onChange={updatePreferences}
+      onBack={goBack}
+      onEditNickname={() => { setNicknameReturn('settings'); setScreen('nickname') }}
       onLogout={logout}
-      onEditNickname={() => { setNicknameReturn('profile'); setScreen('nickname') }}
       showDialog={showDialog}
     />}
     {screen === 'match' && (match ? <MatchScreen
@@ -1515,6 +1550,7 @@ export default function Index() {
           currentUserId={user?.id || null}
           initialHand={editingHandId ? match.hands.find(hand => hand.id === editingHandId) || null : null}
           initialType={scoreEntryType}
+          preferences={preferences}
           loading={loading}
           closeTileEditorRequest={scoreTileEditorCloseRequest}
           onTileEditorOpenChange={setScoreTileEditorOpen}

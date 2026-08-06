@@ -32,11 +32,9 @@ function localTimeValue(date: Date) {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
 }
 
-function defaultStart() {
-  const date = new Date(Date.now() + 2 * 3_600_000)
-  date.setMinutes(date.getMinutes() >= 30 ? 0 : 30, 0, 0)
-  if (date.getMinutes() === 0 && new Date().getMinutes() >= 30) date.setHours(date.getHours() + 1)
-  return date
+function defaultStart(leadMinutes: 30 | 60 | 120) {
+  const halfHour = 30 * 60_000
+  return new Date(Math.ceil((Date.now() + leadMinutes * 60_000) / halfHour) * halfHour)
 }
 
 function formatGroupTime(value: string) {
@@ -205,19 +203,21 @@ export function GroupSessionsScreen({ groups, loading, tab, code, showCodeEntry,
   </View>
 }
 
-export function GroupCreateScreen({ user, friends, loading, friendPickerOpen, onFriendPickerOpenChange, onBack, onCreate }: {
+export function GroupCreateScreen({ user, friends, loading, friendPickerOpen, defaultLocation, defaultLeadMinutes, onFriendPickerOpenChange, onBack, onCreate }: {
   user: AuthUser
   friends: Friend[]
   loading: boolean
   friendPickerOpen: boolean
+  defaultLocation: string
+  defaultLeadMinutes: 30 | 60 | 120
   onFriendPickerOpenChange: (open: boolean) => void
   onBack: () => void
   onCreate: (input: GroupSessionInput) => void
 }) {
-  const initial = useMemo(defaultStart, [])
+  const initial = useMemo(() => defaultStart(defaultLeadMinutes), [defaultLeadMinutes])
   const [date, setDate] = useState(localDateValue(initial))
   const [time, setTime] = useState(localTimeValue(initial))
-  const [location, setLocation] = useState('')
+  const [location, setLocation] = useState(defaultLocation)
   const [note, setNote] = useState('')
   const [friendIds, setFriendIds] = useState<string[]>([])
   const [friendQuery, setFriendQuery] = useState('')

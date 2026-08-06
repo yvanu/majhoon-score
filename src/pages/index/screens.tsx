@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import Taro from '@tarojs/taro'
-import { Button, Image, Input, ScrollView, Text, View } from '@tarojs/components'
+import { Button, Image, Input, Picker, ScrollView, Switch, Text, View } from '@tarojs/components'
 import type {
   AuthUser,
   DailyStats,
@@ -14,6 +14,7 @@ import type {
   MatchSummary,
   PersonalStatistics,
   StatisticsDimension,
+  UserPreferences,
 } from '@shared/types'
 import { API_BASE_URL } from '../../services/api'
 import {
@@ -492,13 +493,14 @@ export function MahjongTileFace({ tile, compact = false, concealed = false }: { 
   </View>
 }
 
-function TileRecordDisplay({ record }: { record: HandTileRecord }) {
+function TileRecordDisplay({ record, autoSort = true }: { record: HandTileRecord; autoSort?: boolean }) {
+  const ordered = (tiles: MahjongTile[]) => autoSort ? sortMahjongTiles(tiles) : [...tiles]
   const meldSections = [
-    { key: 'pongs', tiles: sortMahjongTiles(record.pongs), count: 3, concealed: false },
-    { key: 'exposedKongs', tiles: sortMahjongTiles(record.exposedKongs), count: 4, concealed: false },
-    { key: 'concealedKongs', tiles: sortMahjongTiles(record.concealedKongs), count: 4, concealed: true },
+    { key: 'pongs', tiles: ordered(record.pongs), count: 3, concealed: false },
+    { key: 'exposedKongs', tiles: ordered(record.exposedKongs), count: 4, concealed: false },
+    { key: 'concealedKongs', tiles: ordered(record.concealedKongs), count: 4, concealed: true },
   ] as const
-  const sortedHand = sortMahjongTiles(record.hand)
+  const sortedHand = ordered(record.hand)
 
   return <ScrollView scrollX className='featured-tile-scroll'>
     <View className='featured-tile-line'>
@@ -533,9 +535,10 @@ function CircularMetric({ label, value, detail, tone }: { label: string; value: 
   </View>
 }
 
-export function PersonalStatisticsScreen({ statistics, loading, onBack, onChange }: {
+export function PersonalStatisticsScreen({ statistics, loading, autoSortTileRecord, onBack, onChange }: {
   statistics: PersonalStatistics
   loading: boolean
+  autoSortTileRecord: boolean
   onBack: () => void
   onChange: (dimension: StatisticsDimension, value: string) => void
 }) {
@@ -582,7 +585,7 @@ export function PersonalStatisticsScreen({ statistics, loading, onBack, onChange
       <View className='featured-big-hand-title'><View><Text className='eyebrow'>大胡牌谱</Text><Text className='title-small'>近期最高分牌谱</Text></View>{featured && <Text className='featured-big-hand-score'>{featured.score > 0 ? '+' : ''}{featured.score}</Text>}</View>
       {featured ? <>
         <View className='featured-big-hand-meta'><Text>{featured.resultType === 'tsumo' ? '自摸' : '点炮胡'} · {featured.note}</Text><Text>{formatMatchTime(featured.createdAt)}</Text></View>
-        <TileRecordDisplay record={featured.tileRecord} />
+        <TileRecordDisplay record={featured.tileRecord} autoSort={autoSortTileRecord} />
       </> : <Text className='featured-big-hand-empty'>当前统计周期内还没有录入过大胡牌谱</Text>}
     </View>
     <Text className='personal-statistics-note'>各项比率均以当前统计周期总局数为分母；大胡详情按牌型标签分别计数，一局含多个标签时会分别累计；时间范围按当前设备时区计算。</Text>
@@ -590,25 +593,170 @@ export function PersonalStatisticsScreen({ statistics, loading, onBack, onChange
   </ScrollView>
 }
 
-export function ProfileScreen({ user, matches, dailyStats, syncStatus, onHistory, onPersonalStatistics, onLogin, onLogout, onEditNickname, showDialog }: {
+function profilePercentage(count: number, total: number) {
+  return total ? Math.round(count / total * 100) : 0
+}
+
+function derivePlayStyle(statistics: PersonalStatistics | null) {
+  if (!statistics || statistics.totalHands < 20) {
+    const total = statistics?.totalHands || 0
+    return {
+      title: '牌风正在形成',
+      description: `再记录 ${Math.max(0, 20 - total)} 局，即可生成第一份牌风分析`,
+      tags: total ? [`样本 ${total} 局`] : ['等待牌局数据'],
+      ready: false,
+    }
+  }
+
+  const winRate = statistics.wins / statistics.totalHands
+  const dealInRate = statistics.dealIns / statistics.totalHands
+  const tsumoShare = statistics.wins ? statistics.tsumoWins / statistics.wins : 0
+  const bigHandShare = statistics.wins ? statistics.bigHands / statistics.wins : 0
+  let title = '均衡型'
+  let description = '胡牌方式与风险控制较为均衡'
+
+  if (dealInRate <= .1 && tsumoShare >= .5) {
+    title = '稳健自摸型'
+    description = '点炮控制较好，胡牌更偏向自己摸进'
+  } else if (dealInRate <= .1) {
+    title = '稳健型'
+    description = '出手谨慎，较少给对手机会'
+  } else if (bigHandShare >= .3) {
+    title = '大胡型'
+    description = '更倾向等待高价值牌型'
+  } else if (tsumoShare >= .55) {
+    title = '自摸型'
+    description = '最近胡牌中，自摸占比较高'
+  } else if (winRate >= .25 && dealInRate >= .18) {
+    title = '积极型'
+    description = '进攻积极，牌局结果起伏更明显'
+  }
+
+  const tags: string[] = []
+  if (dealInRate <= .1) tags.push('控炮稳健')
+  if (tsumoShare >= .5) tags.push('自摸倾向')
+  if (bigHandShare >= .25) tags.push('大胡偏好')
+  const favoritePattern = [...statistics.patterns].sort((left, right) => right.count - left.count)[0]
+  if (favoritePattern?.count >= 3) tags.push(`${favoritePattern.name}偏好`)
+  if (!tags.length) tags.push('攻守均衡')
+
+  return { title, description, tags: tags.slice(0, 3), ready: true }
+}
+
+export function ProfileScreen({ user, statistics, statisticsLoading, syncStatus, onSettings, onPersonalStatistics, onLogin }: {
   user: AuthUser | null
-  matches: MatchSummary[]
-  dailyStats: DailyStats | null
+  statistics: PersonalStatistics | null
+  statisticsLoading: boolean
   syncStatus: SyncStatus
-  onHistory: () => void
+  onSettings: () => void
   onPersonalStatistics: () => void
   onLogin: () => void
-  onLogout: () => void
+}) {
+  const syncText = !user ? '登录后同步' : syncStatus === 'syncing' ? '正在同步' : syncStatus === 'offline' ? '同步异常' : '数据已同步'
+  const style = derivePlayStyle(statistics)
+  const totalHands = statistics?.totalHands || 0
+  const winRate = profilePercentage(statistics?.wins || 0, totalHands)
+  const dealInRate = profilePercentage(statistics?.dealIns || 0, totalHands)
+  const bigHandRate = profilePercentage(statistics?.bigHands || 0, totalHands)
+
+  return <View className='page tab-page profile-page' style={{ paddingTop: `${getPageTopInset()}px` }}>
+    <View className='profile-identity'>
+      <View className='profile-avatar'>雀</View>
+      <View className='grow profile-identity-copy'>
+        <Text className='profile-name'>{displayUserName(user)}</Text>
+        <View className={`profile-status-pill ${syncStatus}`}>
+          <Text className='profile-status-dot'>●</Text>
+          <Text>{syncText}</Text>
+        </View>
+      </View>
+      <Button className='profile-settings-trigger' onClick={user ? onSettings : onLogin} ariaLabel='设置'>
+        <View className='profile-gear-glyph'><View /></View>
+      </Button>
+    </View>
+
+    <View className='profile-style-card' onClick={user ? onPersonalStatistics : onLogin}>
+      <View className='profile-style-head'>
+        <View><Text className='profile-card-eyebrow'>我的牌风</Text><Text className='profile-style-sample'>{statisticsLoading ? '分析中…' : statistics ? `本月样本 ${statistics.totalHands} 局` : '等待数据'}</Text></View>
+        <Text className='profile-card-arrow'>›</Text>
+      </View>
+      <Text className='profile-style-title'>{statisticsLoading && !statistics ? '正在分析牌风' : style.title}</Text>
+      <Text className='profile-style-description'>{statisticsLoading && !statistics ? '正在汇总本月胡牌、点炮与牌型记录' : style.description}</Text>
+      <View className='profile-style-tags'>{style.tags.map(tag => <Text key={tag}>{tag}</Text>)}</View>
+      <View className='profile-style-decoration'><View /><View /><View /></View>
+    </View>
+
+    <View className='profile-performance-card' onClick={user ? onPersonalStatistics : onLogin}>
+      <View className='profile-performance-head'>
+        <View><Text className='profile-card-eyebrow'>我的战绩</Text><Text className='profile-performance-title'>本月表现</Text></View>
+        <View className='profile-performance-link'><Text>查看详情</Text><Text>›</Text></View>
+      </View>
+      <View className='profile-performance-grid'>
+        <View><Text>{statisticsLoading && !statistics ? '--' : `${winRate}%`}</Text><Text>胡牌率</Text></View>
+        <View><Text>{statisticsLoading && !statistics ? '--' : `${dealInRate}%`}</Text><Text>点炮率</Text></View>
+        <View><Text>{statisticsLoading && !statistics ? '--' : `${bigHandRate}%`}</Text><Text>大胡率</Text></View>
+      </View>
+      <Text className='profile-performance-note'>{statistics ? `${statistics.label} · 共记录 ${statistics.totalHands} 局` : '登录并记录牌局后生成个人战绩'}</Text>
+    </View>
+
+    <View className='profile-account-summary'>
+      <View className='profile-account-mark'><View /><View /></View>
+      <View className='grow'><Text>账号状态</Text><Text>{user ? '微信账号已绑定，牌局数据可同步' : '尚未登录，数据仅保存在当前设备'}</Text></View>
+      <Text>{user ? '已绑定' : '未登录'}</Text>
+    </View>
+
+    <View className='profile-footer compact'>
+      <Text className='version-text'>雀记 · 微信小程序</Text>
+    </View>
+  </View>
+}
+
+export function SettingsScreen({ user, preferences, syncStatus, onChange, onBack, onEditNickname, onLogout, showDialog }: {
+  user: AuthUser | null
+  preferences: UserPreferences
+  syncStatus: SyncStatus
+  onChange: (preferences: UserPreferences) => void
+  onBack: () => void
   onEditNickname: () => void
+  onLogout: () => Promise<void>
   showDialog: ShowDialog
 }) {
-  const syncText = !user ? '登录后同步' : syncStatus === 'syncing' ? '正在同步' : syncStatus === 'offline' ? '同步失败，请检查网络' : '数据已同步'
-  const syncValue = !user ? '未登录' : syncStatus === 'syncing' ? '同步中' : syncStatus === 'offline' ? '异常' : '正常'
+  const leadOptions: Array<{ label: string; value: UserPreferences['defaultGroupLeadMinutes'] }> = [
+    { label: '30分钟后', value: 30 },
+    { label: '1小时后', value: 60 },
+    { label: '2小时后', value: 120 },
+  ]
+  const eventLabels: Array<{ type: keyof UserPreferences['eventDefaults']; label: string }> = [
+    { type: '明杠', label: '明杠' },
+    { type: '暗杠', label: '暗杠（每家）' },
+    { type: '花杠', label: '花杠（每家）' },
+    { type: '被跟圈', label: '被跟圈（每家）' },
+    { type: '四风归一', label: '四风归一（每家）' },
+  ]
+  const syncText = !user ? '登录后可同步牌局数据' : syncStatus === 'syncing' ? '正在同步' : syncStatus === 'offline' ? '同步失败，请检查网络' : '数据已同步'
+
+  function update(patch: Partial<UserPreferences>) {
+    onChange({ ...preferences, ...patch })
+  }
+
+  function adjustQuickScore(index: 0 | 1, delta: number) {
+    const next: [number, number] = [...preferences.quickScores]
+    next[index] = Math.max(5, Math.min(999, next[index] + delta))
+    update({ quickScores: next })
+  }
+
+  function adjustEventScore(type: keyof UserPreferences['eventDefaults'], delta: number) {
+    update({
+      eventDefaults: {
+        ...preferences.eventDefaults,
+        [type]: Math.max(5, Math.min(999, preferences.eventDefaults[type] + delta)),
+      },
+    })
+  }
 
   async function showPrivacy() {
     await showDialog({
       title: '隐私说明',
-      content: '雀记仅保存账号标识、牌桌昵称、牌局及计分数据。微信快捷登录只使用当前小程序的用户标识，不会后台读取通讯录、定位、相册、头像或微信昵称；牌桌昵称仅在你主动选择或填写后保存。扫码功能仅在你主动操作时调用。',
+      content: '雀记仅保存账号标识、牌桌昵称、牌局、计分数据和你主动配置的使用偏好。微信快捷登录不会后台读取通讯录、定位、相册、头像或微信昵称。',
       showCancel: false,
       confirmText: '我知道了',
       variant: 'info',
@@ -635,80 +783,90 @@ export function ProfileScreen({ user, matches, dailyStats, syncStatus, onHistory
     if (confirmed) await onLogout()
   }
 
-  return <View className='page tab-page profile-page' style={{ paddingTop: `${getPageTopInset()}px` }}>
-    <View className='profile-identity'>
-      <View className='profile-avatar'>雀</View>
-      <View className='grow profile-identity-copy'>
-        <Text className='profile-name'>{displayUserName(user)}</Text>
-        <View className={`profile-status-pill ${syncStatus}`}>
-          <Text className='profile-status-dot'>●</Text>
-          <Text>{syncText}</Text>
+  return <ScrollView scrollY className='settings-page-scroll' showScrollbar={false}>
+    <View className='page settings-page' style={{ paddingTop: `${getPageTopInset()}px` }}>
+      <Header title='设置' onBack={onBack} />
+
+      <Text className='settings-section-title'>账号</Text>
+      <View className='settings-panel'>
+        <View className='settings-row' onClick={user ? onEditNickname : undefined}>
+          <View className='grow'><Text className='settings-row-title'>牌桌昵称</Text><Text className='settings-row-note'>{displayUserName(user)}</Text></View>
+          <Text className='settings-row-value'>{user ? '修改 ›' : '未登录'}</Text>
+        </View>
+        <View className='settings-row'>
+          <View className='grow'><Text className='settings-row-title'>微信账号</Text><Text className='settings-row-note'>{user ? '账号已绑定当前牌局数据' : '登录后可跨设备同步历史牌局'}</Text></View>
+          <Text className={user ? 'settings-status good' : 'settings-status'}>{user ? '已绑定' : '未登录'}</Text>
         </View>
       </View>
-      <Button className='profile-settings-trigger' onClick={user ? onEditNickname : onLogin}>
-        <View className='profile-edit-glyph'><View /></View>
-      </Button>
-    </View>
 
-    <View className='profile-feature-row'>
-      <View className='profile-feature-card stats' onClick={user ? onPersonalStatistics : onLogin}>
-        <View className='profile-feature-copy'>
-          <Text className='profile-feature-eyebrow'>核心数据</Text>
-          <Text className='profile-feature-title'>我的战绩</Text>
-          <Text className='profile-feature-note'>按日、月、年查看胡牌与大胡统计</Text>
+      <Text className='settings-section-title'>录分偏好</Text>
+      <View className='settings-panel'>
+        <View className='settings-row'>
+          <View className='grow'><Text className='settings-row-title'>保存前确认</Text><Text className='settings-row-note'>提交自摸、点炮或局内事件前再次核对</Text></View>
+          <Switch checked={preferences.confirmBeforeScoreSubmit} color='#d6a21a' onChange={event => update({ confirmBeforeScoreSubmit: event.detail.value })} />
         </View>
-        <View className='profile-feature-action'><Text>查看</Text><Text>›</Text></View>
-        <View className='profile-feature-decoration'><View /><View /><View /></View>
+        <View className='settings-row'>
+          <View className='grow'><Text className='settings-row-title'>轻触反馈</Text><Text className='settings-row-note'>选择玩家、牌型和局内事件时提供短振动</Text></View>
+          <Switch checked={preferences.hapticFeedback} color='#d6a21a' onChange={event => update({ hapticFeedback: event.detail.value })} />
+        </View>
+        <View className='settings-row settings-score-row'>
+          <View className='grow'><Text className='settings-row-title'>常用分值</Text><Text className='settings-row-note'>录分弹窗中的两个快捷分值</Text></View>
+          <View className='settings-score-pair'>{([0, 1] as const).map(index => <View className='settings-stepper' key={index}>
+            <Button onClick={() => adjustQuickScore(index, -5)}>−</Button><Text>{preferences.quickScores[index]}</Text><Button onClick={() => adjustQuickScore(index, 5)}>＋</Button>
+          </View>)}</View>
+        </View>
       </View>
-      <View className='profile-feature-card records' onClick={user ? onHistory : onLogin}>
-        <Text className='profile-feature-eyebrow'>牌局记录</Text>
-        <Text className='profile-record-count'>{matches.length}</Text>
-        <Text className='profile-record-unit'>累计牌局</Text>
-        <View className='profile-record-arrow'>›</View>
-      </View>
-    </View>
 
-    <View className='profile-data-card'>
-      <View className='profile-data-head'>
-        <View><Text className='profile-data-title'>我的数据</Text><Text className='profile-data-subtitle'>累计与今日计分概览</Text></View>
-        <View className={`profile-data-sync ${syncStatus}`}><Text>●</Text><Text>{syncValue}</Text></View>
+      <Text className='settings-section-title'>局内事件默认值</Text>
+      <View className='settings-panel'>
+        {eventLabels.map(item => <View className='settings-row settings-event-row' key={item.type}>
+          <View className='grow'><Text className='settings-row-title'>{item.label}</Text><Text className='settings-row-note'>打开录分窗口时预填</Text></View>
+          <View className='settings-stepper'><Button onClick={() => adjustEventScore(item.type, -5)}>−</Button><Text>{preferences.eventDefaults[item.type]}</Text><Button onClick={() => adjustEventScore(item.type, 5)}>＋</Button></View>
+        </View>)}
       </View>
-      <View className='profile-data-grid'>
-        <View><Text>{matches.length}</Text><Text>全部牌局</Text></View>
-        <View><Text>{dailyStats?.matchCount || 0}</Text><Text>今日牌局</Text></View>
-        <View><Text>{dailyStats?.handCount || 0}</Text><Text>今日局数</Text></View>
-      </View>
-    </View>
 
-    <Text className='profile-section-title'>账号与服务</Text>
-    <View className='settings-card profile-service-list'>
-      {user && <View className='setting-row profile-service-row' onClick={onEditNickname}>
-        <View className='profile-service-icon nickname'><View /><View /></View>
-        <View className='grow'><Text className='setting-title'>牌桌昵称</Text><Text className='setting-subnote'>{displayUserName(user)}</Text></View>
-        <Text className='card-arrow'>›</Text>
-      </View>}
-      <View className='setting-row profile-service-row'>
-        <View className='profile-service-icon sync'><View /><View /></View>
-        <View className='grow'><Text className='setting-title'>数据同步</Text><Text className={`setting-note ${syncStatus}`}>{syncText}</Text></View>
-        <Text className={`setting-sync-mark ${syncStatus}`}>●</Text>
+      <Text className='settings-section-title'>牌谱偏好</Text>
+      <View className='settings-panel'>
+        <View className='settings-row'>
+          <View className='grow'><Text className='settings-row-title'>自动排序牌谱</Text><Text className='settings-row-note'>按万、筒、条、字牌顺序整理，胡牌保持最后</Text></View>
+          <Switch checked={preferences.autoSortTileRecord} color='#d6a21a' onChange={event => update({ autoSortTileRecord: event.detail.value })} />
+        </View>
+        <View className='settings-row'>
+          <View className='grow'><Text className='settings-row-title'>同牌高亮</Text><Text className='settings-row-note'>录入牌谱时突出已经选择的相同牌</Text></View>
+          <Switch checked={preferences.highlightMatchingTiles} color='#d6a21a' onChange={event => update({ highlightMatchingTiles: event.detail.value })} />
+        </View>
       </View>
-      <View className='setting-row profile-service-row' onClick={showPrivacy}>
-        <View className='profile-service-icon privacy'><View /></View>
-        <Text className='setting-title grow'>隐私说明</Text>
-        <Text className='card-arrow'>›</Text>
-      </View>
-      <View className='setting-row profile-service-row' onClick={showAgreement}>
-        <View className='profile-service-icon agreement'><View /><View /><View /></View>
-        <Text className='setting-title grow'>用户协议</Text>
-        <Text className='card-arrow'>›</Text>
-      </View>
-    </View>
 
-    <View className='profile-footer'>
-      {user && <Button className='danger-link' onClick={confirmLogout}>退出登录</Button>}
-      <Text className='version-text'>雀记 · 微信小程序</Text>
+      <Text className='settings-section-title'>组局偏好</Text>
+      <View className='settings-panel'>
+        <View className='settings-row settings-input-row'>
+          <View className='grow'><Text className='settings-row-title'>常用地点</Text><Text className='settings-row-note'>发起组局时自动填入，发布前仍可修改</Text></View>
+          <Input value={preferences.defaultGroupLocation} maxlength={60} placeholder='未设置' onInput={event => update({ defaultGroupLocation: event.detail.value })} />
+        </View>
+        <Picker
+          mode='selector'
+          range={leadOptions.map(item => item.label)}
+          value={Math.max(0, leadOptions.findIndex(item => item.value === preferences.defaultGroupLeadMinutes))}
+          onChange={event => update({ defaultGroupLeadMinutes: leadOptions[Number(event.detail.value)]?.value || 60 })}
+        >
+          <View className='settings-row'>
+            <View className='grow'><Text className='settings-row-title'>默认开始时间</Text><Text className='settings-row-note'>发起组局时按当前时间自动计算</Text></View>
+            <Text className='settings-row-value'>{leadOptions.find(item => item.value === preferences.defaultGroupLeadMinutes)?.label} ›</Text>
+          </View>
+        </Picker>
+      </View>
+
+      <Text className='settings-section-title'>数据与服务</Text>
+      <View className='settings-panel'>
+        <View className='settings-row'><View className='grow'><Text className='settings-row-title'>数据同步</Text><Text className='settings-row-note'>{syncText}</Text></View><Text className={`settings-status ${syncStatus === 'offline' ? 'bad' : 'good'}`}>●</Text></View>
+        <View className='settings-row' onClick={showPrivacy}><Text className='settings-row-title grow'>隐私说明</Text><Text className='settings-row-value'>›</Text></View>
+        <View className='settings-row' onClick={showAgreement}><Text className='settings-row-title grow'>用户协议</Text><Text className='settings-row-value'>›</Text></View>
+      </View>
+
+      {user && <Button className='danger-link settings-logout' onClick={confirmLogout}>退出登录</Button>}
+      <Text className='version-text settings-version'>雀记 · 微信小程序</Text>
     </View>
-  </View>
+  </ScrollView>
 }
 
 type BottomNavKey = 'home' | 'matches' | 'groups' | 'friends' | 'profile'
