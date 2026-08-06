@@ -381,6 +381,7 @@ export default function Index() {
 
   function handleNativeBack() {
     setBackTrapOpen(false)
+    if (bottomTabScreens.has(screenRef.current)) return
     navigateBack(false)
     scheduleBackTrapRearm()
   }
@@ -762,7 +763,7 @@ export default function Index() {
       updateGroupState(result.group)
       pendingPageScrollTop.current = 0
       setGroupFriendPickerOpen(false)
-      setScreen('groups')
+      replaceScreen('groups')
       await Taro.showToast({ title: '组局已发布', icon: 'success' })
     })
   }
