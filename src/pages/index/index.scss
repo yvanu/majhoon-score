@@ -1231,14 +1231,9 @@ page { background: var(--page-bg); color: var(--text); }
 .group-list-card-action.view { background: #f1efeb; color: #554f48; }
 .group-list-card-action text:last-child { font-size: 29px; line-height: 1; }
 
-/* 牌局内快捷录分弹窗：保留比分上下文，不再呈现为独立子页面 */
-.score-drawer-backdrop { position: fixed; z-index: 70; inset: 0; padding: 0 14px calc(12px + constant(safe-area-inset-bottom)); padding-bottom: calc(12px + env(safe-area-inset-bottom)); display: flex; align-items: flex-end; box-sizing: border-box; background: rgba(48,42,33,.24); backdrop-filter: blur(2px); animation: score-drawer-backdrop-enter .18s ease-out; }
-.score-drawer-shell { position: relative; width: 100%; height: 76vh; max-height: 82vh; overflow: hidden; border: 1px solid rgba(229,219,201,.98); border-radius: 30px; background: #fffdf9; box-shadow: 0 20px 60px rgba(55,43,27,.24); animation: score-drawer-sheet-enter .22s cubic-bezier(.22,.8,.3,1); }
-.score-drawer-shell.score-drawer-tsumo { height: 68vh; }
-.score-drawer-shell.score-drawer-ron { height: 82vh; }
-.score-drawer-shell.score-drawer-event { height: 76vh; }
-.score-drawer-shell.score-drawer-draw, .score-drawer-shell.score-drawer-custom { height: 66vh; }
-.score-drawer-handle { position: absolute; z-index: 12; left: 50%; top: 9px; width: 54px; height: 6px; border-radius: 999px; background: #d8d1c7; transform: translateX(-50%); pointer-events: none; }
+/* 牌局内快捷录分弹窗：统一尺寸并居中悬浮 */
+.score-drawer-backdrop { position: fixed; z-index: 70; inset: 0; padding: calc(22px + constant(safe-area-inset-top)) 20px calc(22px + constant(safe-area-inset-bottom)); padding: calc(22px + env(safe-area-inset-top)) 20px calc(22px + env(safe-area-inset-bottom)); display: flex; align-items: center; justify-content: center; box-sizing: border-box; background: rgba(48,42,33,.25); backdrop-filter: blur(2px); animation: score-drawer-backdrop-enter .18s ease-out; }
+.score-drawer-shell { position: relative; width: 100%; max-width: 680px; height: 80vh; max-height: 980px; overflow: hidden; border: 1px solid rgba(229,219,201,.98); border-radius: 30px; background: #fffdf9; box-shadow: 0 24px 70px rgba(55,43,27,.26); animation: score-drawer-sheet-enter .22s cubic-bezier(.22,.8,.3,1); }
 .score-dialog { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
 .score-drawer-shell .score-page-scroll { width: 100%; height: 0; min-height: 0; flex: 1 1 auto; }
 .score-drawer-shell .score-page { min-height: 0; padding: 24px 18px 18px !important; box-sizing: border-box; background: #fffdf9; }
@@ -1291,14 +1286,12 @@ page { background: var(--page-bg); color: var(--text); }
 .score-drawer-shell .score-save-bar .primary { height: 64px; line-height: 64px; margin: 0; border-radius: 18px; font-size: 24px; }
 .score-drawer-shell .tile-record-modal-backdrop { z-index: 82; }
 @keyframes score-drawer-backdrop-enter { from { opacity: 0; } to { opacity: 1; } }
-@keyframes score-drawer-sheet-enter { from { opacity: .74; transform: translate3d(0,32px,0) scale(.985); } to { opacity: 1; transform: translate3d(0,0,0) scale(1); } }
+@keyframes score-drawer-sheet-enter { from { opacity: .72; transform: translate3d(0,14px,0) scale(.97); } to { opacity: 1; transform: translate3d(0,0,0) scale(1); } }
 
 @media (max-width: 360px) {
   .home-page, .tab-page { padding-left: 20px; padding-right: 20px; }
   .group-note-tag { display: none !important; }
-  .score-drawer-backdrop { padding-left: 9px; padding-right: 9px; }
-  .score-drawer-shell.score-drawer-tsumo { height: 72vh; }
-  .score-drawer-shell.score-drawer-ron { height: 86vh; }
-  .score-drawer-shell.score-drawer-event { height: 80vh; }
+  .score-drawer-backdrop { padding: calc(14px + env(safe-area-inset-top)) 10px calc(14px + env(safe-area-inset-bottom)); }
+  .score-drawer-shell { height: 84vh; border-radius: 26px; }
   .score-drawer-shell .score-page { padding-left: 14px !important; padding-right: 14px !important; }
 }

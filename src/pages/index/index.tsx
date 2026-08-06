@@ -1416,8 +1416,7 @@ export default function Index() {
       onProfile={showProfile}
     />}
     {scoreDrawerOpen && match && <View className='score-drawer-backdrop' onClick={closeScoreDrawer}>
-      <View className={`score-drawer-shell score-drawer-${scoreEntryType}`} onClick={event => event.stopPropagation()}>
-        <View className='score-drawer-handle' />
+      <View className='score-drawer-shell' onClick={event => event.stopPropagation()}>
         <ScoreScreen
           key={`${scoreDrawerKey}:${editingHandId || scoreEntryType}`}
           players={match.players}
