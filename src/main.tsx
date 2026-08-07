@@ -267,17 +267,26 @@ function Home({user,onStart,onHistory,onJoin,onDaily,onLogout}:{
   user:AuthUser|null;onStart:()=>void;onHistory:()=>void;onJoin:()=>void;onDaily:()=>void;onLogout:()=>void
 }){
   return <main className="home page">
-    <section className="hero-card"><div className="brand-mark">雀</div>
-      <div><h1>雀记</h1><p>四人麻将，轻松记分。</p></div>
+    <section className="hero-card">
+      <div className="hero-copy">
+        <p className="eyebrow">NANJING MAHJONG SCORE</p>
+        <h1>雀记</h1>
+        <p>南麻计分，专注牌局本身。</p>
+        <div className="hero-meta"><span>四人牌局</span><span>实时排名</span><span>战绩复盘</span></div>
+      </div>
+      <div className="brand-mark"><b>雀</b><small>记分</small></div>
     </section>
-    <div className="tile-row"><span>🀀</span><span>🀄</span><span>🀅</span><span>🀆</span></div>
-    <button className="primary giant" onClick={onStart}><Plus/>开启一将</button>
+    <section className="quick-start-card">
+      <div className="tile-row" aria-hidden="true"><span>🀀</span><span>🀄</span><span>🀅</span><span>🀆</span></div>
+      <div className="quick-start-copy"><span>准备开桌</span><b>新建一场四人牌局</b></div>
+      <button className="primary giant" onClick={onStart}><Plus/>开启一将</button>
+    </section>
     <div className="home-actions">
-      <button onClick={onHistory}><History/> {user?`${user.username} 的历史牌局`:'登录 / 注册'}</button>
-      <button onClick={onJoin}><Copy/>输入分享码</button>
+      <button onClick={onHistory}><History/><span><b>{user?'我的牌局':'登录 / 注册'}</b><small>{user?`${user.username} 的历史记录`:'同步并保存牌局'}</small></span></button>
+      <button onClick={onJoin}><Copy/><span><b>输入分享码</b><small>查看朋友的牌局</small></span></button>
     </div>
+    <button className="daily-stats-entry" onClick={onDaily}><BarChart3/><span><b>每日战绩</b><small>汇总今日得分、胡牌与点炮</small></span><strong>查看</strong></button>
     {user&&<button className="text-btn" onClick={onLogout}><LogOut size={16}/>退出登录</button>}
-    <button className="daily-stats-entry" onClick={onDaily}><BarChart3/><span><b>每日战绩统计</b><small>查看今天所有牌局汇总</small></span></button>
   </main>
 }
 
@@ -392,10 +401,10 @@ function MatchScreen({match,onAdd,onUndo,onFinish,loading}:{
       <button className="share-code" onClick={()=>navigator.clipboard.writeText(
         `${location.origin}/?match=${match.share_code}`)}><Copy size={14}/>{match.share_code}</button>
     </header>
-    <section className="scoreboard">{ranked.map((p,i)=><button className="player-score" key={p.id}
+    <section className="scoreboard">{ranked.map((p,i)=><button className={`player-score ${i===0?'leader':''}`} key={p.id}
       onClick={()=>setSelectedPlayerId(p.id)}>
       <div className="rank-badge">{i===0?<Crown size={15}/>:i+1}</div><Avatar player={p}/>
-      <div className="player-meta"><b>{p.name}</b><span>{['东','南','西','北'][p.seat]}家</span></div>
+      <div className="player-meta"><b>{p.name}</b><span>{['东','南','西','北'][p.seat]}家 · 点击看战绩</span></div>
       <strong className={p.score>=0?'positive':'negative'}>{p.score>0?'+':''}{p.score}</strong>
     </button>)}</section>
     <section className="round-summary"><span>已完成</span><b>{match.hands.length} 局</b><span>· 总分守恒</span></section>
@@ -490,6 +499,7 @@ function ScoreModal({players,onClose,onSubmit,loading,onMessage}:{
   }
 
   return <div className="modal-backdrop"><section className="modal">
+    <div className="sheet-handle"/>
     <header><div><p className="eyebrow">SCORE A HAND</p><h2>记一局</h2></div>
       <button className="icon-btn" onClick={onClose}><X/></button></header>
     <div className="type-tabs">{(['ron','tsumo','draw','custom'] as const).map(v=>
@@ -505,9 +515,13 @@ function ScoreModal({players,onClose,onSubmit,loading,onMessage}:{
           <Avatar player={p}/><span>{p.name}</span></button>)}</div>
       <label className="score-input"><span>分数</span><input type="number" min="1" value={amount}
         onChange={e=>setAmount(Number(e.target.value))}/></label>
+      <div className="score-presets">{[50,100,200,300].map(value=><button type="button" key={value}
+        className={amount===value?'selected':''} onClick={()=>setAmount(value)}>+{value}</button>)}</div>
     </>}
-    {type==='tsumo'&&<label className="score-input"><span>每人支付</span><input type="number" min="1"
-      value={tsumoPayment} onChange={e=>setTsumoPayment(Number(e.target.value))}/></label>}
+    {type==='tsumo'&&<><label className="score-input"><span>每人支付</span><input type="number" min="1"
+      value={tsumoPayment} onChange={e=>setTsumoPayment(Number(e.target.value))}/></label>
+      <div className="score-presets">{[20,50,100,200].map(value=><button type="button" key={value}
+        className={tsumoPayment===value?'selected':''} onClick={()=>setTsumoPayment(value)}>{value}/人</button>)}</div></>}
     {type==='custom'&&<section className="payment-list">{players.map(p=><label key={p.id}>
       <span>{p.name}</span><input type="number" value={custom[p.id]}
         onChange={e=>setCustom({...custom,[p.id]:Number(e.target.value)})}/></label>)}</section>}
@@ -532,8 +546,11 @@ function StatsScreen({match,stats,onReset}:{match:Match;stats:Stats;onReset:()=>
       onClick={()=>setSelectedPlayerId(p.id)}>
       <span className="rank">#{p.rank}</span><Avatar player={p} large/><b>{p.name}</b>
       <strong className={p.score>=0?'positive':'negative'}>{p.score>0?'+':''}{p.score}</strong>
-      <small>胜率 {(p.winRate*100).toFixed(0)}% · 放炮 {(p.dealInRate*100).toFixed(0)}%</small>
-      <small>自摸占比 {(p.tsumoShare*100).toFixed(0)}%</small>
+      <div className="result-rates">
+        <div className="rate-row"><span>胡牌率</span><i><em style={{width:`${Math.min(100,p.winRate*100)}%`}}/></i><b>{(p.winRate*100).toFixed(0)}%</b></div>
+        <div className="rate-row danger-rate"><span>放炮率</span><i><em style={{width:`${Math.min(100,p.dealInRate*100)}%`}}/></i><b>{(p.dealInRate*100).toFixed(0)}%</b></div>
+        <div className="rate-row"><span>自摸占比</span><i><em style={{width:`${Math.min(100,p.tsumoShare*100)}%`}}/></i><b>{(p.tsumoShare*100).toFixed(0)}%</b></div>
+      </div>
     </button>)}</section>
     <button className="primary giant" onClick={onReset}>返回首页</button>
     <p className="footnote">分享码：{match.share_code}</p>
