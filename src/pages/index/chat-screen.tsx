@@ -16,6 +16,43 @@ const quickMessages = [
 
 type ConnectionStatus = 'connecting' | 'live' | 'polling' | 'closed'
 
+type ChatCacheSnapshot = {
+  messages: GroupChatMessage[]
+  roomStatus: GroupChatStatus
+  latestSequence: number
+  savedAt: number
+}
+
+const CHAT_CACHE_TTL = 24 * 60 * 60_000
+const chatMemoryCache = new Map<string, ChatCacheSnapshot>()
+
+function chatCacheKey(userId: string, groupId: string) {
+  return `mahjong-group-chat-cache-v1:${userId}:${groupId}`
+}
+
+function readChatCache(userId: string, groupId: string) {
+  const key = chatCacheKey(userId, groupId)
+  const memory = chatMemoryCache.get(key)
+  if (memory && Date.now() - memory.savedAt < CHAT_CACHE_TTL) return memory
+  const stored = Taro.getStorageSync<ChatCacheSnapshot>(key)
+  if (!stored || !Array.isArray(stored.messages) || Date.now() - Number(stored.savedAt || 0) >= CHAT_CACHE_TTL) return null
+  chatMemoryCache.set(key, stored)
+  return stored
+}
+
+function writeChatCache(userId: string, groupId: string, snapshot: Omit<ChatCacheSnapshot, 'savedAt'>) {
+  const key = chatCacheKey(userId, groupId)
+  const value: ChatCacheSnapshot = {
+    ...snapshot,
+    messages: snapshot.messages.slice(-50),
+    savedAt: Date.now(),
+  }
+  chatMemoryCache.set(key, value)
+  void Taro.setStorage({ key, data: value }).catch(error => {
+    console.warn('Persist group chat cache failed:', error)
+  })
+}
+
 function formatChatTime(value: string) {
   const date = new Date(value)
   const now = new Date()
@@ -52,14 +89,18 @@ export function GroupChatScreen({ group, user, loading: actionLoading, onBack, o
   onRead: () => void
   onActivity: (message: GroupChatMessage) => void
 }) {
-  const [messages, setMessages] = useState<GroupChatMessage[]>([])
-  const [roomStatus, setRoomStatus] = useState<GroupChatStatus>('active')
+  const initialCache = useMemo(() => readChatCache(user.id, group.id), [user.id, group.id])
+  const [messages, setMessages] = useState<GroupChatMessage[]>(initialCache?.messages ?? [])
+  const messagesRef = useRef<GroupChatMessage[]>(initialCache?.messages ?? [])
+  const [roomStatus, setRoomStatus] = useState<GroupChatStatus>(initialCache?.roomStatus ?? 'active')
+  const roomStatusRef = useRef<GroupChatStatus>(initialCache?.roomStatus ?? 'active')
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting')
   const connectionStatusRef = useRef<ConnectionStatus>('connecting')
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!initialCache)
+  const [initialRequestFinished, setInitialRequestFinished] = useState(false)
   const [sending, setSending] = useState(false)
   const [input, setInput] = useState('')
-  const latestSequence = useRef(0)
+  const latestSequence = useRef(initialCache?.latestSequence ?? 0)
   const socketRef = useRef<Taro.SocketTask | null>(null)
   const readTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const canStart = group.is_owner && !group.match_id && group.confirmed_count === group.capacity && (group.status === 'recruiting' || group.status === 'full')
@@ -80,42 +121,83 @@ export function GroupChatScreen({ group, user, loading: actionLoading, onBack, o
     setConnectionStatus(next)
   }
 
-  function applyMessages(incoming: GroupChatMessage[]) {
+  function updateRoomStatus(next: GroupChatStatus) {
+    if (roomStatusRef.current === next) return
+    roomStatusRef.current = next
+    setRoomStatus(next)
+    writeChatCache(user.id, group.id, {
+      messages: messagesRef.current,
+      roomStatus: next,
+      latestSequence: latestSequence.current,
+    })
+  }
+
+  function applyMessages(incoming: GroupChatMessage[], markRead = true) {
     if (!incoming.length) return
-    setMessages(current => mergeMessages(current, incoming))
+    const merged = mergeMessages(messagesRef.current, incoming)
+    messagesRef.current = merged
+    setMessages(merged)
     latestSequence.current = Math.max(latestSequence.current, ...incoming.map(message => message.sequence))
+    writeChatCache(user.id, group.id, {
+      messages: merged,
+      roomStatus: roomStatusRef.current,
+      latestSequence: latestSequence.current,
+    })
     const latest = incoming.reduce((current, message) => message.sequence > current.sequence ? message : current)
     onActivity(latest)
-    if (readTimer.current) clearTimeout(readTimer.current)
-    readTimer.current = setTimeout(() => {
-      void api.markGroupChatRead(group.id, latestSequence.current).then(onRead).catch(error => {
-        console.error('Mark group chat read failed:', error)
-      })
-    }, 300)
+    if (markRead) {
+      if (readTimer.current) clearTimeout(readTimer.current)
+      readTimer.current = setTimeout(() => {
+        void api.markGroupChatRead(group.id, latestSequence.current).then(onRead).catch(error => {
+          console.error('Mark group chat read failed:', error)
+        })
+      }, 300)
+    }
   }
 
   useEffect(() => {
     let stopped = false
-    setLoading(true)
+    const cached = readChatCache(user.id, group.id)
+    const cachedMessages = cached?.messages ?? []
+    const cachedRoomStatus = cached?.roomStatus ?? 'active'
+    messagesRef.current = cachedMessages
+    roomStatusRef.current = cachedRoomStatus
+    latestSequence.current = cached?.latestSequence ?? 0
+    setMessages(cachedMessages)
+    setRoomStatus(cachedRoomStatus)
+    setLoading(!cached)
+    setInitialRequestFinished(false)
+    changeConnectionStatus('connecting')
+
     void api.groupChat(group.id).then(snapshot => {
       if (stopped) return
+      messagesRef.current = snapshot.messages
+      roomStatusRef.current = snapshot.room.status
+      latestSequence.current = snapshot.room.latest_sequence
       setMessages(snapshot.messages)
       setRoomStatus(snapshot.room.status)
-      latestSequence.current = snapshot.room.latest_sequence
+      writeChatCache(user.id, group.id, {
+        messages: snapshot.messages,
+        roomStatus: snapshot.room.status,
+        latestSequence: snapshot.room.latest_sequence,
+      })
       onRead()
     }).catch(error => {
       if (stopped) return
       console.error('Load group chat failed:', error)
       void Taro.showToast({ title: error instanceof Error ? error.message : '群聊加载失败', icon: 'none' })
     }).finally(() => {
-      if (!stopped) setLoading(false)
+      if (stopped) return
+      setLoading(false)
+      setInitialRequestFinished(true)
     })
     return () => {
       stopped = true
     }
-  }, [group.id])
+  }, [group.id, user.id])
 
   useEffect(() => {
+    if (!initialRequestFinished) return
     let stopped = false
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null
     let pollInFlight = false
@@ -126,8 +208,8 @@ export function GroupChatScreen({ group, user, loading: actionLoading, onBack, o
       try {
         const snapshot = await api.groupChat(group.id, latestSequence.current)
         if (stopped) return
-        setRoomStatus(snapshot.room.status)
-        applyMessages(snapshot.messages)
+        updateRoomStatus(snapshot.room.status)
+        applyMessages(snapshot.messages, false)
       } catch (error) {
         console.error('Poll group chat failed:', error)
       } finally {
@@ -205,7 +287,7 @@ export function GroupChatScreen({ group, user, loading: actionLoading, onBack, o
       socketRef.current?.close({ code: 1000, reason: 'Page closed' })
       socketRef.current = null
     }
-  }, [group.id])
+  }, [group.id, initialRequestFinished])
 
   async function sendMessage(contentOverride?: string) {
     const content = (contentOverride ?? input).trim()
