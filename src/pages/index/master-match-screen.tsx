@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Button, ScrollView, Text, View } from '@tarojs/components'
 import type { Hand, HandOutcome, HandType, Match, Player } from '@shared/types'
-import { bigHandOptions, getPageTopInset, typeName } from './shared'
+import { MasterBackGlyph, MasterRightChevronGlyph, bigHandOptions, getPageTopInset, typeName } from './shared'
 
 type RecordFilter = 'all' | 'wins' | 'events'
 type ActiveView = 'status' | 'records'
@@ -83,7 +83,7 @@ function recordScore(hand: Hand) {
 }
 
 function MasterBack({ onClick }: { onClick: () => void }) {
-  return <Button className='master-match-back' hoverClass='none' onClick={onClick}>‹</Button>
+  return <Button className='master-match-back' hoverClass='none' onClick={onClick}><MasterBackGlyph /></Button>
 }
 
 function MatchTop({ title, subtitle, view, onBack, onView }: {
@@ -129,13 +129,13 @@ function StatusView({ match, editable, loading, onAdd, onFinish }: {
       <Text className='master-match-section-title'>本局操作</Text>
       <View className='master-match-actions'>
         <View className='master-match-action' onClick={() => { if (!loading) onAdd('tsumo') }}>
-          <View><Text>自摸</Text><Text>赢家一次录入</Text></View><Text className='master-match-plus'>＋</Text>
+          <View><Text>自摸</Text><Text>赢家一次录入</Text></View><View className='master-match-plus'><MasterRightChevronGlyph /></View>
         </View>
         <View className='master-match-action' onClick={() => { if (!loading) onAdd('ron') }}>
-          <View><Text>点炮</Text><Text>选择点炮者与胡牌者</Text></View><Text className='master-match-plus'>＋</Text>
+          <View><Text>点炮</Text><Text>选择点炮者与胡牌者</Text></View><View className='master-match-plus'><MasterRightChevronGlyph /></View>
         </View>
         <View className='master-match-action' onClick={() => { if (!loading) onAdd('event') }}>
-          <View><Text>局内事件</Text><Text>杠 / 跟圈 / 四风归一</Text></View><Text className='master-match-plus'>＋</Text>
+          <View><Text>局内事件</Text><Text>杠 / 跟圈 / 四风归一</Text></View><View className='master-match-plus'><MasterRightChevronGlyph /></View>
         </View>
       </View>
       <Button className='master-match-finish' hoverClass='none' disabled={loading} onClick={onFinish}>结束牌局</Button>
@@ -169,7 +169,7 @@ function RecordsView({ match, editable, onEdit }: { match: Match; editable: bool
           <Text className='master-record-detail'>{recordDetail(match, hand)}</Text>
         </View>
         {recordScore(hand) && <Text className='master-record-score'>{recordScore(hand)}</Text>}
-        {editable && <Text className='master-record-chevron'>›</Text>}
+        {editable && <View className='master-record-chevron'><MasterRightChevronGlyph /></View>}
       </View>) : <View className='master-record-empty'><Text>暂无记录</Text></View>}</View>
     </ScrollView>
   </>
@@ -220,8 +220,8 @@ function FinishedSummary({ match, onBack, onStatus, onRecords }: {
       <View><Text>大胡次数</Text><Text>共 {bigCount} 次</Text></View>
     </View>
 
-    <View className='master-finished-link' onClick={onStatus}><View><Text>查看战况</Text><Text>四人得分与对战关系</Text></View><Text>›</Text></View>
-    <View className='master-finished-link' onClick={onRecords}><View><Text>查看牌局记录</Text><Text>每一局分数变化都在这里</Text></View><Text>›</Text></View>
+    <View className='master-finished-link' onClick={onStatus}><View><Text>查看战况</Text><Text>四人得分与对战关系</Text></View><MasterRightChevronGlyph /></View>
+    <View className='master-finished-link' onClick={onRecords}><View><Text>查看牌局记录</Text><Text>每一局分数变化都在这里</Text></View><MasterRightChevronGlyph /></View>
     <View className='master-finished-readonly'><Text>牌局已结束，仅供查看</Text></View>
   </View>
 }

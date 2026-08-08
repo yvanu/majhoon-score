@@ -9,7 +9,7 @@ import type {
   GroupSessionInput,
   GroupSessionSummary,
 } from '@shared/types'
-import { FriendAvatar, displayUserName, getPageTopInset } from './shared'
+import { FriendAvatar, MasterBackGlyph, MasterRightChevronGlyph, displayUserName, getPageTopInset } from './shared'
 import { IdentityAvatar } from './identity-avatar'
 
 function localDateValue(date: Date) {
@@ -67,7 +67,7 @@ function GroupHeaderTabs({ tab, onChange, onMore }: {
 }) {
   const title = tab === 'open' ? '正在组局' : tab === 'mine' ? '我的组局' : '群聊'
   return <>
-    <View className='master-groups-title-row'><Text>{title}</Text><Button hoverClass='none' onClick={onMore}>···</Button></View>
+    <View className='master-groups-title-row'><Text>{title}</Text><Button hoverClass='none' onClick={onMore}><View className='master-groups-more-glyph'><View /><View /></View></Button></View>
     <View className='master-groups-tabs'>
       <View className={tab === 'open' ? 'active' : ''} onClick={() => onChange('open')}><Text>正在组局</Text></View>
       <View className={tab === 'mine' ? 'active' : ''} onClick={() => onChange('mine')}><Text>我的组局</Text></View>
@@ -207,7 +207,7 @@ export function GroupCreateScreen({ user, friends, loading, friendPickerOpen, de
 
   return <View className='master-group-create-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
     <View className='master-detail-nav'>
-      <Button hoverClass='none' onClick={onBack}>‹</Button>
+      <Button hoverClass='none' onClick={onBack}><MasterBackGlyph /></Button>
       <View><Text>发布组局</Text><Text>先确定时间和地点，再邀请牌友</Text></View>
     </View>
 
@@ -227,7 +227,7 @@ export function GroupCreateScreen({ user, friends, loading, friendPickerOpen, de
     <View className='master-create-row location'>
       <View><Text>地点</Text><Text>填写大致地点</Text></View>
       <Input value={location} maxlength={60} placeholder='新街口' onInput={event => setLocation(event.detail.value)} />
-      <Text>›</Text>
+      <MasterRightChevronGlyph />
     </View>
 
     <View className='master-create-section-head'><Text>邀请牌友</Text><Text>可稍后再邀请</Text></View>
@@ -235,7 +235,7 @@ export function GroupCreateScreen({ user, friends, loading, friendPickerOpen, de
       <View><View><IdentityAvatar name={displayUserName(user)} gender={user.gender} avatarUrl={user.avatar_url} /></View><Text>{displayUserName(user)}</Text></View>
       {selectedFriends.slice(0, 3).map(friend => <View key={friend.id}><View><FriendAvatar friend={friend} /></View><Text>{friend.name}</Text></View>)}
       {Array.from({ length: Math.max(0, 2 - selectedFriends.length) }, (_, index) => <View key={`placeholder-${index}`} className='placeholder'><View><Text>⌣</Text></View><Text>牌友</Text></View>)}
-      {selectedFriends.length < 3 && <View><View className='add'><Text>＋</Text></View><Text>邀请</Text></View>}
+      {selectedFriends.length < 3 && <View><View className='add'><View className='master-create-plus-horizontal' /><View className='master-create-plus-vertical' /></View><Text>邀请</Text></View>}
     </View>
 
     <Text className='master-create-section-label'>备注</Text>
@@ -297,7 +297,7 @@ export function GroupDetailScreen({ group, currentUserId, friends, friendsLoadin
   return <ScrollView scrollY className='master-group-detail-scroll' showScrollbar={false}>
     <View className='master-group-detail-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
       <View className='master-detail-nav'>
-        <Button hoverClass='none' onClick={onBack}>‹</Button>
+        <Button hoverClass='none' onClick={onBack}><MasterBackGlyph /></Button>
         <View><Text>组局详情</Text><Text>南京麻将 · {group.location}</Text></View>
       </View>
 

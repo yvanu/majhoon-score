@@ -5,7 +5,7 @@
   background: #F6F5F2;
   color: #171714;
 }
-.master-friends-screen { padding: 0 38.462rpx calc(154rpx + env(safe-area-inset-bottom)); }
+.master-friends-screen { padding: 0; }
 .master-friends-header { height: 130.769rpx; }
 .master-friends-header text { display: block; }
 .master-friends-header text:first-child { color: #171714; font-size: 51.923rpx; font-weight: 800; line-height: 1.05; }
@@ -23,7 +23,7 @@
 }
 .master-friends-search > text { font-size: 22rpx; }
 .master-friends-search input { min-width: 0; flex: 1; color: #58534C; font-size: 23.077rpx; }
-.master-friends-scroll { height: calc(100vh - 325rpx - env(safe-area-inset-bottom)); margin-top: 40.385rpx; }
+.master-friends-scroll { height: 700rpx; margin-top: 40.385rpx; }
 .master-friends-list { display: flex; flex-direction: column; gap: 34.615rpx; padding-bottom: 40rpx; }
 .master-friend-row {
   height: 150rpx;
@@ -55,7 +55,7 @@
 .master-add-friend-screen {
   position: relative;
   min-height: 100vh;
-  padding: 0 38.462rpx calc(46.154rpx + env(safe-area-inset-bottom));
+  padding: 0;
   box-sizing: border-box;
   background: #F6F5F2;
   color: #171714;
@@ -82,6 +82,10 @@
   font-weight: 300;
 }
 .master-add-friend-avatar image { width: 100%; height: 100%; }
+.master-add-friend-plus { position: relative; width: 161.538rpx; height: 161.538rpx; }
+.master-add-friend-plus > view { position: absolute; border-radius: 1rpx; background: #85827A; }
+.master-add-friend-plus > view:first-child { left: 69.715rpx; top: 73.708rpx; width: 22.154rpx; height: 3.138rpx; }
+.master-add-friend-plus > view:last-child { left: 79.085rpx; top: 63.600rpx; width: 3.369rpx; height: 23.354rpx; }
 .master-add-friend-avatar-wrap > button {
   width: 150rpx;
   height: 50rpx;
@@ -126,7 +130,7 @@
   position: absolute;
   left: 38.462rpx;
   right: 38.462rpx;
-  bottom: calc(88.462rpx + env(safe-area-inset-bottom));
+  bottom: auto;
   height: 96.154rpx;
   min-height: 96.154rpx;
   margin: 0;
@@ -217,3 +221,152 @@
 .master-friend-recent-list > view > view text:last-child { margin-top: 8rpx; color: #A09A91; font-size: 15.385rpx; }
 .master-friend-recent-list > view > text:nth-child(2) { font-size: 22.115rpx; font-weight: 800; }
 .master-friend-recent-list > view > text:last-child { color: #9B958C; font-size: 28rpx; }
+
+/* 07 / 25 / 08: fixed master SVG geometry. */
+.master-friends-screen,
+.master-add-friend-screen,
+.master-friend-detail-screen {
+  position: relative;
+  min-height: 1623.077rpx;
+  padding: 0 !important;
+}
+.master-friends-header {
+  position: absolute;
+  left: 38.462rpx;
+  top: 125rpx;
+  width: 673.077rpx;
+  height: 100rpx;
+}
+.master-friends-search {
+  position: absolute;
+  left: 38.462rpx;
+  top: 253.846rpx;
+  width: 673.077rpx;
+  height: 84.615rpx;
+}
+.master-friends-scroll {
+  position: absolute;
+  left: 38.462rpx;
+  top: 380.769rpx;
+  width: 673.077rpx;
+  height: 700rpx;
+  margin: 0;
+}
+.master-friends-list { gap: 34.615rpx; }
+.master-friend-row { width: 673.077rpx; height: 150rpx; }
+
+.master-add-friend-screen .master-friend-detail-nav {
+  position: absolute;
+  left: 26.923rpx;
+  top: 107.692rpx;
+  width: 684.615rpx;
+  height: 88.462rpx;
+}
+.master-add-friend-avatar-wrap {
+  position: absolute;
+  left: 0;
+  top: 238.462rpx;
+  width: 750rpx;
+  height: 226.923rpx;
+}
+.master-add-friend-avatar-wrap > button { margin-top: 15.385rpx; }
+.master-add-friend-label {
+  position: absolute;
+  left: 38.462rpx;
+  top: 517.308rpx;
+  margin: 0;
+}
+.master-add-friend-input {
+  position: absolute;
+  left: 38.462rpx;
+  top: 561.538rpx;
+  width: 673.077rpx;
+  height: 103.846rpx;
+  margin: 0;
+}
+.master-add-friend-label.note {
+  left: 38.462rpx;
+  top: 690.385rpx;
+  margin: 0;
+}
+.master-add-friend-label.note + .master-add-friend-input {
+  top: 734.615rpx;
+}
+.master-add-friend-info {
+  position: absolute;
+  left: 38.462rpx;
+  top: 900rpx;
+  width: 673.077rpx;
+  height: 134.615rpx;
+  margin: 0;
+}
+.master-add-friend-submit {
+  position: absolute;
+  left: 38.462rpx;
+  top: 1353.846rpx;
+  bottom: auto;
+  width: 673.077rpx;
+  height: 96.154rpx;
+  margin: 0;
+}
+
+.master-friend-detail-nav {
+  position: absolute;
+  left: 30.769rpx;
+  top: 113.462rpx;
+  width: 680.769rpx;
+  height: 88.462rpx;
+}
+.master-friend-summary {
+  position: absolute;
+  left: 38.462rpx;
+  top: 261.538rpx;
+  width: 673.077rpx;
+  height: 273.077rpx;
+}
+.master-friend-section-title {
+  position: absolute;
+  left: 38.462rpx;
+  top: 592.308rpx;
+  margin: 0;
+}
+.master-friend-metrics {
+  position: absolute;
+  left: 38.462rpx;
+  top: 665.385rpx;
+  width: 673.077rpx;
+  margin: 0;
+  gap: 26.923rpx 19.231rpx;
+}
+.master-friend-section-title.recent {
+  left: 38.462rpx;
+  top: 976.923rpx;
+  margin: 0;
+}
+.master-friend-recent-list {
+  position: absolute;
+  left: 38.462rpx;
+  top: 1053.846rpx;
+  width: 673.077rpx;
+  margin: 0;
+  gap: 19.231rpx;
+}
+.master-friend-recent-list > view { height: 103.846rpx; }
+.master-friend-detail-nav > .master-friend-back {
+  width: 69.231rpx;
+  height: 69.231rpx;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 69.231rpx;
+  border-radius: 50%;
+  background: #FFFFFF;
+}
+.master-add-friend-screen .master-friend-detail-nav > .master-friend-back {
+  width: 61.538rpx;
+  height: 61.538rpx;
+  flex-basis: 61.538rpx;
+}
+.master-friend-detail-nav > .master-friend-back + view { margin: 4rpx 0 0 32.692rpx; }
+.master-add-friend-screen .master-friend-detail-nav > .master-friend-back + view { margin: 3rpx 0 0 15.385rpx; }

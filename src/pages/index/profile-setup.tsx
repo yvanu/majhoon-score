@@ -3,7 +3,7 @@ import Taro from '@tarojs/taro'
 import { Button, Input, Text, View } from '@tarojs/components'
 import type { AuthUser, UserGender, UserProfileInput } from '@shared/types'
 import { IdentityAvatar } from './identity-avatar'
-import { getPageTopInset } from './shared'
+import { MasterBackGlyph, getPageTopInset } from './shared'
 
 export function ProfileSetupScreen({ user, required, loading, onBack, onSave, onUploadAvatar }: {
   user: AuthUser
@@ -46,7 +46,7 @@ export function ProfileSetupScreen({ user, required, loading, onBack, onSave, on
 
   return <View className='master-profile-setup' style={{ paddingTop: `${getPageTopInset()}px` }}>
     <View className='master-profile-setup-nav'>
-      <Button hoverClass='none' onClick={onBack}>‹</Button>
+      <Button hoverClass='none' onClick={onBack}><MasterBackGlyph /></Button>
       <View><Text>{required ? '完善资料' : '账号与资料'}</Text><Text>{required ? '进入雀记前仅需一次' : '修改昵称、头像与性别'}</Text></View>
     </View>
 

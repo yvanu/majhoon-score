@@ -8,7 +8,7 @@
 }
 
 .master-groups-screen {
-  padding: 0 38.462rpx calc(154rpx + env(safe-area-inset-bottom));
+  padding: 0;
 }
 .master-groups-title-row {
   height: 103.846rpx;
@@ -24,12 +24,18 @@
   letter-spacing: -1rpx;
 }
 .master-groups-title-row > button {
+  position: absolute;
+  right: 0;
+  top: 0;
   width: 76.923rpx;
   min-width: 76.923rpx;
   height: 76.923rpx;
   min-height: 76.923rpx;
   margin: 0;
-  padding: 0 0 9rpx;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
   border-radius: 50%;
   background: #FFFFFF;
@@ -41,6 +47,10 @@
   letter-spacing: 3rpx;
 }
 .master-groups-title-row > button::after { border: 0; }
+.master-groups-more-glyph { position: relative; width: 76.923rpx; height: 76.923rpx; }
+.master-groups-more-glyph > view { position: absolute; top: 30.769rpx; width: 7.692rpx; height: 7.692rpx; border-radius: 50%; background: #66635C; }
+.master-groups-more-glyph > view:first-child { left: 28.846rpx; }
+.master-groups-more-glyph > view:last-child { left: 59.615rpx; }
 .master-groups-tabs {
   height: 57.692rpx;
   display: grid;
@@ -96,10 +106,10 @@
 .master-groups-code-entry > text { display: flex; align-items: center; justify-content: center; color: #8D887F; font-size: 28rpx; }
 
 .master-groups-scroll {
-  height: calc(100vh - 260rpx - env(safe-area-inset-bottom));
+  height: 850rpx;
   margin-top: 25rpx;
 }
-.master-groups-scroll.mine { margin-top: 23.077rpx; height: calc(100vh - 340rpx - env(safe-area-inset-bottom)); }
+.master-groups-scroll.mine { margin-top: 23.077rpx; height: 720rpx; }
 .master-groups-scroll.chats { margin-top: 14rpx; }
 .master-groups-card-list,
 .master-my-group-list,
@@ -261,7 +271,7 @@
 .master-group-create-screen,
 .master-group-detail-screen {
   padding-right: 38.462rpx;
-  padding-bottom: calc(45rpx + env(safe-area-inset-bottom));
+  padding-bottom: 0;
   padding-left: 38.462rpx;
 }
 .master-detail-nav {
@@ -275,7 +285,10 @@
   height: 61.538rpx;
   min-height: 61.538rpx;
   margin: 0;
-  padding: 0 0 4rpx;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
   border-radius: 50%;
   background: #FFFFFF;
@@ -341,7 +354,11 @@
 .master-create-invite .identity-avatar,
 .master-create-invite .avatar { width: 65.385rpx !important; height: 65.385rpx !important; margin: 0 !important; border-radius: 50% !important; }
 .master-create-invite > view > text { max-width: 100%; margin-top: 11.538rpx; overflow: hidden; color: #5D5851; font-size: 16.346rpx; text-overflow: ellipsis; white-space: nowrap; }
-.master-create-invite .add { display: flex; align-items: center; justify-content: center; box-sizing: border-box; border: 1.923rpx solid #DCD7CE; border-radius: 50%; color: #9C968D; font-size: 25rpx; }
+.master-create-invite .add { position: relative; display: flex; align-items: center; justify-content: center; box-sizing: border-box; border: 1.923rpx solid #DCD7CE; border-radius: 50%; color: #9C968D; font-size: 25rpx; }
+.master-create-plus-horizontal,
+.master-create-plus-vertical { position: absolute; border-radius: 1rpx; background: #85827A; }
+.master-create-plus-horizontal { left: 24.402rpx; top: 30.281rpx; width: 16.615rpx; height: 2.354rpx; }
+.master-create-plus-vertical { left: 31.429rpx; top: 22.700rpx; width: 2.527rpx; height: 17.515rpx; }
 .master-create-invite .placeholder > view { display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #EFEADE; color: #A09A91; }
 .master-create-section-label { display: block; margin-top: 48.077rpx; }
 .master-create-note {
@@ -457,3 +474,181 @@
 .master-detail-primary::after { border: 0; }
 .master-detail-minor { display: block; margin-top: 30rpx; color: #8E8880; font-size: 20rpx; text-align: center; }
 .master-detail-minor.danger { color: #C55A50; }
+
+/* 02 / 03 / 04 / 18 / 19: lock all master-board structural rectangles to SVG coordinates. */
+.master-groups-screen,
+.master-group-create-screen,
+.master-group-detail-screen {
+  position: relative;
+  min-height: 1623.077rpx;
+  padding: 0 !important;
+}
+.master-groups-title-row {
+  position: absolute;
+  left: 38.462rpx;
+  top: 111.538rpx;
+  width: 673.077rpx;
+  height: 76.923rpx;
+}
+.master-groups-tabs {
+  position: absolute;
+  left: 38.462rpx;
+  top: 194.231rpx;
+  width: 673.077rpx;
+  height: 65.385rpx;
+}
+.master-groups-tabs > view { height: 65.385rpx; }
+.master-groups-scroll {
+  position: absolute;
+  left: 38.462rpx;
+  top: 278.846rpx;
+  width: 673.077rpx;
+  height: 850rpx;
+  margin: 0;
+}
+.master-groups-card-list { gap: 34.615rpx; }
+.master-group-open-card { width: 673.077rpx; height: 261.538rpx; }
+.master-groups-mine-filter {
+  position: absolute;
+  left: 38.462rpx;
+  top: 265.385rpx;
+  width: 673.077rpx;
+  height: 84.615rpx;
+  margin: 0;
+}
+.master-groups-scroll.mine {
+  left: 38.462rpx;
+  top: 392.308rpx;
+  width: 673.077rpx;
+  height: 720rpx;
+  margin: 0;
+}
+.master-my-group-card { width: 673.077rpx; height: 238.462rpx; }
+.master-groups-scroll.chats {
+  left: 38.462rpx;
+  top: 265.385rpx;
+  width: 673.077rpx;
+  height: 820rpx;
+  margin: 0;
+}
+.master-chat-row { width: 673.077rpx; height: 169.231rpx; }
+
+.master-group-create-screen .master-detail-nav,
+.master-group-detail-screen .master-detail-nav {
+  position: absolute;
+  left: 26.923rpx;
+  top: 107.692rpx;
+  width: 684.615rpx;
+  height: 88.462rpx;
+}
+.master-create-preview {
+  position: absolute;
+  left: 38.462rpx;
+  top: 242.308rpx;
+  width: 673.077rpx;
+  height: 211.538rpx;
+}
+.master-create-row {
+  position: absolute;
+  left: 38.462rpx;
+  top: 511.538rpx;
+  width: 673.077rpx;
+  height: 119.231rpx;
+  margin: 0;
+}
+.master-create-row.location {
+  top: 650rpx;
+  margin: 0;
+}
+.master-create-section-head {
+  position: absolute;
+  left: 38.462rpx;
+  top: 813.462rpx;
+  width: 673.077rpx;
+  margin: 0;
+}
+.master-create-invite {
+  position: absolute;
+  left: 38.462rpx;
+  top: 869.231rpx;
+  width: 673.077rpx;
+  height: 184.615rpx;
+  min-height: 184.615rpx;
+  margin: 0;
+}
+.master-create-section-label {
+  position: absolute;
+  left: 38.462rpx;
+  top: 1109.615rpx;
+  margin: 0;
+}
+.master-create-note {
+  position: absolute;
+  left: 38.462rpx;
+  top: 1161.538rpx;
+  width: 673.077rpx;
+  height: 146.154rpx;
+  margin: 0;
+}
+.master-create-submit {
+  position: absolute;
+  left: 38.462rpx;
+  top: 1365.385rpx;
+  width: 673.077rpx;
+  height: 96.154rpx;
+  margin: 0;
+}
+
+.master-detail-hero {
+  position: absolute;
+  left: 38.462rpx;
+  top: 246.154rpx;
+  width: 673.077rpx;
+  height: 223.077rpx;
+}
+.master-detail-section-title {
+  position: absolute;
+  left: 38.462rpx;
+  top: 517.308rpx;
+  margin: 0;
+}
+.master-detail-members {
+  position: absolute;
+  left: 38.462rpx;
+  top: 573.077rpx;
+  width: 673.077rpx;
+  height: 200rpx;
+  margin: 0;
+}
+.master-detail-members + .master-detail-link {
+  position: absolute;
+  left: 38.462rpx;
+  top: 819.231rpx;
+  width: 673.077rpx;
+  height: 123.077rpx;
+  margin: 0;
+}
+.master-detail-members + .master-detail-link + .master-detail-link {
+  position: absolute;
+  left: 38.462rpx;
+  top: 961.538rpx;
+  width: 673.077rpx;
+  height: 123.077rpx;
+  margin: 0;
+}
+.master-detail-status {
+  position: absolute;
+  left: 38.462rpx;
+  top: 1107.692rpx;
+  width: 673.077rpx;
+  height: 126.923rpx;
+  margin: 0;
+}
+.master-detail-primary {
+  position: absolute;
+  left: 38.462rpx;
+  top: 1330.769rpx;
+  width: 673.077rpx;
+  height: 96.154rpx;
+  margin: 0;
+}

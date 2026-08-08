@@ -8,7 +8,7 @@ import type {
   StatisticsDimension,
   UserPreferences,
 } from '@shared/types'
-import { getPageTopInset } from './shared'
+import { MasterBackGlyph, MasterRightChevronGlyph, getPageTopInset } from './shared'
 import type { SyncStatus } from './shared'
 import { IdentityAvatar } from './identity-avatar'
 import { ScoreTrendChart } from './score-trend-chart'
@@ -54,7 +54,7 @@ export function deriveMasterPlayStyle(statistics: PersonalStatistics | null) {
 
 function BackTitle({ title, subtitle, onBack }: { title: string; subtitle?: string; onBack: () => void }) {
   return <View className='master-profile-nav'>
-    <Button hoverClass='none' onClick={onBack}>‹</Button>
+    <Button hoverClass='none' onClick={onBack}><MasterBackGlyph /></Button>
     <View><Text>{title}</Text>{subtitle && <Text>{subtitle}</Text>}</View>
   </View>
 }
@@ -97,19 +97,19 @@ export function ProfileScreen({ user, statistics, statisticsLoading, onSettings,
     <View className='master-profile-user-card'>
       <View className='master-profile-avatar'><IdentityAvatar name={user.display_name || user.username} gender={user.gender} avatarUrl={user.avatar_url} /></View>
       <View className='master-profile-user-copy'><Text>{user.display_name || user.username}</Text><Text>{statisticsLoading && !statistics ? '统计加载中…' : `本月 ${matches} 将 · ${score > 0 ? '+' : ''}${score}`}</Text><Text>{style.tag}</Text></View>
-      <View className='master-profile-stats-link' onClick={onPersonalStatistics}><Text>我的战绩</Text><Text>›</Text></View>
+      <View className='master-profile-stats-link' onClick={onPersonalStatistics}><Text>我的战绩</Text><MasterRightChevronGlyph /></View>
     </View>
 
     <Text className='master-profile-section-title'>我的牌风</Text>
     <View className='master-profile-style-card' onClick={onPlayStyle}>
       <Text>{style.title}</Text>
       <Text>进攻指数 {style.attack} · 风险偏好 {style.risk >= 65 ? '偏高' : style.risk >= 45 ? '中等' : '偏低'}</Text>
-      <Text>查看牌风分析 ›</Text>
+      <View className='master-profile-style-link'><Text>查看牌风分析</Text><MasterRightChevronGlyph /></View>
     </View>
 
     <Text className='master-profile-section-title quick'>快捷入口</Text>
-    <View className='master-profile-link' onClick={onPreferences}><View><Text>个人偏好</Text><Text>默认分值、录分习惯</Text></View><Text>›</Text></View>
-    <View className='master-profile-link' onClick={onSettings}><View><Text>设置</Text><Text>账号、隐私、显示</Text></View><Text>›</Text></View>
+    <View className='master-profile-link' onClick={onPreferences}><View><Text>个人偏好</Text><Text>默认分值、录分习惯</Text></View><MasterRightChevronGlyph /></View>
+    <View className='master-profile-link' onClick={onSettings}><View><Text>设置</Text><Text>账号、隐私、显示</Text></View><MasterRightChevronGlyph /></View>
   </View>
 }
 
@@ -216,7 +216,7 @@ export function ScoringSettingsScreen({ preferences, onBack, onPreferences }: { 
     <View className='master-scoring-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
       <BackTitle title='南京麻将规则' subtitle='当前产品默认记分规则' onBack={onBack} />
       <Text className='master-scoring-section-title'>录分习惯入口</Text>
-      <View className='master-scoring-pref-link' onClick={onPreferences}><View><Text>个人偏好</Text><Text>推荐分、步长与录分习惯</Text></View><Text>进入 ›</Text></View>
+      <View className='master-scoring-pref-link' onClick={onPreferences}><View><Text>个人偏好</Text><Text>推荐分、步长与录分习惯</Text></View><View className='master-scoring-enter'><Text>进入</Text><MasterRightChevronGlyph /></View></View>
       <Text className='master-scoring-section-title events'>局内事件规则</Text>
       <View className='master-scoring-event-list'>{rows.map(row => <View key={row.name}><View><Text>{row.name}</Text><Text>{row.copy}</Text></View><Text>{row.value}</Text></View>)}</View>
       <View className='master-scoring-note'><Text>补充规则</Text><Text>庄家胡牌、一炮多响、外包、流局不过庄。</Text><Text>北4 发生大胡 / 跟圈 / 花杠 / 四风归一时也不过庄。</Text></View>
@@ -245,7 +245,7 @@ export function SettingsScreen({ onBack, onEditProfile, onScoringSettings, onInf
   ]
   return <View className='master-settings-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
     <BackTitle title='设置' onBack={onBack} />
-    <View className='master-settings-list'>{rows.map(row => <View key={row.title} onClick={row.action}><View><Text>{row.title}</Text><Text>{row.subtitle}</Text></View><Text>›</Text></View>)}</View>
+    <View className='master-settings-list'>{rows.map(row => <View key={row.title} onClick={row.action}><View><Text>{row.title}</Text><Text>{row.subtitle}</Text></View><MasterRightChevronGlyph /></View>)}</View>
   </View>
 }
 
@@ -270,7 +270,7 @@ export function BigHandsScreen({ statistics, onBack }: { statistics: PersonalSta
       <View className='master-big-record-list'>{records.map(record => <View key={record.handId} onClick={() => { void openRecord(record) }}>
         <View><Text>{relativeTime(record.createdAt)}</Text><Text>{record.note?.split('、').join(' · ') || '大胡'}{record.resultType === 'tsumo' ? ' · 自摸' : ' · 点炮胡'}</Text></View>
         <View>{record.tileRecord && <Text>有牌谱</Text>}<Text className={record.score >= 0 ? 'positive' : 'negative'}>{record.score > 0 ? '+' : ''}{record.score}</Text></View>
-        <Text>›</Text>
+        <MasterRightChevronGlyph />
       </View>)}</View>
       {!records.length && <View className='master-big-empty'><Text>当前周期还没有大胡记录</Text></View>}
     </View>

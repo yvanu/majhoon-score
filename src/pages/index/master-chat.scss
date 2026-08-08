@@ -7,7 +7,7 @@
 }
 .master-chat-main {
   height: 100vh;
-  padding: 0 38.462rpx calc(153.846rpx + env(safe-area-inset-bottom));
+  padding: 0;
   box-sizing: border-box;
 }
 .master-chat-nav {
@@ -21,7 +21,10 @@
   height: 61.538rpx;
   min-height: 61.538rpx;
   margin: 0;
-  padding: 0 0 4rpx;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
   border-radius: 50%;
   background: #FFFFFF;
@@ -64,7 +67,7 @@
 }
 .master-chat-ready > button::after { border: 0; }
 .master-chat-message-list {
-  height: calc(100vh - 300rpx - env(safe-area-inset-bottom));
+  height: 650rpx;
   margin-top: 25rpx;
 }
 .master-chat-day-label { display: block; margin: 0 0 27rpx; color: #A09A92; font-size: 15.385rpx; text-align: center; }
@@ -123,7 +126,7 @@
   z-index: 50;
   left: 26.923rpx;
   right: 26.923rpx;
-  bottom: calc(23.077rpx + env(safe-area-inset-bottom));
+  bottom: 38.462rpx;
   height: 123.077rpx;
   padding: 0;
   box-sizing: border-box;
@@ -137,14 +140,13 @@
   top: 26.923rpx;
   width: 69.231rpx;
   height: 69.231rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   border-radius: 50%;
   background: #EDE8DB;
-  color: #9C968D;
-  font-size: 30rpx;
 }
+.master-chat-plus-horizontal,
+.master-chat-plus-vertical { position: absolute; border-radius: 1rpx; background: #85827A; }
+.master-chat-plus-horizontal { left: 25.404rpx; top: 30.654rpx; width: 18.462rpx; height: 2.615rpx; }
+.master-chat-plus-vertical { left: 33.212rpx; top: 22.231rpx; width: 2.808rpx; height: 19.462rpx; }
 .master-chat-composer input { position: absolute; left: 103.846rpx; top: 25rpx; width: 434.615rpx; height: 73.077rpx; padding: 0 24rpx; box-sizing: border-box; border-radius: 36.538rpx; background: #F5F3EF; color: #171714; font-size: 20.192rpx; }
 .master-chat-composer > button {
   position: absolute;
@@ -166,4 +168,40 @@
 }
 .master-chat-composer > button::after { border: 0; }
 .master-chat-composer > button[disabled] { background: #E9E3D8; color: #A09A91; opacity: 1; }
-.master-chat-readonly { grid-column: 1 / -1; color: #9A948B; font-size: 20rpx; text-align: center; }
+.master-chat-readonly { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #9A948B; font-size: 20rpx; text-align: center; }
+
+/* 20_group_chat_detail: fixed to the 390×844 master coordinates. */
+.master-chat-main {
+  position: relative;
+  height: 1623.077rpx;
+  padding: 0 !important;
+}
+.master-chat-nav {
+  position: absolute;
+  left: 26.923rpx;
+  top: 107.692rpx;
+  width: 684.615rpx;
+  height: 88.462rpx;
+}
+.master-chat-ready {
+  position: absolute;
+  left: 38.462rpx;
+  top: 242.308rpx;
+  width: 673.077rpx;
+  height: 123.077rpx;
+}
+.master-chat-message-list {
+  position: absolute;
+  left: 38.462rpx;
+  top: 392.308rpx;
+  width: 673.077rpx;
+  height: 650rpx;
+  margin: 0;
+}
+.master-chat-composer {
+  left: 26.923rpx;
+  right: auto;
+  bottom: 38.462rpx;
+  width: 696.154rpx;
+  height: 123.077rpx;
+}

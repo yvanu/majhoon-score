@@ -1,7 +1,7 @@
 .master-start-screen {
   min-height: 100vh;
   padding-right: 38.462rpx;
-  padding-bottom: calc(46.154rpx + env(safe-area-inset-bottom));
+  padding-bottom: 0;
   padding-left: 38.462rpx;
   box-sizing: border-box;
   background: #F6F5F2;
@@ -19,7 +19,10 @@
   height: 69.231rpx;
   min-height: 69.231rpx;
   margin: 0;
-  padding: 0 0 4rpx;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
   border-radius: 50%;
   background: #FFFFFF;
@@ -74,10 +77,10 @@
 }
 .master-start-table-center {
   position: absolute;
-  left: 177.885rpx;
-  top: 198.077rpx;
-  width: 316.346rpx;
-  height: 265.385rpx;
+  left: 178.846rpx;
+  top: 186.538rpx;
+  width: 315.385rpx;
+  height: 253.846rpx;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -261,4 +264,51 @@
   opacity: 1;
 }
 .master-start-join { margin-top: 70rpx; }
+
+/* 17_start_new_game: lock major geometry to the master SVG coordinates. */
+.master-start-screen {
+  position: relative;
+  min-height: 1623.077rpx;
+  padding: 0 !important;
+}
+.master-start-nav {
+  position: absolute;
+  left: 30.769rpx;
+  top: 113.462rpx;
+  width: 680.769rpx;
+  height: 80rpx;
+}
+.master-start-table-card {
+  position: absolute;
+  left: 38.462rpx;
+  top: 280.769rpx;
+  width: 673.077rpx;
+  height: 634.615rpx;
+}
+.master-start-secondary-actions {
+  position: absolute;
+  left: 73.077rpx;
+  top: 953.846rpx;
+  width: 603.846rpx;
+  height: 80.769rpx;
+  margin: 0;
+  padding: 0;
+}
+.master-start-rule-card {
+  position: absolute;
+  left: 38.462rpx;
+  top: 1088.462rpx;
+  width: 673.077rpx;
+  height: 134.615rpx;
+  margin: 0;
+}
+.master-start-primary,
+.master-start-join {
+  position: absolute;
+  left: 38.462rpx;
+  top: 1353.846rpx;
+  width: 673.077rpx;
+  height: 100rpx;
+  margin: 0;
+}
 

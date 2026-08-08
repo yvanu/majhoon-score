@@ -9,7 +9,7 @@
 .master-match-screen {
   position: relative;
   padding-right: 38.462rpx;
-  padding-bottom: calc(40rpx + env(safe-area-inset-bottom));
+  padding-bottom: 0;
   padding-left: 38.462rpx;
 }
 
@@ -26,7 +26,10 @@
   height: 76.923rpx;
   min-height: 76.923rpx;
   margin: 0;
-  padding: 0 0 5rpx;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
   border-radius: 50%;
   background: #FFFFFF;
@@ -144,6 +147,7 @@
   gap: 30.769rpx;
 }
 .master-match-action {
+  position: relative;
   height: 134.615rpx;
   padding: 0 26.923rpx 0 32.692rpx;
   display: flex;
@@ -168,10 +172,14 @@
   line-height: 1.2;
 }
 .master-match-plus {
-  color: #85827A;
-  font-size: 48rpx;
-  font-weight: 300;
-  line-height: 1;
+  position: absolute;
+  left: 610.462rpx;
+  top: 61.999rpx;
+  width: 8.862rpx;
+  height: 19.2rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .master-match-finish {
   width: 100%;
@@ -216,7 +224,7 @@
   font-weight: 800;
 }
 .master-record-scroll {
-  height: calc(100vh - 300rpx - env(safe-area-inset-bottom));
+  height: 760rpx;
   margin-top: 38.462rpx;
 }
 .master-record-list {
@@ -282,7 +290,7 @@
 
 .master-finished-screen {
   padding-right: 38.462rpx;
-  padding-bottom: calc(40rpx + env(safe-area-inset-bottom));
+  padding-bottom: 0;
   padding-left: 38.462rpx;
 }
 .master-finished-nav {
@@ -441,4 +449,124 @@
   color: #85827A;
   font-size: 24rpx;
   font-weight: 700;
+}
+
+/* 05 / 06 / 26: major blocks are pinned to their master SVG coordinates. */
+.master-match-screen,
+.master-finished-screen {
+  position: relative;
+  min-height: 1623.077rpx;
+  padding: 0 !important;
+}
+.master-match-nav {
+  position: absolute;
+  left: 34.615rpx;
+  top: 111.538rpx;
+  width: 676.923rpx;
+  min-height: 76.923rpx;
+}
+.master-match-segment {
+  position: absolute;
+  left: 446.154rpx;
+  top: 171.154rpx;
+  width: 265.385rpx;
+  height: 57.692rpx;
+  margin: 0;
+}
+.master-match-scoreboard {
+  position: absolute;
+  left: 38.462rpx;
+  top: 273.077rpx;
+  width: 673.077rpx;
+  height: 223.077rpx;
+  margin: 0;
+}
+.master-match-section-title {
+  position: absolute;
+  left: 38.462rpx;
+  top: 557.692rpx;
+  margin: 0;
+}
+.master-match-actions {
+  position: absolute;
+  left: 38.462rpx;
+  top: 634.615rpx;
+  width: 673.077rpx;
+  margin: 0;
+}
+.master-match-finish {
+  position: absolute;
+  left: 38.462rpx;
+  top: 1192.308rpx;
+  width: 673.077rpx;
+  height: 100rpx;
+  margin: 0;
+}
+.master-record-filter {
+  position: absolute;
+  left: 38.462rpx;
+  top: 261.538rpx;
+  width: 673.077rpx;
+  height: 80.769rpx;
+  margin: 0;
+}
+.master-record-scroll {
+  position: absolute;
+  left: 38.462rpx;
+  top: 380.769rpx;
+  width: 673.077rpx;
+  height: 760rpx;
+  margin: 0;
+}
+.master-record-list { gap: 34.615rpx; }
+.master-record-card { min-height: 157.692rpx; }
+
+.master-finished-nav {
+  position: absolute;
+  left: 26.923rpx;
+  top: 107.692rpx;
+  width: 684.615rpx;
+  min-height: 69.231rpx;
+}
+.master-finished-score-card {
+  position: absolute;
+  left: 38.462rpx;
+  top: 246.154rpx;
+  width: 673.077rpx;
+  height: 288.462rpx;
+}
+.master-finished-section-title {
+  position: absolute;
+  left: 38.462rpx;
+  top: 582.692rpx;
+  margin: 0;
+}
+.master-finished-highlights {
+  position: absolute;
+  left: 38.462rpx;
+  top: 650rpx;
+  width: 673.077rpx;
+  margin: 0;
+}
+.master-finished-highlights + .master-finished-link {
+  position: absolute;
+  left: 38.462rpx;
+  top: 1053.846rpx;
+  width: 673.077rpx;
+  margin: 0;
+}
+.master-finished-highlights + .master-finished-link + .master-finished-link {
+  position: absolute;
+  left: 38.462rpx;
+  top: 1192.308rpx;
+  width: 673.077rpx;
+  margin: 0;
+}
+.master-finished-readonly {
+  position: absolute;
+  left: 38.462rpx;
+  top: 1353.846rpx;
+  width: 673.077rpx;
+  height: 100rpx;
+  margin: 0;
 }

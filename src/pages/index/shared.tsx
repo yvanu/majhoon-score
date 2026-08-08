@@ -1,5 +1,5 @@
 import Taro from '@tarojs/taro'
-import { Button, Text, View } from '@tarojs/components'
+import { Button, Image, Text, View } from '@tarojs/components'
 import type {
   AuthUser,
   Friend,
@@ -9,6 +9,29 @@ import type {
   StatisticsDimension,
 } from '@shared/types'
 import { IdentityAvatar } from './identity-avatar'
+
+const masterSvgIcon = (viewBox: string, body: string) => `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" fill="none">${body}</svg>`)}`
+const MASTER_BACK_ICON = masterSvgIcon('30 70 8 14', '<path d="M37 71L31 77L37 83" stroke="#171714" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>')
+const MASTER_SEARCH_ICON = masterSvgIcon('34.765 149.21 8 8.15', '<path d="M35.35 157.355L34.765 156.725L36.595 154.925C36.325 154.595 36.12 154.245 35.98 153.875C35.85 153.505 35.785 153.11 35.785 152.69C35.785 152.05 35.94 151.47 36.25 150.95C36.57 150.42 36.995 150 37.525 149.69C38.055 149.37 38.635 149.21 39.265 149.21C39.905 149.21 40.485 149.37 41.005 149.69C41.535 150 41.955 150.42 42.265 150.95C42.585 151.47 42.745 152.05 42.745 152.69C42.745 153.32 42.585 153.9 42.265 154.43C41.955 154.96 41.535 155.385 41.005 155.705C40.485 156.015 39.905 156.17 39.265 156.17C38.885 156.17 38.525 156.115 38.185 156.005C37.845 155.895 37.525 155.73 37.225 155.51L35.35 157.355ZM39.265 155.225C39.725 155.225 40.145 155.115 40.525 154.895C40.915 154.665 41.225 154.36 41.455 153.98C41.685 153.59 41.8 153.16 41.8 152.69C41.8 152.22 41.685 151.795 41.455 151.415C41.225 151.025 40.92 150.72 40.54 150.5C40.16 150.27 39.735 150.155 39.265 150.155C38.795 150.155 38.365 150.27 37.975 150.5C37.595 150.72 37.29 151.025 37.06 151.415C36.84 151.795 36.73 152.22 36.73 152.69C36.73 153.16 36.84 153.59 37.06 153.98C37.29 154.36 37.595 154.665 37.975 154.895C38.365 155.115 38.795 155.225Z" fill="#807D75"/>')
+
+const MASTER_RIGHT_CHEVRON = masterSvgIcon('337.44 362.24 4.608 9.984', '<path d="M338.4 372.224L337.44 371.48L340.608 367.256L337.44 363.056L338.4 362.24L342.048 366.416V368.072L338.4 372.224Z" fill="#8C8A82"/>')
+const MASTER_CLOSE_ICON = masterSvgIcon('342.272 120.248 15.456 15.456', '<path d="M356.576 135.704L357.728 134.552L351.176 127.976L357.728 121.4L356.576 120.248L350 126.824L343.448 120.248L342.272 121.424L348.848 127.976L342.272 134.552L343.448 135.704L350 129.128L356.576 135.704Z" fill="#85827A"/>')
+
+export function MasterBackGlyph() {
+  return <Image src={MASTER_BACK_ICON} mode='aspectFit' style={{ width: '15.385rpx', height: '26.923rpx' }} />
+}
+
+export function MasterSearchGlyph() {
+  return <Image src={MASTER_SEARCH_ICON} mode='aspectFit' style={{ width: '15.385rpx', height: '15.673rpx' }} />
+}
+
+export function MasterRightChevronGlyph() {
+  return <Image src={MASTER_RIGHT_CHEVRON} mode='aspectFit' style={{ width: '8.862rpx', height: '19.2rpx' }} />
+}
+
+export function MasterCloseGlyph() {
+  return <Image src={MASTER_CLOSE_ICON} mode='aspectFit' style={{ width: '29.723rpx', height: '29.723rpx' }} />
+}
 
 export const seatLabels = ['东', '南', '西', '北']
 export const windName: Record<string, string> = { east: '东', south: '南', west: '西', north: '北' }

@@ -3,7 +3,7 @@ import Taro from '@tarojs/taro'
 import { Button, Input, ScrollView, Text, View } from '@tarojs/components'
 import type { AuthUser, GroupChatMessage, GroupChatStatus, GroupSession } from '@shared/types'
 import { api, AUTH_KEY, groupChatSocketUrl } from '../../services/api'
-import { getPageTopInset } from './shared'
+import { MasterBackGlyph, getPageTopInset } from './shared'
 import { IdentityAvatar } from './identity-avatar'
 
 const quickMessages = ['我到了', '马上到', '晚到10分钟', '位置在哪？', '可以开始了', '临时有事']
@@ -310,7 +310,7 @@ export function GroupChatScreen({ group, user, loading: actionLoading, onBack, o
   return <View className='master-chat-screen'>
     <View className='master-chat-main' style={{ paddingTop: `${getPageTopInset()}px` }}>
       <View className='master-chat-nav'>
-        <Button hoverClass='none' onClick={onBack}>‹</Button>
+        <Button hoverClass='none' onClick={onBack}><MasterBackGlyph /></Button>
         <View><Text>{masterChatTitle}</Text><Text>{group.confirmed_count}人 · {formatGroupTime(group.start_at).replace(' ', '')}</Text></View>
       </View>
 
@@ -345,7 +345,7 @@ export function GroupChatScreen({ group, user, loading: actionLoading, onBack, o
 
     <View className='master-chat-composer'>
       {roomStatus === 'readonly' ? <Text className='master-chat-readonly'>群聊已关闭</Text> : <>
-        <View className='master-chat-plus'><Text>＋</Text></View>
+        <View className='master-chat-plus'><View className='master-chat-plus-horizontal' /><View className='master-chat-plus-vertical' /></View>
         <Input value={input} maxlength={500} cursorSpacing={22} confirmType='send' placeholder='说点什么…' onInput={event => setInput(event.detail.value)} onConfirm={() => { void sendMessage() }} />
         <Button hoverClass='none' disabled={!input.trim() || sending} onClick={() => { void sendMessage() }}>{sending ? '发送中' : '发送'}</Button>
       </>}

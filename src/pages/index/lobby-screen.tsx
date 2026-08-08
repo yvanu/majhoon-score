@@ -3,7 +3,7 @@ import { Button, Image, Input, ScrollView, Text, View } from '@tarojs/components
 import type { AuthUser, Friend, GroupSessionMember, MatchLobby, MatchLobbyMember } from '@shared/types'
 import { matchLobbyQrUrl } from '../../services/api'
 import { IdentityAvatar } from './identity-avatar'
-import { getPageTopInset } from './shared'
+import { MasterBackGlyph, getPageTopInset } from './shared'
 import { GroupMemberInfoModal } from './group-member-info'
 
 const seatSpots = [
@@ -98,7 +98,7 @@ export function LobbyScreen({ lobby, user, friends, friendsLoading, loading, clo
 
   return <View className='master-start-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
     <View className='master-start-nav'>
-      <Button className='master-start-back' hoverClass='none' onClick={onBack}>‹</Button>
+      <Button className='master-start-back' hoverClass='none' onClick={onBack}><MasterBackGlyph /></Button>
       <View><Text>开始新牌局</Text><Text>确认本场玩家、座位与庄家</Text></View>
     </View>
 

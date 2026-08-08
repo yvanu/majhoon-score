@@ -107,6 +107,26 @@
   line-height: 55rpx;
 }
 .master-score-header > button::after { border: 0; }
+.master-score-dialog-multi .master-score-header > button,
+.master-score-dialog-event .master-score-header > button,
+.master-score-tile-dialog .master-score-header > button {
+  position: absolute;
+  left: 605.769rpx;
+  top: 30.723rpx;
+  width: 57.692rpx;
+  min-width: 57.692rpx;
+  height: 57.692rpx;
+  min-height: 57.692rpx;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  line-height: 1;
+}
 
 .master-score-field-label,
 .master-score-compact-label {
@@ -366,7 +386,7 @@
 .master-score-compact-picks > view {
   position: relative;
   min-width: 0;
-  padding: 6rpx 2rpx;
+  padding: 0 2rpx;
   display: flex;
   align-items: center;
   flex-direction: column;
@@ -617,6 +637,259 @@
 .master-tile-row-label text { display: block; }
 .master-tile-row-label text:first-child { color: #171714; font-size: 19.231rpx; font-weight: 800; }
 .master-tile-row-label text:last-child { margin-top: 4rpx; color: #A09A91; font-size: 13.462rpx; }
+
+/* 13 / 14 / 24 / 15 / 23: structural rectangles and avatar centers follow the master SVG exactly. */
+.master-score-player-grid {
+  grid-template-columns: repeat(4, 130.769rpx);
+  gap: 23.077rpx;
+}
+.master-score-player-card {
+  width: 130.769rpx;
+  height: 157.692rpx;
+}
+.master-score-avatar,
+.master-score-avatar .avatar-identity-wrap,
+.master-score-avatar .identity-avatar,
+.master-score-avatar .avatar {
+  width: 73.077rpx !important;
+  height: 73.077rpx !important;
+}
+
+/* 13_self_draw_modal */
+.master-score-dialog-tsumo .master-score-player-grid {
+  position: absolute;
+  left: 34.615rpx;
+  top: 230.769rpx;
+  width: 603.846rpx;
+  margin: 0;
+}
+.master-score-dialog-tsumo .master-score-control {
+  position: absolute;
+  left: 34.615rpx;
+  top: 473.077rpx;
+  width: 603.846rpx;
+  height: 111.538rpx;
+  margin: 0;
+}
+.master-score-dialog-tsumo .master-score-note-grid {
+  position: absolute;
+  left: 34.615rpx;
+  top: 684.615rpx;
+  width: 584.615rpx;
+  grid-template-columns: repeat(2, 280.769rpx);
+  gap: 19.231rpx 23.077rpx;
+  margin: 0;
+}
+.master-score-dialog-tsumo .master-score-note-grid > view {
+  width: 280.769rpx;
+  height: 61.538rpx;
+  border-radius: 26.923rpx;
+}
+
+/* 14_discard_win_modal */
+.master-score-dialog-ron .master-score-player-card {
+  width: 130.769rpx;
+  height: 157.692rpx;
+  padding-top: 17.308rpx;
+}
+.master-score-dialog-ron .master-score-avatar,
+.master-score-dialog-ron .master-score-avatar .avatar-identity-wrap,
+.master-score-dialog-ron .master-score-avatar .identity-avatar,
+.master-score-dialog-ron .master-score-avatar .avatar {
+  width: 73.077rpx !important;
+  height: 73.077rpx !important;
+}
+.master-score-dialog-ron .ron-losers {
+  position: absolute;
+  left: 34.615rpx;
+  top: 230.769rpx;
+  width: 603.846rpx;
+  margin: 0;
+}
+.master-score-dialog-ron .ron-winners {
+  position: absolute;
+  left: 34.615rpx;
+  top: 465.385rpx;
+  width: 603.846rpx;
+  margin: 0;
+}
+.master-score-dialog-ron .master-score-control {
+  position: absolute;
+  left: 34.615rpx;
+  top: 703.846rpx;
+  width: 603.846rpx;
+  height: 107.692rpx;
+  margin: 0;
+}
+.master-score-dialog-ron .master-score-note-row {
+  position: absolute;
+  left: 107.692rpx;
+  top: 875rpx;
+  width: 526.923rpx;
+  grid-template-columns: 138.462rpx 123.077rpx 103.846rpx 126.923rpx;
+  gap: 11.538rpx;
+  margin: 0;
+}
+.master-score-dialog-ron .master-score-note-row > view { height: 53.846rpx; border-radius: 26.923rpx; }
+
+/* Shared compact pick selection is a circular avatar ring, not a secondary card. */
+.master-score-compact-picks > view.selected {
+  border-color: transparent;
+  background: transparent;
+}
+.master-score-compact-picks > view.selected .master-score-compact-avatar {
+  box-sizing: border-box;
+  border: 1.923rpx solid #F3B43F;
+  border-radius: 50%;
+  background: #FFF2D5;
+}
+
+/* 24_multi_discard_win_modal */
+.master-score-dialog-multi .master-score-compact-avatar,
+.master-score-dialog-multi .master-score-compact-avatar .avatar-identity-wrap,
+.master-score-dialog-multi .master-score-compact-avatar .identity-avatar,
+.master-score-dialog-multi .master-score-compact-avatar .avatar {
+  width: 84.615rpx !important;
+  height: 84.615rpx !important;
+}
+.master-score-dialog-multi .multi-loser-picks {
+  position: absolute;
+  left: 34.615rpx;
+  top: 203.846rpx;
+  width: 603.846rpx;
+  margin: 0;
+}
+.master-score-dialog-multi > .master-score-compact-picks.winners {
+  position: absolute;
+  left: 50rpx;
+  top: 388.462rpx;
+  width: 557.692rpx;
+  margin: 0;
+}
+.master-score-dialog-multi > .master-score-compact-label {
+  position: absolute;
+  left: 34.615rpx;
+  top: 153.846rpx;
+  margin: 0;
+}
+.master-score-dialog-multi .multi-loser-picks {
+  left: 50rpx;
+  width: 557.692rpx;
+}
+.master-score-dialog-multi .master-score-compact-head {
+  position: absolute;
+  left: 34.615rpx;
+  top: 334.615rpx;
+  width: 603.846rpx;
+  height: 53.846rpx;
+  margin: 0;
+}
+.master-score-dialog-multi .master-score-compact-head > text:last-child {
+  width: 126.923rpx;
+  height: 53.846rpx;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 26.923rpx;
+}
+.master-score-dialog-multi .master-score-compact-picks {
+  grid-template-columns: repeat(4, 84.615rpx);
+  gap: 73.077rpx;
+}
+.master-multi-winner-scroll {
+  position: absolute;
+  left: 34.615rpx;
+  top: 534.615rpx;
+  width: 603.846rpx;
+  height: 396.154rpx;
+  margin: 0;
+}
+.master-multi-winner-list { gap: 34.615rpx; }
+.master-multi-winner-card {
+  width: 603.846rpx;
+  height: 180.769rpx;
+}
+.master-score-dialog-multi .master-score-settlement {
+  position: absolute;
+  left: 34.615rpx;
+  top: 980.769rpx;
+  width: 603.846rpx;
+  height: 150rpx;
+  margin: 0;
+}
+
+/* 15_in_game_event_modal */
+.master-score-dialog-event .master-score-compact-label.event-label {
+  position: absolute;
+  left: 34.615rpx;
+  top: 165.385rpx;
+  margin: 0;
+}
+.master-score-dialog-event .master-event-type-row {
+  position: absolute;
+  left: 34.615rpx;
+  top: 219.231rpx;
+  width: 623.077rpx;
+  grid-template-columns: 111.538rpx 111.538rpx 111.538rpx 134.615rpx 92.308rpx;
+  gap: 15.385rpx;
+  margin: 0;
+}
+.master-score-dialog-event .master-score-compact-avatar,
+.master-score-dialog-event .master-score-compact-avatar .avatar-identity-wrap,
+.master-score-dialog-event .master-score-compact-avatar .identity-avatar,
+.master-score-dialog-event .master-score-compact-avatar .avatar {
+  width: 84.615rpx !important;
+  height: 84.615rpx !important;
+}
+.master-score-dialog-event .master-score-compact-picks {
+  grid-template-columns: repeat(4, 84.615rpx);
+  gap: 73.077rpx;
+}
+.master-score-dialog-event .payer-role {
+  position: absolute;
+  left: 34.615rpx;
+  top: 319.231rpx;
+  margin: 0;
+}
+.master-score-dialog-event .player-role {
+  position: absolute;
+  left: 34.615rpx;
+  top: 515.385rpx;
+  margin: 0;
+}
+.master-score-dialog-event .player-role.solo { top: 319.231rpx; }
+.master-score-dialog-event .event-payer-picks {
+  position: absolute;
+  left: 50rpx;
+  top: 371.154rpx;
+  width: 557.692rpx;
+  margin: 0;
+}
+.master-score-dialog-event .event-player-picks {
+  position: absolute;
+  left: 50rpx;
+  top: 567.308rpx;
+  width: 557.692rpx;
+  margin: 0;
+}
+.master-score-dialog-event .event-player-picks.solo { top: 371.154rpx; }
+.master-score-dialog-event .master-score-event-settlement {
+  position: absolute;
+  left: 34.615rpx;
+  top: 715.385rpx;
+  width: 603.846rpx;
+  height: 192.308rpx;
+  margin: 0;
+}
+
+/* 23_score_sheet_modal outer geometry was already exact; lock the scroll viewport to its board bounds. */
+.master-score-tile-dialog .master-score-tile-scroll {
+  left: 34.615rpx;
+  right: 34.615rpx;
+  top: 134.615rpx;
+  bottom: 171.154rpx;
+}
 .master-tile-row-content { min-width: 0; overflow: hidden; }
 .master-tile-row-content .tile-record-placeholder { color: #B0AAA1; font-size: 14.423rpx; }
 .master-tile-row-content .tile-editor-melds { display: flex; align-items: center; gap: 7.692rpx; overflow: hidden; }
@@ -690,4 +963,270 @@
 }
 .master-tile-palette-grid > view.selected { border-color: #E7B238; background: #FFF7DF; }
 .master-tile-palette-grid .mahjong-tile { width: 48.077rpx; height: 67.308rpx; }
+
+/* 23_score_sheet_modal: remove the legacy editor shell and reproduce the master board geometry. */
+.master-score-tile-dialog .master-score-tile-scroll {
+  left: 34.615rpx;
+  right: auto;
+  top: 142.308rpx;
+  bottom: auto;
+  width: 603.846rpx;
+  height: 980.769rpx;
+}
+.master-tile-editor {
+  position: relative;
+  width: 603.846rpx;
+  height: 980.769rpx;
+  padding: 0;
+}
+.master-tile-meld-list {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 603.846rpx;
+  height: 292.308rpx;
+  display: block;
+  padding: 0;
+}
+.master-tile-meld-row {
+  position: absolute;
+  left: 0;
+  width: 603.846rpx;
+  height: 76.923rpx;
+  min-height: 76.923rpx;
+  padding: 0;
+  display: block;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.master-tile-meld-row:nth-child(1) { top: 0; }
+.master-tile-meld-row:nth-child(2) { top: 107.692rpx; }
+.master-tile-meld-row:nth-child(3) { top: 215.385rpx; }
+.master-tile-meld-row.active { border: 0; background: transparent; }
+.master-tile-row-label {
+  position: absolute;
+  left: 0;
+  top: 13.462rpx;
+  width: 76.923rpx;
+  height: 46.154rpx;
+  display: flex;
+  align-items: center;
+}
+.master-tile-row-label text:first-child {
+  color: #171714;
+  font-size: 23.077rpx;
+  font-weight: 700;
+  line-height: 1;
+}
+.master-tile-row-label text:last-child { display: none; }
+.master-tile-row-content {
+  position: absolute;
+  left: 107.692rpx;
+  top: 0;
+  width: 411.538rpx;
+  height: 76.923rpx;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+.master-tile-row-content .tile-record-placeholder { display: none; }
+.master-tile-row-content .tile-editor-melds {
+  display: flex;
+  align-items: center;
+  gap: 15.385rpx;
+  overflow: hidden;
+}
+.master-tile-row-content .tile-editor-meld {
+  display: flex;
+  align-items: center;
+  gap: 13.462rpx;
+  flex: 0 0 auto;
+}
+.master-tile-row-content .mahjong-tile.compact {
+  width: 53.846rpx;
+  height: 76.923rpx;
+  flex: 0 0 53.846rpx;
+}
+.master-tile-add {
+  position: absolute;
+  left: 546.154rpx;
+  top: 0;
+  width: 53.846rpx;
+  height: 76.923rpx;
+  box-sizing: border-box;
+  border: 1.923rpx solid #E6E3DB;
+  border-radius: 11.538rpx;
+  background: #FFFFFF;
+}
+.master-tile-plus-horizontal,
+.master-tile-plus-vertical {
+  position: absolute;
+  border-radius: 1rpx;
+  background: #85827A;
+}
+.master-tile-plus-horizontal { left: 19.231rpx; top: 37.5rpx; width: 15.385rpx; height: 1.923rpx; }
+.master-tile-plus-vertical { left: 25.962rpx; top: 30.769rpx; width: 1.923rpx; height: 15.385rpx; }
+.master-tile-divider {
+  position: absolute;
+  left: 0;
+  top: 328.846rpx;
+  width: 603.846rpx;
+  height: 1.923rpx;
+  margin: 0;
+  background: #EEEAE3;
+}
+.master-tile-hand-block {
+  position: absolute;
+  left: 0;
+  top: 373.077rpx;
+  width: 603.846rpx;
+  height: 238.462rpx;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.master-tile-hand-block.active { border: 0; background: transparent; }
+.master-tile-block-head {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 603.846rpx;
+  height: 34.615rpx;
+}
+.master-tile-block-head text:first-child { color: #171714; font-size: 23.077rpx; font-weight: 700; }
+.master-tile-block-head text:last-child { color: #918C84; font-size: 19.231rpx; }
+.master-tile-hand-content {
+  position: absolute;
+  left: 0;
+  top: 42.308rpx;
+  width: 603.846rpx;
+  min-height: 194.231rpx;
+  margin: 0;
+}
+.master-tile-hand-content .tile-editor-hand {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  column-gap: 21.154rpx;
+  row-gap: 17.308rpx;
+}
+.master-tile-hand-content .mahjong-tile.compact {
+  width: 61.538rpx;
+  height: 88.462rpx;
+}
+.master-tile-winning-block {
+  position: absolute;
+  left: 0;
+  top: 623.077rpx;
+  width: 603.846rpx;
+  height: 88.462rpx;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.master-tile-winning-block.active { border: 0; background: transparent; }
+.master-tile-winning-block .master-tile-block-head {
+  left: 0;
+  top: 23.077rpx;
+  width: 603.846rpx;
+}
+.master-tile-winning-block .master-tile-block-head text:last-child {
+  position: absolute;
+  left: 196.154rpx;
+  top: 0;
+  color: #918C84;
+  font-size: 17.308rpx;
+}
+.master-tile-winning-content {
+  position: absolute;
+  left: 107.692rpx;
+  top: 0;
+  width: 88.462rpx;
+  min-height: 88.462rpx;
+  margin: 0;
+  display: flex;
+  align-items: flex-start;
+}
+.master-tile-winning-content .tile-record-placeholder { display: none; }
+.master-tile-winning-content .tile-record-single { display: block; }
+.master-tile-winning-content .tile-record-single > text { display: none; }
+.master-tile-winning-content .tile-record-single .mahjong-tile {
+  width: 61.538rpx;
+  height: 88.462rpx;
+  box-sizing: border-box;
+  border-color: #F3B43F;
+}
+.master-tile-divider.second {
+  left: 0;
+  top: 755.769rpx;
+  width: 603.846rpx;
+  margin: 0;
+}
+.master-tile-palette-head {
+  position: absolute;
+  left: 0;
+  top: 790.385rpx;
+  width: 153.846rpx;
+  height: 30.769rpx;
+  display: block;
+}
+.master-tile-palette-head > view text:first-child { color: #171714; font-size: 23.077rpx; font-weight: 700; }
+.master-tile-palette-head > view text:last-child,
+.master-tile-palette-head > text { display: none; }
+.master-tile-suit-tabs {
+  position: absolute;
+  left: 303.846rpx;
+  top: 776.923rpx;
+  width: 311.538rpx;
+  height: 53.846rpx;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 69.231rpx);
+  gap: 11.538rpx;
+  border-radius: 0;
+  background: transparent;
+}
+.master-tile-suit-tabs > view {
+  width: 69.231rpx;
+  height: 53.846rpx;
+  border-radius: 26.923rpx;
+  background: #EDE8DB;
+  color: #918B82;
+  font-size: 17.308rpx;
+}
+.master-tile-suit-tabs > view.active { background: #FFF2D5; color: #171714; font-weight: 800; }
+.master-tile-palette-grid {
+  position: absolute;
+  left: 0;
+  top: 857.692rpx;
+  width: 592.308rpx;
+  height: 76.923rpx;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(9, 53.846rpx);
+  gap: 13.462rpx;
+}
+.master-tile-palette-grid > view {
+  width: 53.846rpx;
+  height: 76.923rpx;
+  padding: 0;
+  border: 0;
+  border-radius: 11.538rpx;
+}
+.master-tile-palette-grid > view.selected { border: 0; background: transparent; }
+.master-tile-palette-grid .mahjong-tile { width: 53.846rpx; height: 76.923rpx; }
+.master-tile-tip {
+  position: absolute;
+  left: 0;
+  top: 955.769rpx;
+  color: #9A958D;
+  font-size: 15.385rpx;
+  line-height: 1;
+  white-space: nowrap;
+}
 

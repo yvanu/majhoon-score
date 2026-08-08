@@ -17,6 +17,7 @@ import type {
 import { MahjongTileFace } from './screens'
 import {
   Avatar,
+  MasterCloseGlyph,
   bigHandOptions,
   cloneTileRecord,
   emptyTileRecord,
@@ -608,7 +609,7 @@ function TileRecordEditor({ record, autoSort, highlightMatchingTiles, onChange }
     <View className='master-tile-meld-list'>{meldSections.map(section => <View className={`master-tile-meld-row${active === section.key ? ' active' : ''}`} key={section.key} onClick={() => setActive(section.key)}>
       <View className='master-tile-row-label'><Text>{section.label}</Text><Text>{section.hint}</Text></View>
       <View className='master-tile-row-content'>{sectionContent(section.key)}</View>
-      <View className='master-tile-add'><Text>＋</Text></View>
+      <View className='master-tile-add'><View className='master-tile-plus-horizontal' /><View className='master-tile-plus-vertical' /></View>
     </View>)}</View>
 
     <View className='master-tile-divider' />
@@ -625,6 +626,7 @@ function TileRecordEditor({ record, autoSort, highlightMatchingTiles, onChange }
     <View className='master-tile-palette-head'><View><Text>选择牌</Text><Text>当前录入：{currentSection.label}</Text></View><Text>每种最多 4 张</Text></View>
     <View className='master-tile-suit-tabs'>{tileGroups.map(group => <View className={paletteGroup === group.name ? 'active' : ''} key={group.name} onClick={() => setPaletteGroup(group.name)}><Text>{group.name}</Text></View>)}</View>
     <View className='master-tile-palette-grid'>{activePalette.tiles.map(tile => <View className={highlightMatchingTiles && tileCopyCount(record, tile) ? 'selected' : ''} key={tile} onClick={() => addTile(tile)}><MahjongTileFace tile={tile} /></View>)}</View>
+    <Text className='master-tile-tip'>点击牌面加入当前区域，手牌会自动整理</Text>
   </View>
 }
 
@@ -1170,7 +1172,7 @@ export function ScoreScreen({ players, currentUserId, currentWind, currentHand, 
     return <View className='master-score-dialog master-score-tile-dialog'>
       <View className='master-score-header tile'>
         <View><Text>录入牌谱</Text><Text>{windName[currentWind]}风 · 第{currentHand}局 · {type === 'tsumo' ? '自摸' : '点炮'}</Text></View>
-        <Button hoverClass='none' onClick={() => setTileEditorTarget(null)}>×</Button>
+        <Button hoverClass='none' onClick={() => setTileEditorTarget(null)}><MasterCloseGlyph /></Button>
       </View>
       <ScrollView scrollY className='master-score-tile-scroll' showScrollbar={false}>
         <TileRecordEditor
@@ -1216,7 +1218,7 @@ export function ScoreScreen({ players, currentUserId, currentWind, currentHand, 
         <View className='master-score-multi-toggle' onClick={toggleMultiRonMode}><Text>一炮多响</Text><Text>关</Text></View>
       </View>
       <Text className='master-score-field-label'>点炮者</Text>
-      <View className='master-score-player-grid'>{players.map(player => {
+      <View className='master-score-player-grid ron-losers'>{players.map(player => {
         const selected = loser === player.id
         return <View className={`master-score-player-card${selected ? ' selected' : ''}`} key={player.id} onClick={() => masterChooseRonLoser(player.id)}>
           <View className='master-score-avatar'><Avatar player={player} selected={selected} isSelf={false} /></View>
@@ -1224,7 +1226,7 @@ export function ScoreScreen({ players, currentUserId, currentWind, currentHand, 
         </View>
       })}</View>
       <Text className='master-score-field-label second'>胡牌者</Text>
-      <View className='master-score-player-grid'>{players.map(player => {
+      <View className='master-score-player-grid ron-winners'>{players.map(player => {
         const selected = ronWinnerIds.includes(player.id)
         const disabled = player.id === loser
         return <View className={`master-score-player-card${selected ? ' selected' : ''}${disabled ? ' disabled' : ''}`} key={player.id} onClick={() => { if (!disabled) masterChooseRonWinner(player.id) }}>
@@ -1254,10 +1256,10 @@ export function ScoreScreen({ players, currentUserId, currentWind, currentHand, 
     return <View className='master-score-dialog master-score-dialog-multi'>
       <View className='master-score-header'>
         <View><Text>点炮</Text><Text>一炮多响已开启</Text></View>
-        <Button hoverClass='none' onClick={onBack}>×</Button>
+        <Button hoverClass='none' onClick={onBack}><MasterCloseGlyph /></Button>
       </View>
       <Text className='master-score-compact-label'>点炮者</Text>
-      <View className='master-score-compact-picks'>{players.map(player => {
+      <View className='master-score-compact-picks multi-loser-picks'>{players.map(player => {
         const selected = loser === player.id
         return <View className={selected ? 'selected' : ''} key={player.id} onClick={() => masterChooseRonLoser(player.id)}><View className='master-score-compact-avatar'><Avatar player={player} selected={selected} isSelf={false} /></View><Text>{masterPlayerLabel(player)}</Text></View>
       })}</View>
@@ -1291,19 +1293,19 @@ export function ScoreScreen({ players, currentUserId, currentWind, currentHand, 
     return <View className='master-score-dialog master-score-dialog-event'>
       <View className='master-score-header'>
         <View><Text>局内事件</Text><Text>事件不同，选人方式会自动变化</Text></View>
-        <Button hoverClass='none' onClick={onBack}>×</Button>
+        <Button hoverClass='none' onClick={onBack}><MasterCloseGlyph /></Button>
       </View>
       <Text className='master-score-compact-label event-label'>事件类型</Text>
       <View className='master-event-type-row'>{inHandEventOptions.map(option => <View className={eventType === option.type ? 'selected' : ''} key={option.type} onClick={() => selectEventType(option.type)}><Text>{option.type === '四风归一' ? '四风归一' : option.type}</Text></View>)}</View>
       {eventType === '明杠' && <>
-        <Text className='master-score-compact-label role'>{payerLabel}</Text>
-        <View className='master-score-compact-picks'>{players.map(player => {
+        <Text className='master-score-compact-label role payer-role'>{payerLabel}</Text>
+        <View className='master-score-compact-picks event-payer-picks'>{players.map(player => {
           const selected = eventPayer === player.id
           return <View className={selected ? 'selected' : ''} key={player.id} onClick={() => { feedback(); setEventPayer(player.id); if (player.id === eventPlayer) setEventPlayer('') }}><View className='master-score-compact-avatar'><Avatar player={player} selected={selected} isSelf={false} /></View><Text>{masterPlayerLabel(player)}</Text></View>
         })}</View>
       </>}
-      <Text className='master-score-compact-label role'>{playerLabel}</Text>
-      <View className='master-score-compact-picks'>{players.map(player => {
+      <Text className={`master-score-compact-label role player-role${eventType === '明杠' ? '' : ' solo'}`}>{playerLabel}</Text>
+      <View className={`master-score-compact-picks event-player-picks${eventType === '明杠' ? '' : ' solo'}`}>{players.map(player => {
         const selected = eventPlayer === player.id
         const disabled = eventType === '明杠' && eventPayer === player.id
         return <View className={`${selected ? 'selected' : ''}${disabled ? ' disabled' : ''}`} key={player.id} onClick={() => { if (!disabled) { feedback(); selectEventPlayer(player.id) } }}><View className='master-score-compact-avatar'><Avatar player={player} selected={selected} isSelf={false} /></View><Text>{masterPlayerLabel(player)}</Text></View>

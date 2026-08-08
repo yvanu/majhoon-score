@@ -2,7 +2,7 @@ import { useState } from 'react'
 import Taro from '@tarojs/taro'
 import { Button, Image, Input, ScrollView, Text, View } from '@tarojs/components'
 import type { Friend, FriendStatistics } from '@shared/types'
-import { FriendAvatar, getPageTopInset } from './shared'
+import { FriendAvatar, MasterBackGlyph, MasterRightChevronGlyph, MasterSearchGlyph, getPageTopInset } from './shared'
 
 function relativeTime(value: string) {
   const date = new Date(value)
@@ -29,7 +29,7 @@ export function FriendsScreen({ friends, loading, query, onQueryChange, onOpen }
 
   return <View className='master-friends-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
     <View className='master-friends-header'><Text>牌友</Text><Text>常一起打牌的人</Text></View>
-    <View className='master-friends-search'><Text>⌕</Text><Input value={query} maxlength={20} placeholder='搜索牌友' onInput={event => onQueryChange(event.detail.value)} /></View>
+    <View className='master-friends-search'><MasterSearchGlyph /><Input value={query} maxlength={20} placeholder='搜索牌友' onInput={event => onQueryChange(event.detail.value)} /></View>
     <ScrollView scrollY className='master-friends-scroll' showScrollbar={false}>
       <View className='master-friends-list'>{visible.map(friend => <View className='master-friend-row' key={friend.id} onClick={() => onOpen(friend)}>
         <View className='master-friend-avatar'><FriendAvatar friend={friend} /></View>
@@ -63,10 +63,10 @@ export function AddFriendScreen({ loading, onBack, onSave }: {
   }
 
   return <View className='master-add-friend-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
-    <View className='master-friend-detail-nav'><Text onClick={onBack}>‹</Text><View><Text>添加牌友</Text><Text>保存后开局时可直接选择</Text></View></View>
+    <View className='master-friend-detail-nav'><View className='master-friend-back' onClick={onBack}><MasterBackGlyph /></View><View><Text>添加牌友</Text><Text>保存后开局时可直接选择</Text></View></View>
     <View className='master-add-friend-avatar-wrap'>
       <View className='master-add-friend-avatar' onClick={() => { void chooseAvatar() }}>
-        {avatarPath ? <Image src={avatarPath} mode='aspectFill' /> : <Text>＋</Text>}
+        {avatarPath ? <Image src={avatarPath} mode='aspectFill' /> : <View className='master-add-friend-plus'><View /><View /></View>}
       </View>
       <Button hoverClass='none' onClick={() => { void chooseAvatar() }}>选择头像</Button>
     </View>
@@ -94,7 +94,7 @@ export function FriendStatisticsScreen({ statistics, onBack }: {
 
   return <ScrollView scrollY className='master-friend-detail-scroll' showScrollbar={false}>
     <View className='master-friend-detail-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
-      <View className='master-friend-detail-nav'><Text onClick={onBack}>‹</Text><View><Text>{displayName}</Text><Text>牌友详情</Text></View></View>
+      <View className='master-friend-detail-nav'><View className='master-friend-back' onClick={onBack}><MasterBackGlyph /></View><View><Text>{displayName}</Text><Text>牌友详情</Text></View></View>
       <View className='master-friend-summary'>
         <View className='master-friend-detail-avatar'><FriendAvatar friend={friend} large /></View>
         <View><Text>{displayName}</Text><Text>一起打了 {friend.jointMatches} 将 · {statistics.totalHands} 局</Text><View><Text>净胜</Text><Text className={statistics.netScore > 0 ? 'positive' : statistics.netScore < 0 ? 'negative' : ''}>{statistics.netScore > 0 ? '+' : ''}{statistics.netScore}</Text></View></View>
@@ -112,7 +112,7 @@ export function FriendStatisticsScreen({ statistics, onBack }: {
       <View className='master-friend-recent-list'>{recent.map(point => <View key={`${point.matchId}-${point.createdAt}`}>
         <View><Text>{relativeTime(point.createdAt)}</Text><Text>{point.location || '共同牌局'}</Text></View>
         <Text className={point.score > 0 ? 'positive' : point.score < 0 ? 'negative' : ''}>{point.score > 0 ? '+' : ''}{point.score}</Text>
-        <Text>›</Text>
+        <MasterRightChevronGlyph />
       </View>)}</View>
       {!recent.length && <View className='master-friends-empty compact'><Text>暂无近期共同牌局</Text></View>}
     </View>

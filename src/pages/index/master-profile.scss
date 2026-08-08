@@ -1,7 +1,7 @@
 .master-profile-setup {
   position: relative;
   min-height: 100vh;
-  padding: 0 38.462rpx calc(46.154rpx + env(safe-area-inset-bottom));
+  padding: 0;
   box-sizing: border-box;
   background: #F6F5F2;
   color: #171714;
@@ -17,7 +17,10 @@
   height: 61.538rpx;
   min-height: 61.538rpx;
   margin: 0;
-  padding: 0 0 4rpx;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
   border-radius: 50%;
   background: #FFFFFF;
@@ -110,7 +113,7 @@
   position: absolute;
   left: 38.462rpx;
   right: 38.462rpx;
-  bottom: calc(88.462rpx + env(safe-area-inset-bottom));
+  bottom: auto;
   height: 96.154rpx;
   min-height: 96.154rpx;
   margin: 0;
@@ -140,7 +143,7 @@
   color: #171714;
 }
 
-.master-profile-screen { padding: 0 38.462rpx calc(154rpx + env(safe-area-inset-bottom)); }
+.master-profile-screen { padding: 0; }
 .master-profile-header { height: 161.538rpx; }
 .master-profile-header text { display: block; }
 .master-profile-header text:first-child { color: #171714; font-size: 51.923rpx; font-weight: 800; line-height: 1.05; }
@@ -191,6 +194,8 @@
 .master-profile-style-card text:first-child { color: #171714; font-size: 42.308rpx; font-weight: 800; }
 .master-profile-style-card text:nth-child(2) { margin-top: 19.231rpx; color: #81786A; font-size: 19.231rpx; }
 .master-profile-style-card text:last-child { margin-top: 25rpx; color: #966A11; font-size: 19.231rpx; font-weight: 800; }
+.master-profile-style-link { margin-top: 25rpx; display: flex; align-items: center; gap: 7.692rpx; }
+.master-profile-style-link text:last-child { margin: 0; }
 .master-profile-link {
   height: 134.615rpx;
   margin-top: 26.923rpx;
@@ -223,7 +228,10 @@
   height: 69.231rpx;
   min-height: 69.231rpx;
   margin: 0;
-  padding: 0 0 4rpx;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
   border-radius: 50%;
   background: #FFFFFF;
@@ -416,6 +424,8 @@
 .master-scoring-pref-link > view text:first-child { color: #171714; font-size: 23.077rpx; font-weight: 800; }
 .master-scoring-pref-link > view text:last-child { margin-top: 7rpx; color: #99938A; font-size: 16.346rpx; }
 .master-scoring-pref-link > text { color: #918B83; font-size: 18.269rpx; }
+.master-scoring-enter { display: flex; align-items: center; gap: 7.692rpx; }
+.master-scoring-pref-link > .master-scoring-enter > text:first-child { margin: 0; color: #918B83; font-size: 18.269rpx; font-weight: 400; }
 .master-scoring-section-title.events { margin-top: 38.462rpx; }
 .master-scoring-event-list { margin-top: 21.154rpx; display: flex; flex-direction: column; gap: 15.385rpx; }
 .master-scoring-event-list > view {
@@ -483,3 +493,360 @@
 .master-big-record-list .negative { color: #D9594F; }
 .master-big-record-list > view > text { color: #99938A; font-size: 28rpx; }
 .master-big-empty { padding: 70rpx 20rpx; color: #99938A; font-size: 19rpx; text-align: center; }
+
+/* 09 / 21 / 22 / 11 / 12 / 27 / 10 / 16: fixed master SVG geometry. */
+.master-profile-setup,
+.master-profile-screen,
+.master-stats-screen,
+.master-style-screen,
+.master-preferences-screen,
+.master-scoring-screen,
+.master-settings-screen,
+.master-big-hands-screen {
+  position: relative;
+  min-height: 1623.077rpx;
+  padding: 0 !important;
+}
+
+/* 09_my */
+.master-profile-header {
+  position: absolute;
+  left: 38.462rpx;
+  top: 125rpx;
+  width: 673.077rpx;
+  height: 100rpx;
+}
+.master-profile-user-card {
+  position: absolute;
+  left: 38.462rpx;
+  top: 261.538rpx;
+  width: 673.077rpx;
+  height: 242.308rpx;
+}
+.master-profile-screen > .master-profile-section-title:not(.quick) {
+  position: absolute;
+  left: 38.462rpx;
+  top: 569.231rpx;
+  margin: 0;
+}
+.master-profile-style-card {
+  position: absolute;
+  left: 38.462rpx;
+  top: 638.462rpx;
+  width: 673.077rpx;
+  height: 242.308rpx;
+  margin: 0;
+}
+.master-profile-section-title.quick {
+  position: absolute;
+  left: 38.462rpx;
+  top: 950rpx;
+  margin: 0;
+}
+.master-profile-screen > .master-profile-link:nth-last-child(2) {
+  position: absolute;
+  left: 38.462rpx;
+  top: 1023.077rpx;
+  width: 673.077rpx;
+  height: 134.615rpx;
+  margin: 0;
+}
+.master-profile-screen > .master-profile-link:last-child {
+  position: absolute;
+  left: 38.462rpx;
+  top: 1184.615rpx;
+  width: 673.077rpx;
+  height: 134.615rpx;
+  margin: 0;
+}
+.master-profile-login {
+  position: absolute;
+  left: 38.462rpx;
+  top: 261.538rpx;
+  width: 673.077rpx;
+  box-sizing: border-box;
+  margin: 0;
+}
+
+/* Shared fixed top rows for detail pages. */
+.master-stats-screen .master-profile-nav,
+.master-scoring-screen .master-profile-nav {
+  position: absolute;
+  left: 26.923rpx;
+  top: 107.692rpx;
+  width: 684.615rpx;
+  height: 88.462rpx;
+}
+.master-big-hands-screen .master-profile-nav {
+  position: absolute;
+  left: 30.769rpx;
+  top: 113.462rpx;
+  width: 680.769rpx;
+  height: 88.462rpx;
+}
+.master-style-screen .master-profile-nav,
+.master-preferences-screen .master-profile-nav,
+.master-settings-screen .master-profile-nav {
+  position: absolute;
+  left: 34.615rpx;
+  top: 111.538rpx;
+  width: 676.923rpx;
+  height: 88.462rpx;
+}
+
+/* 21_my_stats */
+.master-stats-period {
+  position: absolute;
+  left: 38.462rpx;
+  top: 242.308rpx;
+  width: 673.077rpx;
+  height: 80.769rpx;
+  margin: 0;
+}
+.master-stats-today {
+  position: absolute;
+  left: 38.462rpx;
+  top: 361.538rpx;
+  width: 673.077rpx;
+  height: 211.538rpx;
+  margin: 0;
+}
+.master-stats-metrics {
+  position: absolute;
+  left: 38.462rpx;
+  top: 607.692rpx;
+  width: 673.077rpx;
+  margin: 0;
+  gap: 26.923rpx 19.231rpx;
+}
+.master-stats-screen > .master-stats-section-title:not(.big) {
+  position: absolute;
+  left: 38.462rpx;
+  top: 911.538rpx;
+  margin: 0;
+}
+.master-stats-trend {
+  position: absolute;
+  left: 38.462rpx;
+  top: 969.231rpx;
+  width: 673.077rpx;
+  height: 196.154rpx;
+  margin: 0;
+}
+.master-stats-section-title.big {
+  position: absolute;
+  left: 38.462rpx;
+  top: 1196.154rpx;
+  margin: 0;
+}
+.master-stats-big-hand,
+.master-stats-big-empty {
+  position: absolute;
+  left: 38.462rpx;
+  top: 1253.846rpx;
+  width: 673.077rpx;
+  height: 169.231rpx;
+  margin: 0;
+}
+
+/* 22_big_hand_detail */
+.master-big-summary {
+  position: absolute;
+  left: 38.462rpx;
+  top: 257.692rpx;
+  width: 673.077rpx;
+  height: 176.923rpx;
+}
+.master-big-hands-screen > .master-big-section-title:not(.records) {
+  position: absolute;
+  left: 38.462rpx;
+  top: 478.846rpx;
+  margin: 0;
+}
+.master-big-patterns {
+  position: absolute;
+  left: 38.462rpx;
+  top: 538.462rpx;
+  width: 673.077rpx;
+  margin: 0;
+  grid-template-columns: repeat(4, 150rpx);
+  gap: 19.231rpx;
+}
+.master-big-section-title.records {
+  position: absolute;
+  left: 38.462rpx;
+  top: 636.538rpx;
+  margin: 0;
+}
+.master-big-record-list {
+  position: absolute;
+  left: 38.462rpx;
+  top: 711.538rpx;
+  width: 673.077rpx;
+  margin: 0;
+  gap: 26.923rpx;
+}
+.master-big-record-list > view {
+  width: 673.077rpx;
+  min-height: 165.385rpx;
+  height: 165.385rpx;
+}
+
+/* 11_my_style */
+.master-style-summary {
+  position: absolute;
+  left: 38.462rpx;
+  top: 273.077rpx;
+  width: 673.077rpx;
+  height: 342.308rpx;
+  margin: 0;
+}
+.master-style-section-title {
+  position: absolute;
+  left: 38.462rpx;
+  top: 673.077rpx;
+  margin: 0;
+}
+.master-style-features {
+  position: absolute;
+  left: 38.462rpx;
+  top: 750rpx;
+  width: 673.077rpx;
+  margin: 0;
+  gap: 26.923rpx;
+}
+.master-style-features > view { height: 111.538rpx; }
+
+/* 12_preferences */
+.master-pref-list {
+  position: absolute;
+  left: 38.462rpx;
+  top: 273.077rpx;
+  width: 673.077rpx;
+  margin: 0;
+  gap: 30.769rpx;
+}
+.master-pref-list > view {
+  width: 673.077rpx;
+  height: 119.231rpx;
+  border-radius: 34.615rpx;
+}
+
+/* 27_scoring_settings */
+.master-scoring-section-title {
+  position: absolute;
+  left: 38.462rpx;
+  top: 228.846rpx;
+  margin: 0;
+}
+.master-scoring-pref-link {
+  position: absolute;
+  left: 38.462rpx;
+  top: 288.462rpx;
+  width: 673.077rpx;
+  height: 119.231rpx;
+  margin: 0;
+}
+.master-scoring-section-title.events {
+  left: 38.462rpx;
+  top: 440.385rpx;
+  margin: 0;
+}
+.master-scoring-event-list {
+  position: absolute;
+  left: 38.462rpx;
+  top: 496.154rpx;
+  width: 673.077rpx;
+  margin: 0;
+  gap: 15.385rpx;
+}
+.master-scoring-event-list > view {
+  width: 673.077rpx;
+  height: 111.538rpx;
+}
+.master-scoring-note {
+  position: absolute;
+  left: 38.462rpx;
+  top: 1165.385rpx;
+  width: 673.077rpx;
+  min-height: 207.692rpx;
+  height: 207.692rpx;
+  margin: 0;
+}
+
+/* 10_settings */
+.master-settings-list {
+  position: absolute;
+  left: 38.462rpx;
+  top: 261.538rpx;
+  width: 673.077rpx;
+  margin: 0;
+  gap: 26.923rpx;
+}
+.master-settings-list > view {
+  width: 673.077rpx;
+  height: 123.077rpx;
+  border-radius: 38.462rpx;
+}
+
+/* 16_profile_onboarding */
+.master-profile-setup-nav {
+  position: absolute;
+  left: 26.923rpx;
+  top: 107.692rpx;
+  width: 684.615rpx;
+  height: 88.462rpx;
+}
+.master-profile-setup-avatar-wrap {
+  position: absolute;
+  left: 0;
+  top: 238.462rpx;
+  width: 750rpx;
+  height: 226.923rpx;
+}
+.master-profile-setup-change { margin-top: 15.385rpx; }
+.master-profile-setup-label {
+  position: absolute;
+  left: 38.462rpx;
+  top: 501.923rpx;
+  margin: 0;
+}
+.master-profile-setup-input {
+  position: absolute;
+  left: 38.462rpx;
+  top: 550rpx;
+  width: 673.077rpx;
+  height: 103.846rpx;
+  margin: 0;
+}
+.master-profile-setup-label.gender {
+  left: 38.462rpx;
+  top: 665.385rpx;
+  margin: 0;
+}
+.master-profile-setup-gender {
+  position: absolute;
+  left: 38.462rpx;
+  top: 715.385rpx;
+  width: 673.077rpx;
+  height: 88.462rpx;
+  margin: 0;
+}
+.master-profile-setup-info {
+  position: absolute;
+  left: 38.462rpx;
+  top: 861.538rpx;
+  width: 673.077rpx;
+  height: 138.462rpx;
+  margin: 0;
+}
+.master-profile-setup-submit {
+  position: absolute;
+  left: 38.462rpx;
+  right: auto;
+  top: 1353.846rpx;
+  bottom: auto;
+  width: 673.077rpx;
+  height: 96.154rpx;
+  margin: 0;
+}
