@@ -1,14 +1,25 @@
 import { Button, Text, View } from '@tarojs/components'
 import type { AuthUser, DailyStats, Match, MatchSummary } from '@shared/types'
-import { displayUserName, formatMatchTime, getPageTopInset, windName } from './shared'
+import { displayUserName, getPageTopInset } from './shared'
 import type { SyncStatus } from './shared'
 
-function QuickIcon({ type }: { type: 'start' | 'continue' | 'history' }) {
+function QuickIcon({ type }: { type: 'start' | 'continue' }) {
   return <View className={`home-hf-quick-icon ${type}`}>
     <View className='one' />
     <View className='two' />
     <View className='three' />
   </View>
+}
+
+function recentMatchTitle(value: string) {
+  const date = new Date(value)
+  const now = new Date()
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
+  if (date.toDateString() === now.toDateString()) return '今天牌局'
+  if (date.toDateString() === yesterday.toDateString()) return date.getHours() >= 18 ? '昨晚牌局' : '昨天牌局'
+  const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+  return `${weekdays[date.getDay()]}${date.getHours() >= 18 ? '夜场' : '牌局'}`
 }
 
 export function Home({ user, currentMatch, recentMatches, dailyStats, syncStatus, onContinue, onStart, onOpen, onHistory, onDaily, onLogin }: {
@@ -37,19 +48,19 @@ export function Home({ user, currentMatch, recentMatches, dailyStats, syncStatus
     .sort((left, right) => Date.parse(right.updated_at || right.created_at) - Date.parse(left.updated_at || left.created_at))[0] || null
   const displayedCurrentMatch = currentMatch && (!activeSummary || activeSummary.id === currentMatch.id) ? currentMatch : null
   const hasActiveMatch = Boolean(displayedCurrentMatch || activeSummary)
-  const activeCopy = displayedCurrentMatch
-    ? `${windName[displayedCurrentMatch.current_wind]}风 · 第${displayedCurrentMatch.current_hand}局`
+  const activeRound = displayedCurrentMatch
+    ? displayedCurrentMatch.hands.filter(hand => hand.result_type !== 'event').length + 1
     : activeSummary
-      ? `${activeSummary.hand_count}局 · 进行中`
-      : '暂无进行中的牌局'
+      ? activeSummary.hand_count + 1
+      : 0
   const recent = recentMatches.slice(0, 2)
   const todayScore = selfStats?.score || 0
+  const subtitle = syncStatus === 'offline' ? '当前网络异常，恢复后继续同步' : '快速开局，也能随时回看最近牌局'
 
   return <View className='home-hf-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
     <View className='home-hf-header'>
       <Text className='home-hf-title'>今天打几圈？</Text>
-      <Text className='home-hf-subtitle'>快速开始，把每一局都记录清楚</Text>
-      {syncStatus === 'offline' && <Text className='home-hf-sync-warning'>当前网络异常，恢复后会继续同步</Text>}
+      <Text className='home-hf-subtitle'>{subtitle}</Text>
     </View>
 
     {user ? <>
@@ -67,7 +78,7 @@ export function Home({ user, currentMatch, recentMatches, dailyStats, syncStatus
         <View className='home-hf-quick-card' onClick={onStart}>
           <QuickIcon type='start' />
           <Text className='home-hf-quick-title'>开始新牌局</Text>
-          <Text className='home-hf-quick-subtitle'>4人牌桌</Text>
+          <Text className='home-hf-quick-subtitle'>4人快速开桌</Text>
         </View>
         <View className={`home-hf-quick-card${hasActiveMatch ? '' : ' disabled'}`} onClick={() => {
           if (displayedCurrentMatch) onContinue()
@@ -75,12 +86,7 @@ export function Home({ user, currentMatch, recentMatches, dailyStats, syncStatus
         }}>
           <QuickIcon type='continue' />
           <Text className='home-hf-quick-title'>继续牌局</Text>
-          <Text className='home-hf-quick-subtitle'>{activeCopy}</Text>
-        </View>
-        <View className='home-hf-quick-card' onClick={onHistory}>
-          <QuickIcon type='history' />
-          <Text className='home-hf-quick-title'>牌局记录</Text>
-          <Text className='home-hf-quick-subtitle'>查看最近牌局</Text>
+          <Text className='home-hf-quick-subtitle'>{hasActiveMatch ? `进行中 · 第${activeRound}局` : '暂无进行中牌局'}</Text>
         </View>
       </View>
 
@@ -89,13 +95,16 @@ export function Home({ user, currentMatch, recentMatches, dailyStats, syncStatus
         <Text className='home-hf-section-link' onClick={onHistory}>全部 ›</Text>
       </View>
 
-      <View className='home-hf-recent-list'>{recent.length ? recent.map(match => <View className='home-hf-recent-card' key={match.id} onClick={() => onOpen(match.id, match.status)}>
-        <View className='home-hf-recent-main'>
-          <Text className='home-hf-recent-title'>{formatMatchTime(match.created_at)}</Text>
-          <Text className='home-hf-recent-meta'>{match.hand_count}局 · {match.status === 'active' ? '进行中' : '已结束'}</Text>
+      <View className='home-hf-recent-list'>{recent.length ? recent.map(match => {
+        const score = match.self_score ?? 0
+        return <View className='home-hf-recent-card' key={match.id} onClick={() => onOpen(match.id, match.status)}>
+          <View className='home-hf-recent-main'>
+            <Text className='home-hf-recent-title'>{recentMatchTitle(match.created_at)}</Text>
+            <Text className='home-hf-recent-meta'>{match.hand_count}局 · {match.status === 'active' ? '进行中' : '已结束'}</Text>
+          </View>
+          <Text className={`home-hf-recent-score${score > 0 ? ' positive' : score < 0 ? ' negative' : ''}`}>{score > 0 ? '+' : ''}{score}</Text>
         </View>
-        <Text className={`home-hf-recent-state ${match.status}`}>{match.status === 'active' ? '继续' : '查看'}</Text>
-      </View>) : <View className='home-hf-recent-empty'>
+      }) : <View className='home-hf-recent-empty'>
         <Text>还没有牌局记录</Text>
         <Text>完成第一场牌局后会显示在这里</Text>
       </View>}</View>

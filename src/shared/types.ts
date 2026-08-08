@@ -360,5 +360,6 @@ export interface MatchSummary {
   updated_at?: string
   finished_at: string | null
   hand_count: number
+  self_score: number
   player_names: string[]
 }

@@ -34,6 +34,7 @@ export function registerMeRoutes(app: Hono<Env>) {
     if (!user) return jsonError(c, '请先登录', 401)
     const requestedLimit = Number(c.req.query('limit') || 100)
     const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(100, Math.round(requestedLimit))) : 100
+    const playerName = user.display_name?.trim() || user.username
     const result = await c.env.DB.prepare(`
       WITH visible_matches AS (
         SELECT m.id, m.share_code, m.status, m.current_wind, m.current_hand, m.created_at, m.updated_at, m.finished_at, m.owner_user_id
@@ -56,17 +57,29 @@ export function registerMeRoutes(app: Hono<Env>) {
         FROM players p
         JOIN visible_matches m ON m.id = p.match_id
         GROUP BY p.match_id
+      ),
+      self_scores AS (
+        SELECT p.match_id, COALESCE(SUM(hs.score_change), 0) self_score
+        FROM players p
+        JOIN visible_matches m ON m.id = p.match_id
+        LEFT JOIN hand_scores hs ON hs.player_id = p.id
+        WHERE p.user_id = ? OR (
+          p.user_id IS NULL AND p.friend_id IS NULL AND m.owner_user_id = ? AND p.name = ? COLLATE NOCASE
+        )
+        GROUP BY p.match_id
       )
       SELECT m.id, m.share_code, m.status, m.current_wind, m.current_hand,
              CASE WHEN m.owner_user_id = ? THEN 1 ELSE 0 END is_owner,
              m.created_at, m.updated_at, m.finished_at,
              COALESCE(h.hand_count, 0) hand_count,
+             COALESCE(s.self_score, 0) self_score,
              COALESCE(p.player_names, '') player_names
       FROM visible_matches m
       LEFT JOIN hand_counts h ON h.match_id = m.id
       LEFT JOIN player_names p ON p.match_id = m.id
+      LEFT JOIN self_scores s ON s.match_id = m.id
       ORDER BY m.created_at DESC
-    `).bind(user.id, user.id, limit, user.id).all<Record<string, unknown>>()
+    `).bind(user.id, user.id, limit, user.id, user.id, playerName, user.id).all<Record<string, unknown>>()
     const queriedAt = performance.now()
 
     const matches: MatchSummary[] = result.results.map(row => ({
@@ -80,6 +93,7 @@ export function registerMeRoutes(app: Hono<Env>) {
       updated_at: String(row.updated_at),
       finished_at: row.finished_at ? String(row.finished_at) : null,
       hand_count: Number(row.hand_count ?? 0),
+      self_score: Number(row.self_score ?? 0),
       player_names: typeof row.player_names === 'string' ? row.player_names.split(',') : [],
     }))
     const mappedAt = performance.now()
