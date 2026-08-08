@@ -414,49 +414,48 @@ export function ProfileScreen({ user, statistics, statisticsLoading, syncStatus,
   const dealInRate = profilePercentage(statistics?.dealIns || 0, totalHands)
   const bigHandRate = profilePercentage(statistics?.bigHands || 0, totalHands)
 
-  return <View className='page tab-page profile-page' style={{ paddingTop: `${getPageTopInset()}px` }}>
-    <View className='profile-identity'>
-      <IdentityAvatar name={displayUserName(user)} gender={user?.gender || null} avatarUrl={user?.avatar_url || null} size='large' />
-      <View className='grow profile-identity-copy'>
-        <Text className='profile-name'>{displayUserName(user)}</Text>
-        <View className={`profile-status-pill ${syncStatus}`}>
-          <Text className='profile-status-dot'>●</Text>
-          <Text>{syncText}</Text>
-        </View>
-      </View>
-      <Button className='profile-settings-trigger' onClick={user ? onSettings : onLogin} ariaLabel='设置'>
-        <View className='profile-gear-glyph'><View /></View>
+  return <View className='profile-v4-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+    <View className='profile-v4-header'>
+      <Text className='profile-v4-page-title'>我的</Text>
+      <Button className='profile-v4-settings' hoverClass='none' onClick={user ? onSettings : onLogin} ariaLabel='设置'>
+        <View className='profile-v4-gear'><View /><View /></View>
       </Button>
     </View>
 
-    <View className='profile-style-card' onClick={user ? onPersonalStatistics : onLogin}>
-      <View className='profile-style-head'>
-        <View><Text className='profile-card-eyebrow'>我的牌风</Text><Text className='profile-style-sample'>{statisticsLoading ? '分析中…' : statistics ? `本月样本 ${statistics.totalHands} 局` : '等待数据'}</Text></View>
-        <Text className='profile-card-arrow'>›</Text>
+    <View className='profile-v4-identity'>
+      <View className='profile-v4-avatar'><IdentityAvatar name={displayUserName(user)} gender={user?.gender || null} avatarUrl={user?.avatar_url || null} size='large' /></View>
+      <View className='profile-v4-identity-copy'>
+        <Text className='profile-v4-name'>{displayUserName(user)}</Text>
+        <View className={`profile-v4-sync ${syncStatus}`}><View /><Text>{syncText}</Text></View>
       </View>
-      <Text className='profile-style-title'>{statisticsLoading && !statistics ? '正在分析牌风' : style.title}</Text>
-      <Text className='profile-style-description'>{statisticsLoading && !statistics ? '正在汇总本月胡牌、点炮与牌型记录' : style.description}</Text>
-      <View className='profile-style-tags'>{style.tags.map(tag => <Text key={tag}>{tag}</Text>)}</View>
-      <View className='profile-style-decoration'><View /><View /><View /></View>
+      <Text className='profile-v4-identity-arrow' onClick={user ? onSettings : onLogin}>›</Text>
     </View>
 
-    <View className='profile-performance-card' onClick={user ? onPersonalStatistics : onLogin}>
-      <View className='profile-performance-head'>
-        <View><Text className='profile-card-eyebrow'>我的战绩</Text><Text className='profile-performance-title'>本月表现</Text></View>
-        <View className='profile-performance-link'><Text>查看详情</Text><Text>›</Text></View>
+    <View className='profile-v4-style-card' onClick={user ? onPersonalStatistics : onLogin}>
+      <View className='profile-v4-card-head'>
+        <View><Text>我的牌风</Text><Text>{statisticsLoading ? '分析中…' : statistics ? `本月样本 ${statistics.totalHands} 局` : '等待数据'}</Text></View>
+        <Text>›</Text>
       </View>
-      <View className='profile-performance-grid'>
+      <Text className='profile-v4-style-title'>{statisticsLoading && !statistics ? '正在分析牌风' : style.title}</Text>
+      <Text className='profile-v4-style-description'>{statisticsLoading && !statistics ? '正在汇总本月胡牌、点炮与牌型记录' : style.description}</Text>
+      <View className='profile-v4-style-tags'>{style.tags.map(tag => <Text key={tag}>{tag}</Text>)}</View>
+    </View>
+
+    <View className='profile-v4-performance-card' onClick={user ? onPersonalStatistics : onLogin}>
+      <View className='profile-v4-card-head performance'>
+        <View><Text>我的战绩</Text><Text>本月表现</Text></View>
+        <Text>查看详情 ›</Text>
+      </View>
+      <View className='profile-v4-metrics'>
         <View><Text>{statisticsLoading && !statistics ? '--' : `${winRate}%`}</Text><Text>胡牌率</Text></View>
         <View><Text>{statisticsLoading && !statistics ? '--' : `${tsumoRate}%`}</Text><Text>自摸率</Text></View>
         <View><Text>{statisticsLoading && !statistics ? '--' : `${dealInRate}%`}</Text><Text>点炮率</Text></View>
         <View><Text>{statisticsLoading && !statistics ? '--' : `${bigHandRate}%`}</Text><Text>大胡率</Text></View>
       </View>
-      <Text className='profile-performance-note'>{statistics ? `${statistics.label} · 共记录 ${statistics.totalHands} 局` : '登录并记录牌局后生成个人战绩'}</Text>
+      <Text className='profile-v4-performance-note'>{statistics ? `${statistics.label} · 共记录 ${statistics.totalHands} 局` : '登录并记录牌局后生成个人战绩'}</Text>
     </View>
 
-    <View className='profile-footer compact'>
-      <Text className='version-text'>雀记 · 微信小程序</Text>
-    </View>
+    <Text className='profile-v4-version'>雀记 · 微信小程序</Text>
   </View>
 }
 

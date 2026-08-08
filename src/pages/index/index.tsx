@@ -71,6 +71,7 @@ import './chat-redesign.scss'
 import './score-trend-chart.scss'
 import './content-redesign.scss'
 import './friends-main-v4.scss'
+import './profile-main-v4.scss'
 
 const TAB_CACHE_TTL = 60_000
 const FRIEND_STATS_CACHE_TTL = 5 * 60_000
