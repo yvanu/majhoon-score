@@ -304,57 +304,79 @@ export function PersonalStatisticsScreen({ statistics, loading, autoSortTileReco
   const nextValue = shiftStatisticsValue(statistics.dimension, statistics.value, 1)
   const canGoNext = nextValue <= statisticsValue(statistics.dimension)
   const dimensions: Array<{ key: StatisticsDimension; label: string }> = [
-    { key: 'day', label: '按日' },
-    { key: 'month', label: '按月' },
-    { key: 'year', label: '按年' },
+    { key: 'day', label: '日' },
+    { key: 'month', label: '月' },
+    { key: 'year', label: '年' },
   ]
   const featured = statistics.featuredBigHand
 
-  return <ScrollView scrollY className='personal-statistics-scroll'>
-    <View className='page personal-statistics-page' style={{ paddingTop: `${getPageTopInset()}px` }}>
-    <Header title='我的战绩' onBack={onBack} />
-    <View className='personal-dimension-tabs'>{dimensions.map(item => <Button
-      key={item.key}
-      className={statistics.dimension === item.key ? 'personal-dimension active' : 'personal-dimension'}
-      disabled={loading}
-      onClick={() => onChange(item.key, statisticsValue(item.key))}
-    >{item.label}</Button>)}</View>
-    <View className='personal-period-picker'>
-      <Button disabled={loading} onClick={() => onChange(statistics.dimension, previousValue)}>‹</Button>
-      <View><Text className='eyebrow'>统计周期</Text><Text className='personal-period-label'>{statistics.label}</Text></View>
-      <Button disabled={loading || !canGoNext} onClick={() => onChange(statistics.dimension, nextValue)}>›</Button>
-    </View>
+  return <ScrollView scrollY className='stats-v4-scroll' showScrollbar={false}>
+    <View className='stats-v4-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+      <View className='stats-v4-nav'>
+        <Button className='stats-v4-back' hoverClass='none' onClick={onBack}>‹</Button>
+        <View><Text>我的战绩</Text><Text>{statistics.label}</Text></View>
+        <View className='stats-v4-nav-spacer' />
+      </View>
 
-    <View className='personal-summary-card'>
-      <View><Text className='personal-summary-label'>{statistics.label}净分</Text><Text className={`personal-summary-score ${statistics.netScore > 0 ? 'positive' : statistics.netScore < 0 ? 'negative' : ''}`}>{statistics.netScore > 0 ? '+' : ''}{statistics.netScore}</Text></View>
-      <View className='personal-summary-count'><Text>{statistics.trend.length} 将</Text><Text>{statistics.totalHands} 局</Text></View>
-    </View>
+      <View className='stats-v4-dimensions'>{dimensions.map(item => <Button
+        key={item.key}
+        className={`stats-v4-dimension${statistics.dimension === item.key ? ' active' : ''}`}
+        hoverClass='none'
+        disabled={loading}
+        onClick={() => onChange(item.key, statisticsValue(item.key))}
+      >{item.label}</Button>)}</View>
 
-    <View className='personal-metric-grid'>
-      <View><Text>{percentage(statistics.wins)}%</Text><Text>胡牌率</Text><Text>{statistics.wins} 局</Text></View>
-      <View><Text>{percentage(statistics.tsumoWins)}%</Text><Text>自摸率</Text><Text>{statistics.tsumoWins} 局</Text></View>
-      <View><Text>{percentage(statistics.dealIns)}%</Text><Text>点炮率</Text><Text>{statistics.dealIns} 局</Text></View>
-      <View><Text>{percentage(statistics.bigHands)}%</Text><Text>大胡率</Text><Text>{statistics.bigHands} 局</Text></View>
-    </View>
+      <View className='stats-v4-period'>
+        <Button hoverClass='none' disabled={loading} onClick={() => onChange(statistics.dimension, previousValue)}>‹</Button>
+        <View><Text>统计周期</Text><Text>{statistics.label}</Text></View>
+        <Button hoverClass='none' disabled={loading || !canGoNext} onClick={() => onChange(statistics.dimension, nextValue)}>›</Button>
+      </View>
 
-    <View className='personal-trend-card'>
-      <View className='personal-section-head'><View><Text>净分走势</Text><Text>按每将净分展示</Text></View><Text>{statistics.netScore > 0 ? '+' : ''}{statistics.netScore}</Text></View>
-      <ScoreTrendChart points={statistics.trend} />
-    </View>
+      <View className='stats-v4-summary'>
+        <View className='stats-v4-summary-score'>
+          <Text>{statistics.label}净分</Text>
+          <Text className={statistics.netScore > 0 ? 'positive' : statistics.netScore < 0 ? 'negative' : ''}>{statistics.netScore > 0 ? '+' : ''}{statistics.netScore}</Text>
+        </View>
+        <View className='stats-v4-summary-meta'>
+          <View><Text>{statistics.trend.length}</Text><Text>将</Text></View>
+          <View><Text>{statistics.totalHands}</Text><Text>局</Text></View>
+        </View>
+      </View>
 
-    <View className='personal-pattern-card'>
-      <View className='personal-section-head'><View><Text>大胡统计</Text><Text>{statistics.bigHands ? `共 ${statistics.bigHands} 次` : '当前周期暂无大胡'}</Text></View></View>
-      <View className='personal-pattern-list'>{statistics.patterns.length ? statistics.patterns.slice(0, 8).map(pattern => <View className='personal-pattern-row' key={pattern.name}><Text>{pattern.name}</Text><Text>{pattern.count} 次</Text></View>) : <Text className='personal-pattern-empty'>当前统计周期内还没有大胡记录</Text>}</View>
-    </View>
+      <View className='stats-v4-metrics'>
+        <View><Text>{percentage(statistics.wins)}%</Text><Text>胡牌率</Text><Text>{statistics.wins} 局</Text></View>
+        <View><Text>{percentage(statistics.tsumoWins)}%</Text><Text>自摸率</Text><Text>{statistics.tsumoWins} 局</Text></View>
+        <View><Text>{percentage(statistics.dealIns)}%</Text><Text>点炮率</Text><Text>{statistics.dealIns} 局</Text></View>
+        <View><Text>{percentage(statistics.bigHands)}%</Text><Text>大胡率</Text><Text>{statistics.bigHands} 局</Text></View>
+      </View>
 
-    <View className='featured-big-hand-card'>
-      <View className='featured-big-hand-title'><View><Text className='eyebrow'>大胡牌谱</Text><Text className='title-small'>近期最高分牌谱</Text></View>{featured && <Text className='featured-big-hand-score'>{featured.score > 0 ? '+' : ''}{featured.score}</Text>}</View>
-      {featured ? <>
-        <View className='featured-big-hand-meta'><Text>{featured.resultType === 'tsumo' ? '自摸' : '点炮胡'} · {featured.note}</Text><Text>{formatMatchTime(featured.createdAt)}</Text></View>
-        <TileRecordDisplay record={featured.tileRecord} autoSort={autoSortTileRecord} />
-      </> : <Text className='featured-big-hand-empty'>当前统计周期内还没有录入过大胡牌谱</Text>}
-    </View>
-    <Text className='personal-statistics-note'>各项比率均以当前统计周期总局数为分母；大胡详情按牌型标签分别计数，一局含多个标签时会分别累计；时间范围按当前设备时区计算。</Text>
+      <View className='stats-v4-card stats-v4-trend'>
+        <View className='stats-v4-card-head'>
+          <View><Text>净分走势</Text><Text>按每将净分展示</Text></View>
+          <Text className={statistics.netScore > 0 ? 'positive' : statistics.netScore < 0 ? 'negative' : ''}>{statistics.netScore > 0 ? '+' : ''}{statistics.netScore}</Text>
+        </View>
+        <ScoreTrendChart points={statistics.trend} />
+      </View>
+
+      <View className='stats-v4-card'>
+        <View className='stats-v4-card-head'>
+          <View><Text>大胡统计</Text><Text>{statistics.bigHands ? `共 ${statistics.bigHands} 次` : '当前周期暂无大胡'}</Text></View>
+        </View>
+        <View className='stats-v4-patterns'>{statistics.patterns.length ? statistics.patterns.slice(0, 8).map(pattern => <View className='stats-v4-pattern-row' key={pattern.name}><Text>{pattern.name}</Text><Text>{pattern.count} 次</Text></View>) : <Text className='stats-v4-pattern-empty'>当前统计周期内还没有大胡记录</Text>}</View>
+      </View>
+
+      <View className='stats-v4-card stats-v4-featured'>
+        <View className='stats-v4-card-head featured'>
+          <View><Text>近期最高分牌谱</Text><Text>只展示你自己录入的胡牌牌谱</Text></View>
+          {featured && <Text className='stats-v4-featured-score'>{featured.score > 0 ? '+' : ''}{featured.score}</Text>}
+        </View>
+        {featured ? <>
+          <View className='stats-v4-featured-meta'><Text>{featured.resultType === 'tsumo' ? '自摸' : '点炮胡'} · {featured.note}</Text><Text>{formatMatchTime(featured.createdAt)}</Text></View>
+          <TileRecordDisplay record={featured.tileRecord} autoSort={autoSortTileRecord} />
+        </> : <Text className='stats-v4-featured-empty'>当前统计周期内还没有录入过大胡牌谱</Text>}
+      </View>
+
+      <Text className='stats-v4-note'>各项比率均以当前统计周期总局数为分母；大胡标签会分别累计；时间范围按当前设备时区计算。</Text>
     </View>
   </ScrollView>
 }
