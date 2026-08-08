@@ -181,11 +181,6 @@ export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing
   reviewReturnLabel?: string
 }) {
   const playersBySeat = useMemo(() => [...match.players].sort((first, second) => first.seat - second.seat), [match.players])
-  const rankByPlayerId = useMemo(() => new Map(
-    [...match.players]
-      .sort((first, second) => second.score - first.score || first.seat - second.seat)
-      .map((player, index) => [player.id, index + 1]),
-  ), [match.players])
   const finishedSummary = useMemo(
     () => match.status === 'finished' ? summarizeFinishedMatch(match) : null,
     [match],
@@ -221,83 +216,94 @@ export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing
     await Taro.setClipboardData({ data: match.share_code })
   }
 
-  return <View className={`page match-page${match.status === 'finished' ? ' finished-review-page' : ''}`} style={{ paddingTop: `${getPageTopInset()}px` }}>
-    <ScrollView
-      scrollY
-      enhanced
-      showScrollbar={false}
-      className={match.status === 'finished' ? 'finished-review-scroll' : 'match-content-scroll'}
-    >
-      <View className='match-head compact'>
-        <Button className='icon-button match-back-button' hoverClass='none' onClick={onBack}>‹</Button>
-        <View className='match-heading'>
-          <Text className='match-nav-kicker'>{match.status === 'finished' ? '本将已结束' : `${windName[match.current_wind]}风 · 第 ${match.current_hand} 局`}</Text>
-          <View className='match-title-line'><Text className='match-nav-title'>{match.status === 'finished' ? '牌局战况' : '本将计分'}</Text>{refreshing && <Text className='match-refreshing'>同步中</Text>}</View>
-        </View>
-        <Button className='code match-share-code' onClick={share}><Text>分享码</Text><Text>{match.share_code}</Text></Button>
+  return <View className={`match-v4-screen${match.status === 'finished' ? ' finished' : ''}`} style={{ paddingTop: `${getPageTopInset()}px` }}>
+    <View className='match-v4-nav'>
+      <Button className='match-v4-back' hoverClass='none' onClick={onBack}>‹</Button>
+      <View className='match-v4-nav-center'>
+        <Text className='match-v4-title'>{match.status === 'finished' ? '牌局战况' : '正在记分'}</Text>
+        <Text className='match-v4-subtitle'>{windName[match.current_wind]}风 · 第 {match.current_hand} 局</Text>
       </View>
-    <View className='match-scoreboard'>{playersBySeat.map(player => {
-      const rank = rankByPlayerId.get(player.id) || 1
+      <Button className='match-v4-more' hoverClass='none' onClick={share}>···</Button>
+    </View>
+
+    <View className='match-v4-status-row'>
+      <View className={`match-v4-sync${refreshing ? ' syncing' : ''}`}><View /><Text>{match.status === 'finished' ? '本将已结束' : refreshing ? '正在同步' : '已保存'}</Text></View>
+      <Text className='match-v4-share-code' onClick={share}>分享码 {match.share_code}</Text>
+    </View>
+
+    <View className='match-v4-scoreboard'>{playersBySeat.map(player => {
       const isDealer = match.status === 'active' && player.seat === match.current_hand - 1
       const result = finishedSummary?.playerStatsById.get(player.id)
-      return <View className={`match-player-tile${player.user_id === currentUserId ? ' self' : ''}${match.status === 'finished' ? ' finished' : ''}`} key={player.id} onClick={() => setSelectedPlayerId(player.id)}>
-        <View className='match-player-head'><Text className='match-rank'>#{rank}</Text><Avatar player={player} isSelf={player.user_id === currentUserId} /></View>
-        <View className='match-player-copy'>
-          <Text className='match-player-name'>{player.name}</Text>
-          <View className='match-player-labels'><Text>{['东', '南', '西', '北'][player.seat]}家</Text>{isDealer && <Text className='match-dealer-badge'>庄</Text>}</View>
-          {result && <View className='match-player-result-meta'>
-            <Text>胡 {result.wins}</Text>
-            <Text>大胡 {result.bigHands}</Text>
-            <Text>自摸 {result.tsumo}</Text>
-            <Text className={result.dealIns ? 'danger-metric' : ''}>点炮 {result.dealIns}</Text>
-          </View>}
-        </View>
-        <Text className={`match-player-score ${player.score >= 0 ? 'positive' : 'negative'}`}>{player.score > 0 ? '+' : ''}{player.score}</Text>
+      return <View className={`match-v4-player${player.user_id === currentUserId ? ' self' : ''}`} key={player.id} onClick={() => setSelectedPlayerId(player.id)}>
+        <View className='match-v4-player-avatar'><Avatar player={player} isSelf={player.user_id === currentUserId} /></View>
+        <Text className='match-v4-player-name'>{player.name}</Text>
+        <View className='match-v4-player-seat'><Text>{['东', '南', '西', '北'][player.seat]}家</Text>{isDealer && <Text className='match-v4-dealer'>庄</Text>}</View>
+        <Text className={`match-v4-player-score ${player.score >= 0 ? 'positive' : 'negative'}`}>{player.score > 0 ? '+' : ''}{player.score}</Text>
+        {result && <Text className='match-v4-player-result'>胡{result.wins} · 自摸{result.tsumo}</Text>}
       </View>
     })}</View>
-    <View className={`match-action-dock${match.status === 'finished' ? ' finished' : ''}`}>
-      {editable && undoNotice && <View className='recent-save-notice'><Text>已记录：{undoNotice}</Text><Button disabled={loading} onClick={onUndoNotice}>撤销</Button></View>}
-      {editable && <View className='match-quick-section'>
-        <View className='match-quick-heading'><Text>快速记分</Text><Text>选择本局结果</Text></View>
-        <View className='match-quick-grid'>
-          <Button className='match-quick-action tsumo' disabled={loading} onClick={() => onAdd('tsumo')}><Text className='match-quick-title'>自摸</Text><Text className='match-quick-copy'>选择胡牌者 · 每家支付</Text></Button>
-          <Button className='match-quick-action ron' disabled={loading} onClick={() => onAdd('ron')}><Text className='match-quick-title'>点炮</Text><Text className='match-quick-copy'>先选点炮者，再选胡牌者</Text></Button>
-          <Button className='match-quick-action draw' disabled={loading} onClick={() => onAdd('draw')}><Text className='match-quick-title'>流局</Text><Text className='match-quick-copy'>预览庄家结果后确认</Text></Button>
-          <Button className='match-quick-action event' disabled={loading} onClick={() => onAdd('event')}><Text className='match-quick-title'>局内事件</Text><Text className='match-quick-copy'>杠 · 跟圈 · 四风归一</Text></Button>
+
+    {editable && undoNotice && <View className='match-v4-saved-toast'><Text>✓ 已记录 {undoNotice}</Text><Text onClick={() => { if (!loading) onUndoNotice() }}>撤销</Text></View>}
+
+    {editable && <View className='match-v4-section'>
+      <View className='match-v4-section-head'><Text>选择本局结果</Text><Text>快速记分</Text></View>
+      <View className='match-v4-actions'>
+        <Button className='match-v4-action tsumo' hoverClass='none' disabled={loading} onClick={() => onAdd('tsumo')}>
+          <View className='match-v4-action-icon tsumo'><View className='one' /><View className='two' /><View className='three' /></View>
+          <View className='match-v4-action-copy'><Text>自摸</Text><Text>选择胡牌者 · 每家支付</Text></View>
+        </Button>
+        <Button className='match-v4-action ron' hoverClass='none' disabled={loading} onClick={() => onAdd('ron')}>
+          <View className='match-v4-action-icon ron'><View className='one' /><View className='two' /><View className='three' /></View>
+          <View className='match-v4-action-copy'><Text>点炮</Text><Text>先点炮者 · 再胡牌者</Text></View>
+        </Button>
+        <Button className='match-v4-action draw' hoverClass='none' disabled={loading} onClick={() => onAdd('draw')}>
+          <View className='match-v4-action-icon draw'><View className='one' /><View className='two' /><View className='three' /></View>
+          <View className='match-v4-action-copy'><Text>流局</Text><Text>预览庄家结果后确认</Text></View>
+        </Button>
+        <Button className='match-v4-action event' hoverClass='none' disabled={loading} onClick={() => onAdd('event')}>
+          <View className='match-v4-action-icon event'><View className='one' /><View className='two' /><View className='three' /></View>
+          <View className='match-v4-action-copy'><Text>局内事件</Text><Text>杠 · 跟圈 · 四风归一</Text></View>
+        </Button>
+      </View>
+    </View>}
+
+    {editable ? <View className='match-v4-section match-v4-records-section'>
+      <View className='match-v4-section-head records'>
+        <View><Text>最近记录</Text><Text>{match.hands.length ? `共 ${match.hands.length} 条` : '还没有记录'}</Text></View>
+        <Text className={match.hands.length ? 'match-v4-text-action' : 'match-v4-text-action disabled'} onClick={() => { if (match.hands.length) setShowHandHistory(true) }}>全部记录 ›</Text>
+      </View>
+      <View className='match-v4-record-list'>{recentHands.length ? recentHands.map(hand => {
+        const outcome = handOutcomes(hand)[0]
+        const positiveChange = hand.scores.reduce((largest, score) => Math.max(largest, score.change), 0)
+        const scoreText = outcome ? `+${outcome.score}` : positiveChange > 0 ? `+${positiveChange}` : ''
+        return <View className='match-v4-record-row' key={hand.id} onClick={() => onEdit(hand)}>
+          <View className={`match-v4-record-icon ${hand.result_type}`}><Text>{hand.result_type === 'event' ? '事' : completedNumber.get(hand.id) || '-'}</Text></View>
+          <View className='match-v4-record-copy'><Text>{handOutcomeText(match, hand)}</Text><Text>{windName[hand.wind]}风 {hand.hand_number}局 · {typeName[hand.result_type]}</Text></View>
+          {scoreText && <Text className='match-v4-record-score'>{scoreText}</Text>}
+          <Text className='match-v4-record-arrow'>›</Text>
         </View>
-      </View>}
-      {editable ? <>
-        <View className='match-recent-head'>
-          <View><Text>最近记录</Text><Text>{match.hands.length ? `共 ${match.hands.length} 条` : '还没有记录'}</Text></View>
-          <Text className={match.hands.length ? 'match-text-action' : 'match-text-action disabled'} onClick={() => { if (match.hands.length) setShowHandHistory(true) }}>全部记录 ›</Text>
-        </View>
-        <View className='match-recent-list'>{recentHands.length ? recentHands.map(hand => <View className='match-recent-row' key={hand.id} onClick={() => onEdit(hand)}>
-          <View className={`match-recent-type ${hand.result_type}`}><Text>{hand.result_type === 'event' ? '事' : completedNumber.get(hand.id) || '-'}</Text></View>
-          <View className='grow'><Text className='match-recent-title'>{handOutcomeText(match, hand)}</Text><Text>{windName[hand.wind]}风 {hand.hand_number}局 · {typeName[hand.result_type]}</Text></View>
-          <Text className='card-arrow'>›</Text>
-        </View>) : <View className='match-recent-empty'><Text>记录自摸、点炮、流局或局内事件后会显示在这里</Text></View>}</View>
-        <View className='match-light-links'>
-          <Text className={match.hands.length ? '' : 'disabled'} onClick={() => { if (match.hands.length) setShowLiveStats(true) }}>战况 ›</Text>
-          <Text className={match.hands.length && !loading ? '' : 'disabled'} onClick={() => { if (match.hands.length && !loading) onUndo() }}>撤销上一条</Text>
-        </View>
-        <Button className='secondary match-finish-action' disabled={loading} onClick={onFinish}>结束本将</Button>
-      </> : match.status === 'finished' && finishedSummary ? <>
-        <FinishedMatchDetails
-          match={match}
-          summary={finishedSummary}
-          onOpenAllRecords={() => setShowHandHistory(true)}
-        />
-        {onCloseReview && <Button className='secondary match-review-back-action' onClick={onCloseReview}>{reviewReturnLabel || '返回'}</Button>}
-        <Text className='readonly'>本将已结束，当前为只读回顾</Text>
-      </> : <>
-        <View className='match-light-links readonly-links'>
-          <Text className={match.hands.length ? '' : 'disabled'} onClick={() => { if (match.hands.length) setShowLiveStats(true) }}>战况 ›</Text>
-          <Text className={match.hands.length ? '' : 'disabled'} onClick={() => { if (match.hands.length) setShowHandHistory(true) }}>全部记录 ›</Text>
-        </View>
-        <Text className='readonly'>当前为只读分享视图</Text>
-      </>}
-    </View>
-    </ScrollView>
+      }) : <View className='match-v4-record-empty'><Text>本将还没有记录</Text><Text>自摸、点炮、流局和局内事件会显示在这里</Text></View>}</View>
+      <View className='match-v4-secondary-row'>
+        <Text className={match.hands.length ? '' : 'disabled'} onClick={() => { if (match.hands.length) setShowLiveStats(true) }}>战况 ›</Text>
+        <Text className={match.hands.length && !loading ? '' : 'disabled'} onClick={() => { if (match.hands.length && !loading) onUndo() }}>撤销上一条</Text>
+      </View>
+      <Button className='match-v4-finish' hoverClass='none' disabled={loading} onClick={onFinish}>结束本将</Button>
+    </View> : match.status === 'finished' && finishedSummary ? <View className='match-v4-finished-content'>
+      <FinishedMatchDetails
+        match={match}
+        summary={finishedSummary}
+        onOpenAllRecords={() => setShowHandHistory(true)}
+      />
+      {onCloseReview && <Button className='match-v4-review-back' hoverClass='none' onClick={onCloseReview}>{reviewReturnLabel || '返回'}</Button>}
+      <Text className='match-v4-readonly'>本将已结束，当前为只读回顾</Text>
+    </View> : <View className='match-v4-share-view'>
+      <View className='match-v4-secondary-row'>
+        <Text className={match.hands.length ? '' : 'disabled'} onClick={() => { if (match.hands.length) setShowLiveStats(true) }}>战况 ›</Text>
+        <Text className={match.hands.length ? '' : 'disabled'} onClick={() => { if (match.hands.length) setShowHandHistory(true) }}>全部记录 ›</Text>
+      </View>
+      <Text className='match-v4-readonly'>当前为只读分享视图</Text>
+    </View>}
+
     {selectedPlayer && <PlayerDetailModal player={selectedPlayer} match={match} onClose={() => setSelectedPlayerId(null)} />}
     {showLiveStats && <LiveMatchStatsModal match={match} currentUserId={currentUserId} onClose={() => setShowLiveStats(false)} />}
     {showHandHistory && <HandHistoryModal match={match} canEdit={editable} onEdit={hand => { setShowHandHistory(false); onEdit(hand) }} onClose={() => setShowHandHistory(false)} />}
