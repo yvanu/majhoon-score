@@ -315,7 +315,6 @@ function FinishedMatchDetails({ match, summary, onOpenAllRecords }: {
   summary: FinishedMatchSummary
   onOpenAllRecords: () => void
 }) {
-  const [activeTab, setActiveTab] = useState<'battle' | 'records'>('battle')
   const champion = [...summary.playerStats].sort((first, second) => second.player.score - first.player.score || first.player.seat - second.player.seat)[0]
   const bigHandLeader = [...summary.playerStats].sort((first, second) => second.bigHands - first.bigHands || second.wins - first.wins)[0]
   const dealInLeader = [...summary.playerStats].sort((first, second) => second.dealIns - first.dealIns || first.player.seat - second.player.seat)[0]
@@ -334,38 +333,46 @@ function FinishedMatchDetails({ match, summary, onOpenAllRecords }: {
     return changes || typeName[hand.result_type]
   }
 
-  return <View className='finished-match-details'>
-    <View className='finished-overview-grid'>
-      <View><Text>完成局数</Text><Text>{summary.totalHands}</Text></View>
-      <View><Text>胡牌次数</Text><Text>{summary.winCount}</Text></View>
-      <View><Text>自摸次数</Text><Text>{summary.tsumoHands}</Text></View>
-      <View><Text>大胡次数</Text><Text>{summary.bigHands}</Text></View>
+  return <View className='finished-v4'>
+    <View className='finished-v4-summary'>
+      <View><Text>{summary.totalHands}</Text><Text>完成局数</Text></View>
+      <View><Text>{summary.winCount}</Text><Text>胡牌次数</Text></View>
+      <View><Text>{summary.tsumoHands}</Text><Text>自摸次数</Text></View>
+      <View><Text>{summary.bigHands}</Text><Text>大胡次数</Text></View>
     </View>
-    <View className='finished-section-tabs'>
-      <Button className={activeTab === 'battle' ? 'active' : ''} onClick={() => setActiveTab('battle')}>战况</Button>
-      <Button className={activeTab === 'records' ? 'active' : ''} onClick={() => setActiveTab('records')}>记录</Button>
+
+    <View className='finished-v4-results'>
+      {[...summary.playerStats].sort((a, b) => b.player.score - a.player.score).map((item, index) => <View className={`finished-v4-player${index === 0 ? ' winner' : ''}`} key={item.player.id}>
+        <Text className='finished-v4-place'>{index + 1}</Text>
+        <View className='finished-v4-player-avatar'><Avatar player={item.player} /></View>
+        <View className='finished-v4-player-copy'><Text>{item.player.name}</Text><Text>{['东', '南', '西', '北'][item.player.seat]}家 · 胡 {item.wins} · 自摸 {item.tsumo}</Text></View>
+        <Text className={`finished-v4-player-score ${item.player.score >= 0 ? 'positive' : 'negative'}`}>{item.player.score > 0 ? '+' : ''}{item.player.score}</Text>
+      </View>)}
     </View>
-    {activeTab === 'battle' ? <View className='finished-panel'>
-      <View className='finished-panel-heading'><View><Text>本将亮点</Text><Text>从最终结果与逐局记录自动汇总</Text></View><Text>{summary.eventCount} 项局内事件</Text></View>
-      <View className='finished-highlight-grid'>
-        <View><Text>本将第一</Text><Text>{champion?.player.name || '—'}</Text><Text>{champion ? `${champion.player.score > 0 ? '+' : ''}${champion.player.score} 分` : '暂无'}</Text></View>
-        <View><Text>单局最高</Text><Text>{summary.largestGain?.player.name || '—'}</Text><Text>{summary.largestGain ? `+${summary.largestGain.score} 分` : '暂无'}</Text></View>
-        <View><Text>大胡最多</Text><Text>{bigHandLeader?.bigHands ? bigHandLeader.player.name : '暂无'}</Text><Text>{bigHandLeader?.bigHands ? `${bigHandLeader.bigHands} 次` : '0 次'}</Text></View>
-        <View><Text>点炮最多</Text><Text>{dealInLeader?.dealIns ? dealInLeader.player.name : '无人点炮'}</Text><Text>{dealInLeader?.dealIns ? `${dealInLeader.dealIns} 次` : '0 次'}</Text></View>
+
+    <View className='finished-v4-card'>
+      <View className='finished-v4-head'><View><Text>本将亮点</Text><Text>从最终结果与逐局记录自动汇总</Text></View><Text>{summary.eventCount} 项事件</Text></View>
+      <View className='finished-v4-highlights'>
+        <View><Text>本将第一</Text><Text>{champion?.player.name || '—'}</Text><Text>{champion ? `${champion.player.score > 0 ? '+' : ''}${champion.player.score}` : '—'}</Text></View>
+        <View><Text>单局最高</Text><Text>{summary.largestGain?.player.name || '—'}</Text><Text>{summary.largestGain ? `+${summary.largestGain.score}` : '—'}</Text></View>
+        <View><Text>大胡最多</Text><Text>{bigHandLeader?.bigHands ? bigHandLeader.player.name : '暂无'}</Text><Text>{bigHandLeader?.bigHands || 0} 次</Text></View>
+        <View><Text>点炮最多</Text><Text>{dealInLeader?.dealIns ? dealInLeader.player.name : '无人'}</Text><Text>{dealInLeader?.dealIns || 0} 次</Text></View>
       </View>
-      <View className='finished-panel-heading compact'><View><Text>点炮关系</Text><Text>按次数和分值排序 · 点击顶部卡片查看个人明细</Text></View><Text>共 {summary.ronHands} 炮</Text></View>
-      <View className='finished-relation-list'>{summary.relations.length ? summary.relations.slice(0, 5).map(relation => <View className='finished-relation-row' key={`${relation.loserId}-${relation.winnerId}`}>
+      <View className='finished-v4-relation-head'><Text>点炮关系</Text><Text>共 {summary.ronHands} 炮</Text></View>
+      <View className='finished-v4-relations'>{summary.relations.length ? summary.relations.slice(0, 5).map(relation => <View key={`${relation.loserId}-${relation.winnerId}`}>
         <Text>{handPlayerName(match, relation.loserId)} → {handPlayerName(match, relation.winnerId)}</Text>
         <Text>{relation.count} 炮 · {relation.score} 分</Text>
-      </View>) : <Text className='finished-empty'>本将没有点炮记录</Text>}</View>
-    </View> : <View className='finished-panel finished-record-panel'>
-      <View className='finished-panel-heading'><View><Text>最近记录</Text><Text>优先展示本将最后发生的记录</Text></View><Text>共 {match.hands.length} 条</Text></View>
-      <View className='finished-record-list'>{recentHands.map(hand => <View className={`finished-record-row ${hand.result_type}`} key={hand.id}>
-        <View className='finished-record-index'><Text>{hand.result_type === 'event' ? '事件' : `第 ${summary.completedNumber.get(hand.id) || '-'} 局`}</Text><Text>{windName[hand.wind]}风 {hand.hand_number}局</Text></View>
-        <View className='finished-record-copy'><Text>{handOutcomeText(match, hand)}</Text><Text>{handDetail(hand)}</Text></View>
+      </View>) : <Text className='finished-v4-empty'>本将没有点炮记录</Text>}</View>
+    </View>
+
+    <View className='finished-v4-card'>
+      <View className='finished-v4-head'><View><Text>最近记录</Text><Text>展示本将最后发生的记录</Text></View><Text>共 {match.hands.length} 条</Text></View>
+      <View className='finished-v4-records'>{recentHands.map(hand => <View className='finished-v4-record' key={hand.id}>
+        <View><Text>{hand.result_type === 'event' ? '事件' : `第 ${summary.completedNumber.get(hand.id) || '-'} 局`}</Text><Text>{windName[hand.wind]}风 {hand.hand_number}局</Text></View>
+        <View><Text>{handOutcomeText(match, hand)}</Text><Text>{handDetail(hand)}</Text></View>
       </View>)}</View>
-      {match.hands.length > recentHands.length && <Button className='secondary finished-all-records' onClick={onOpenAllRecords}>查看全部 {match.hands.length} 条记录</Button>}
-    </View>}
+      {match.hands.length > recentHands.length && <Button className='finished-v4-all' hoverClass='none' onClick={onOpenAllRecords}>查看全部 {match.hands.length} 条记录</Button>}
+    </View>
   </View>
 }
 
