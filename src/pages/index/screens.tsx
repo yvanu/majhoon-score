@@ -15,7 +15,6 @@ import type {
 import { API_BASE_URL } from '../../services/api'
 import {
   FriendAvatar,
-  Header,
   displayUserName,
   formatMatchTime,
   getPageTopInset,
@@ -62,14 +61,26 @@ export function Auth({ onBack, onWechatLogin, loading }: {
   onWechatLogin: () => void
   loading: boolean
 }) {
-  return <View className='page auth-page' style={{ paddingTop: `${getPageTopInset()}px` }}><Header title='微信登录' onBack={onBack} />
-    <View className='wechat-login-card'>
-      <View className='nickname-mark'>雀</View>
-      <Text className='title-small'>登录雀记</Text>
-      <Text className='wechat-login-description'>使用微信身份安全登录，同步牌局、牌友和个人战绩。</Text>
+  return <View className='auth-v4-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+    <View className='auth-v4-nav'>
+      <Button className='auth-v4-back' hoverClass='none' onClick={onBack}>‹</Button>
+      <Text>微信登录</Text>
+      <View className='auth-v4-nav-spacer' />
     </View>
-    <Button className='wechat-button' disabled={loading} onClick={onWechatLogin}>{loading ? '登录中…' : '微信快捷登录'}</Button>
-    <Text className='privacy-note'>登录仅使用当前小程序的微信用户标识；牌桌昵称由你主动选择或填写。</Text>
+
+    <View className='auth-v4-hero'>
+      <View className='auth-v4-mark'><Text>雀</Text><View /></View>
+      <Text className='auth-v4-brand'>雀记</Text>
+      <Text className='auth-v4-tagline'>南京麻将记分小程序</Text>
+      <Text className='auth-v4-copy'>记录每一局，也记住一起打牌的人。</Text>
+    </View>
+
+    <View className='auth-v4-card'>
+      <Text className='auth-v4-card-title'>使用微信身份继续</Text>
+      <Text className='auth-v4-card-note'>牌局、牌友与战绩会跟随当前账号同步。</Text>
+      <Button className='auth-v4-login' hoverClass='none' disabled={loading} onClick={onWechatLogin}>{loading ? '登录中…' : '微信快捷登录'}</Button>
+      <View className='auth-v4-privacy'><View /><Text>登录仅使用当前小程序的微信用户标识；昵称与头像由你主动选择。</Text></View>
+    </View>
   </View>
 }
 
