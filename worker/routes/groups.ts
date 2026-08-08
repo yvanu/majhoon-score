@@ -5,12 +5,11 @@ import type {
   GroupSession,
   GroupSessionMember,
   GroupSessionSummary,
-  Match,
 } from '../../src/shared/types'
 import { currentUser } from '../auth-service'
-import { avatarSeed, isRecord, jsonError, now, randomHex, shareCode, sha256, uid } from '../core'
+import { avatarSeed, isRecord, jsonError, now, shareCode, uid } from '../core'
 import type { Env } from '../env'
-import { getMatch } from '../match-service'
+import { createMatchFromParticipants } from '../match-creation'
 
 type StoredGroup = {
   id: string
@@ -100,10 +99,17 @@ async function loadMembers(db: D1Database, groupIds: string[]) {
   if (!groupIds.length) return grouped
   const placeholders = groupIds.map(() => '?').join(', ')
   const result = await db.prepare(`
-    SELECT id, group_session_id, user_id, friend_id, name, avatar_seed, role, status, joined_at
-    FROM group_session_members
-    WHERE group_session_id IN (${placeholders})
-    ORDER BY CASE role WHEN 'owner' THEN 0 ELSE 1 END, CASE status WHEN 'confirmed' THEN 0 ELSE 1 END, joined_at ASC
+    SELECT gm.id, gm.group_session_id, gm.user_id, gm.friend_id,
+      CASE WHEN gm.user_id IS NOT NULL THEN COALESCE(NULLIF(TRIM(u.display_name), ''), u.username) ELSE gm.name END name,
+      gm.avatar_seed, COALESCE(u.avatar_url, linked.avatar_url) avatar_url,
+      COALESCE(u.gender, linked.gender) gender,
+      gm.role, gm.status, gm.joined_at
+    FROM group_session_members gm
+    LEFT JOIN users u ON u.id = gm.user_id
+    LEFT JOIN friends f ON f.id = gm.friend_id
+    LEFT JOIN users linked ON linked.id = f.linked_user_id
+    WHERE gm.group_session_id IN (${placeholders})
+    ORDER BY CASE gm.role WHEN 'owner' THEN 0 ELSE 1 END, CASE gm.status WHEN 'confirmed' THEN 0 ELSE 1 END, gm.joined_at ASC
   `).bind(...groupIds).all<StoredMember>()
   for (const row of result.results) {
     const members = grouped.get(row.group_session_id) ?? []
@@ -113,6 +119,8 @@ async function loadMembers(db: D1Database, groupIds: string[]) {
       friend_id: row.friend_id,
       name: row.name,
       avatar_seed: Number(row.avatar_seed),
+      avatar_url: row.avatar_url,
+      gender: row.gender,
       role: row.role,
       status: row.status,
       joined_at: row.joined_at,
@@ -169,15 +177,6 @@ async function uniqueGroupCode(db: D1Database) {
   let code = shareCode()
   for (let attempt = 0; attempt < 5; attempt++) {
     if (!await db.prepare('SELECT 1 FROM group_sessions WHERE share_code = ?').bind(code).first()) return code
-    code = shareCode()
-  }
-  return `${shareCode()}${Math.floor(Math.random() * 10)}`
-}
-
-async function uniqueMatchCode(db: D1Database) {
-  let code = shareCode()
-  for (let attempt = 0; attempt < 5; attempt++) {
-    if (!await db.prepare('SELECT 1 FROM matches WHERE share_code = ?').bind(code).first()) return code
     code = shareCode()
   }
   return `${shareCode()}${Math.floor(Math.random() * 10)}`
@@ -426,35 +425,27 @@ export function registerGroupRoutes(app: Hono<Env>) {
     if (!['recruiting', 'full'].includes(group.status)) return jsonError(c, '当前组局不能开始', 409)
     const confirmed = group.members.filter(member => member.status === 'confirmed')
     if (confirmed.length !== 4) return jsonError(c, '需要正好四位已确认成员才能开始记分', 409)
-
-    const ordered = [...confirmed].sort((first, second) => {
-      if (first.role !== second.role) return first.role === 'owner' ? -1 : 1
-      return first.joined_at.localeCompare(second.joined_at)
-    })
-    const matchId = uid()
-    const adminToken = randomHex(24)
+    const body = await c.req.json().catch(() => null) as { memberIds?: unknown } | null
+    const memberIds = Array.isArray(body?.memberIds) && body.memberIds.every(memberId => typeof memberId === 'string')
+      ? body.memberIds.map(memberId => memberId.trim())
+      : []
+    if (memberIds.length !== 4 || new Set(memberIds).size !== 4) {
+      return jsonError(c, '请为东、南、西、北各安排一位玩家')
+    }
+    const confirmedById = new Map(confirmed.map(member => [member.id, member]))
+    if (memberIds.some(memberId => !confirmedById.has(memberId))) return jsonError(c, '座位中包含无效成员')
+    const ordered = memberIds.map(memberId => confirmedById.get(memberId)!)
+    const result = await createMatchFromParticipants(c.env.DB, user.id, ordered.map(member => ({
+      name: member.name,
+      avatarSeed: member.avatar_seed,
+      friendId: member.friend_id,
+      userId: member.user_id,
+    })))
     const createdAt = now()
-    const code = await uniqueMatchCode(c.env.DB)
-    await c.env.DB.batch([
-      ...ordered.flatMap(member => member.friend_id
-        ? [c.env.DB.prepare('UPDATE friends SET last_played_at = ?, updated_at = ? WHERE id = ?')
-          .bind(createdAt, createdAt, member.friend_id)]
-        : []),
-      c.env.DB.prepare(`
-        INSERT INTO matches(id, share_code, admin_token_hash, owner_user_id, created_at, updated_at)
-        VALUES(?, ?, ?, ?, ?, ?)
-      `).bind(matchId, code, await sha256(adminToken), user.id, createdAt, createdAt),
-      ...ordered.map((member, seat) => c.env.DB.prepare(`
-        INSERT INTO players(id, match_id, name, avatar_seed, friend_id, user_id, seat, created_at)
-        VALUES(?, ?, ?, ?, ?, ?, ?, ?)
-      `).bind(uid(), matchId, member.name, member.avatar_seed, member.friend_id, member.user_id, seat, createdAt)),
-      c.env.DB.prepare(`
-        UPDATE group_sessions SET status = 'active', match_id = ?, updated_at = ? WHERE id = ?
-      `).bind(matchId, createdAt, id),
-    ])
-    const match = await getMatch(c.env.DB, matchId)
-    if (!match) return jsonError(c, '创建牌局失败，请重试', 500)
-    publishChatSystem(c, id, '牌局已创建，四位牌友可以开始记分了', 'match_started', { matchId })
-    return c.json({ group: await loadGroup(c.env.DB, id, user.id), match: match as Match, adminToken }, 201)
+    await c.env.DB.prepare(`
+      UPDATE group_sessions SET status = 'active', match_id = ?, updated_at = ? WHERE id = ?
+    `).bind(result.match.id, createdAt, id).run()
+    publishChatSystem(c, id, '牌局已创建，四位牌友可以开始记分了', 'match_started', { matchId: result.match.id })
+    return c.json({ group: await loadGroup(c.env.DB, id, user.id), match: result.match, adminToken: result.adminToken }, 201)
   })
 }

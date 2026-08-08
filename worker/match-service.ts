@@ -46,6 +46,8 @@ function statisticsStatements(db: D1Database, idOrCode: string) {
     db.prepare(`SELECT COUNT(*) count FROM hands WHERE match_id = ${matchIdSelector} AND result_type <> 'event'`).bind(key, code),
     db.prepare(`
       SELECT p.id, p.name, p.avatar_seed, p.friend_id, p.user_id, p.seat,
+        COALESCE(u.avatar_url, linked.avatar_url) avatar_url,
+        COALESCE(u.gender, linked.gender) gender,
         (SELECT COALESCE(SUM(hs.score_change), 0) FROM hand_scores hs WHERE hs.player_id = p.id) score,
         (SELECT COUNT(*) FROM hands h
           WHERE h.match_id = p.match_id AND h.result_type IN ('ron', 'tsumo') AND (
@@ -76,6 +78,9 @@ function statisticsStatements(db: D1Database, idOrCode: string) {
         (SELECT COALESCE(MIN(hs.score_change), 0) FROM hand_scores hs
           WHERE hs.player_id = p.id AND hs.score_change < 0) max_loss
       FROM players p
+      LEFT JOIN users u ON u.id = p.user_id
+      LEFT JOIN friends f ON f.id = p.friend_id
+      LEFT JOIN users linked ON linked.id = f.linked_user_id
       WHERE p.match_id = ${matchIdSelector}
       ORDER BY score DESC, wins DESC, seat ASC
     `).bind(key, code),
@@ -95,8 +100,13 @@ export async function getMatchBundle(
     `).bind(key, code),
     db.prepare(`
       SELECT p.id, p.name, p.avatar_seed, p.friend_id, p.user_id, p.seat,
+        COALESCE(u.avatar_url, linked.avatar_url) avatar_url,
+        COALESCE(u.gender, linked.gender) gender,
         COALESCE(SUM(hs.score_change), 0) score
       FROM players p
+      LEFT JOIN users u ON u.id = p.user_id
+      LEFT JOIN friends f ON f.id = p.friend_id
+      LEFT JOIN users linked ON linked.id = f.linked_user_id
       LEFT JOIN hand_scores hs ON hs.player_id = p.id
       WHERE p.match_id = ${matchIdSelector}
       GROUP BY p.id

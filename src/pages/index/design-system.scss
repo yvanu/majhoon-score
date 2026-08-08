@@ -1,0 +1,215 @@
+/* 雀记统一视觉基线：只定义可复用 token 与跨页面基础组件，业务页面样式继续按模块维护。 */
+:root {
+  --ui-bg: #f6f5f2;
+  --ui-surface: #ffffff;
+  --ui-surface-warm: #fffdf9;
+  --ui-brand: #f3b43f;
+  --ui-brand-strong: #dfa022;
+  --ui-brand-soft: #fff2d5;
+  --ui-text: #1c1c1e;
+  --ui-text-secondary: #6b6b6b;
+  --ui-text-tertiary: #9a9a9a;
+  --ui-line: #e6e3de;
+  --ui-positive: #2c8c63;
+  --ui-negative: #e34d4d;
+  --ui-radius-large: 30px;
+  --ui-radius-medium: 20px;
+  --ui-radius-small: 14px;
+  --ui-page-x: 30px;
+  --ui-section-gap: 32px;
+  --ui-card-padding: 26px;
+  --ui-shadow-modal: 0 24px 64px rgba(54, 45, 32, .16);
+  --ui-motion-fast: 180ms;
+
+  /* 新模块统一使用语义 token，避免业务样式重复声明尺寸和色值。 */
+  --bg-page: var(--ui-bg);
+  --bg-card: var(--ui-surface);
+  --bg-muted: #faf8f4;
+  --brand: var(--ui-brand);
+  --brand-deep: var(--ui-brand-strong);
+  --brand-soft: var(--ui-brand-soft);
+  --text-primary: var(--ui-text);
+  --text-secondary: var(--ui-text-secondary);
+  --text-tertiary: var(--ui-text-tertiary);
+  --radius-lg: var(--ui-radius-large);
+  --radius-md: var(--ui-radius-medium);
+  --radius-sm: var(--ui-radius-small);
+  --space-page: var(--ui-page-x);
+  --space-1: 8px;
+  --space-2: 12px;
+  --space-3: 16px;
+  --space-4: 24px;
+  --space-5: 32px;
+  --space-6: 40px;
+  --font-caption: 22px;
+  --font-body: 28px;
+  --font-card-title: 32px;
+
+  /* 兼容旧样式变量，逐模块迁移时不重复定义色值。 */
+  --bg: var(--ui-bg);
+  --surface: var(--ui-surface);
+  --card: var(--ui-surface);
+  --text: var(--ui-text);
+  --text-secondary: var(--ui-text-secondary);
+  --muted: var(--ui-text-tertiary);
+  --line: var(--ui-line);
+  --yellow: var(--ui-brand);
+  --yellow-deep: var(--ui-brand-strong);
+  --yellow-soft: var(--ui-brand-soft);
+  --green: var(--ui-positive);
+  --red: var(--ui-negative);
+}
+
+.app {
+  background: var(--ui-bg);
+  color: var(--ui-text);
+}
+
+.page {
+  box-sizing: border-box;
+  color: var(--ui-text);
+}
+
+.title { font-size: 48px; font-weight: 650; letter-spacing: -.5px; }
+.title-small { font-size: 38px; font-weight: 650; letter-spacing: -.3px; }
+.card-title { color: var(--ui-text) !important; font-size: 30px !important; font-weight: 650; }
+.eyebrow { color: var(--ui-text-tertiary); font-size: 22px; letter-spacing: 1px; }
+
+.primary {
+  min-height: 88px;
+  border-radius: var(--ui-radius-medium);
+  background: var(--ui-brand);
+  color: #3a2a0b;
+  font-size: 30px;
+  font-weight: 650;
+  box-shadow: none;
+}
+
+.secondary {
+  border: 1px solid var(--ui-line);
+  border-radius: var(--ui-radius-medium);
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  box-shadow: none;
+}
+
+.field,
+.card,
+.dashboard-card,
+.history-card,
+.friend-directory-card,
+.group-list-card {
+  border-color: var(--ui-line);
+  background: var(--ui-surface);
+  box-shadow: none;
+}
+
+.positive { color: var(--ui-positive); }
+.negative { color: var(--ui-negative); }
+
+/* 所有居中弹窗统一外壳；各业务模块只负责内容高度。 */
+.modal-backdrop,
+.confirm-backdrop,
+.score-drawer-backdrop {
+  background: rgba(25, 23, 19, .36);
+  backdrop-filter: blur(4px);
+}
+
+.detail-modal,
+.confirm-sheet,
+.score-drawer-shell,
+.tile-record-modal {
+  border: 1px solid rgba(230, 227, 222, .92);
+  border-radius: var(--ui-radius-large);
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow-modal);
+  color: var(--ui-text);
+}
+
+/* 玩家选择必须依赖清晰的描边 + 浅底 + check，而不是仅颜色变化。 */
+.pick {
+  border-radius: var(--ui-radius-medium);
+  background: var(--ui-surface);
+}
+
+.pick.selected {
+  border-color: var(--ui-brand-strong);
+  background: var(--ui-brand-soft);
+  box-shadow: 0 0 0 2px rgba(223, 160, 34, .12);
+  transform: none;
+}
+
+.pick-check {
+  background: var(--ui-brand-strong);
+  box-shadow: none;
+}
+
+.avatar-identity-wrap { display: inline-flex; margin: 0 auto; border-radius: 50%; }
+.avatar-identity-wrap.selected { box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--ui-brand-strong); }
+
+/* 固定融入式四 Tab，避免悬浮胶囊和大阴影。 */
+.home-page,
+.tab-page {
+  padding-left: var(--ui-page-x);
+  padding-right: var(--ui-page-x);
+  padding-bottom: calc(132px + env(safe-area-inset-bottom));
+}
+
+.bottom-nav {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(104px + env(safe-area-inset-bottom));
+  padding: 10px 28px calc(8px + env(safe-area-inset-bottom));
+  grid-template-columns: repeat(4, 1fr);
+  border: 0;
+  border-top: 1px solid rgba(214, 209, 201, .78);
+  border-radius: 0;
+  background: rgba(255, 255, 255, .97);
+  box-shadow: none;
+  backdrop-filter: blur(16px);
+}
+
+.nav-item {
+  position: relative;
+  gap: 3px;
+  border-radius: 0;
+  color: #817e79;
+  font-size: 20px;
+  font-weight: 500;
+  transition: color var(--ui-motion-fast) ease, opacity var(--ui-motion-fast) ease;
+}
+
+.nav-item.active {
+  color: #9a6b00;
+  font-weight: 650;
+}
+
+.nav-item.active .nav-icon {
+  background: transparent;
+  color: #9a6b00;
+}
+
+.nav-active-mark {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 34px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--ui-brand-strong);
+  opacity: 0;
+  transform: translateX(-50%) scaleX(.5);
+  transition: opacity var(--ui-motion-fast) ease, transform var(--ui-motion-fast) ease;
+}
+
+.nav-item.active .nav-active-mark {
+  opacity: 1;
+  transform: translateX(-50%) scaleX(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-item,
+  .nav-active-mark,
+  .pick { transition-duration: .01ms !important; }
+}

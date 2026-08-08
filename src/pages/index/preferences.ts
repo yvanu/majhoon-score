@@ -4,7 +4,6 @@ import type { InHandEventType, UserPreferences } from '@shared/types'
 export const USER_PREFERENCES_KEY = 'mahjong-user-preferences-v1'
 
 export const DEFAULT_USER_PREFERENCES: UserPreferences = {
-  confirmBeforeScoreSubmit: false,
   hapticFeedback: true,
   quickScores: [50, 70],
   autoSortTileRecord: true,
@@ -43,7 +42,6 @@ export function normalizeUserPreferences(value: unknown): UserPreferences {
   ) as Record<InHandEventType, number>
 
   return {
-    confirmBeforeScoreSubmit: source.confirmBeforeScoreSubmit === true,
     hapticFeedback: source.hapticFeedback !== false,
     quickScores: [
       normalizeScore(quickScores[0], DEFAULT_USER_PREFERENCES.quickScores[0]),

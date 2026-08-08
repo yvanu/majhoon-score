@@ -9,6 +9,7 @@ import type {
   Wind,
 } from '../../src/shared/types'
 import { currentUser } from '../auth-service'
+import { relationshipStatisticsForUser } from '../relationship-statistics'
 import { jsonError, now } from '../core'
 import type { Env } from '../env'
 import {
@@ -19,6 +20,13 @@ import {
 } from '../validation'
 
 export function registerMeRoutes(app: Hono<Env>) {
+  app.get('/api/me/users/:id/statistics', async c => {
+    const user = await currentUser(c)
+    if (!user) return jsonError(c, '请先登录', 401)
+    const statistics = await relationshipStatisticsForUser(c.env.DB, user.id, user.display_name?.trim() || user.username, c.req.param('id'))
+    return statistics ? c.json(statistics) : jsonError(c, '没有找到共同牌局', 404)
+  })
+
   app.get('/api/me/matches', async c => {
     const startedAt = performance.now()
     const user = await currentUser(c)
@@ -27,44 +35,49 @@ export function registerMeRoutes(app: Hono<Env>) {
     const requestedLimit = Number(c.req.query('limit') || 100)
     const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(100, Math.round(requestedLimit))) : 100
     const result = await c.env.DB.prepare(`
-      WITH owned_matches AS (
-        SELECT id, share_code, status, current_wind, current_hand, created_at, finished_at
-        FROM matches
-        WHERE owner_user_id = ?
-        ORDER BY created_at DESC
+      WITH visible_matches AS (
+        SELECT m.id, m.share_code, m.status, m.current_wind, m.current_hand, m.created_at, m.updated_at, m.finished_at, m.owner_user_id
+        FROM matches m
+        WHERE m.owner_user_id = ? OR EXISTS (
+          SELECT 1 FROM players visible_player WHERE visible_player.match_id = m.id AND visible_player.user_id = ?
+        )
+        ORDER BY m.created_at DESC
         LIMIT ?
       ),
       hand_counts AS (
         SELECT h.match_id, COUNT(*) hand_count
         FROM hands h
-        JOIN owned_matches m ON m.id = h.match_id
+        JOIN visible_matches m ON m.id = h.match_id
         WHERE h.result_type <> 'event'
         GROUP BY h.match_id
       ),
       player_names AS (
         SELECT p.match_id, GROUP_CONCAT(p.name) player_names
         FROM players p
-        JOIN owned_matches m ON m.id = p.match_id
+        JOIN visible_matches m ON m.id = p.match_id
         GROUP BY p.match_id
       )
       SELECT m.id, m.share_code, m.status, m.current_wind, m.current_hand,
-             m.created_at, m.finished_at,
+             CASE WHEN m.owner_user_id = ? THEN 1 ELSE 0 END is_owner,
+             m.created_at, m.updated_at, m.finished_at,
              COALESCE(h.hand_count, 0) hand_count,
              COALESCE(p.player_names, '') player_names
-      FROM owned_matches m
+      FROM visible_matches m
       LEFT JOIN hand_counts h ON h.match_id = m.id
       LEFT JOIN player_names p ON p.match_id = m.id
       ORDER BY m.created_at DESC
-    `).bind(user.id, limit).all<Record<string, unknown>>()
+    `).bind(user.id, user.id, limit, user.id).all<Record<string, unknown>>()
     const queriedAt = performance.now()
 
     const matches: MatchSummary[] = result.results.map(row => ({
       id: String(row.id),
       share_code: String(row.share_code),
       status: row.status as MatchSummary['status'],
+      is_owner: Number(row.is_owner ?? 0) === 1,
       current_wind: row.current_wind as Wind,
       current_hand: Number(row.current_hand),
       created_at: String(row.created_at),
+      updated_at: String(row.updated_at),
       finished_at: row.finished_at ? String(row.finished_at) : null,
       hand_count: Number(row.hand_count ?? 0),
       player_names: typeof row.player_names === 'string' ? row.player_names.split(',') : [],
@@ -97,48 +110,126 @@ export function registerMeRoutes(app: Hono<Env>) {
     if (!user) return jsonError(c, '请先登录', 401)
 
     const summaryOnly = c.req.query('summary') === '1'
+    const playerName = user.display_name?.trim() || user.username
     const result = summaryOnly
       ? await c.env.DB.prepare(`
-          SELECT f.id, f.name, f.avatar_seed, f.last_played_at,
-            COUNT(DISTINCT p.match_id) joint_matches,
+          WITH visible_matches AS (
+            SELECT m.id, m.created_at
+            FROM matches m
+            WHERE m.owner_user_id = ? OR EXISTS (
+              SELECT 1 FROM players selfp WHERE selfp.match_id = m.id AND selfp.user_id = ?
+            )
+          )
+          SELECT f.id, f.name, f.avatar_seed, f.linked_user_id,
+            COALESCE(NULLIF(TRIM(lu.display_name), ''), lu.username) wechat_name,
+            lu.avatar_url wechat_avatar_url, lu.gender wechat_gender,
+            COALESCE(MAX(CASE WHEN p.id IS NOT NULL THEN m.created_at END), f.last_played_at) last_played_at,
+            COUNT(DISTINCT CASE WHEN m.id IS NOT NULL THEN p.match_id END) joint_matches,
             0 gang_kai_wins,
             0 gang_kai_against
           FROM friends f
-          LEFT JOIN players p ON p.friend_id = f.id
+          LEFT JOIN users lu ON lu.id = f.linked_user_id
+          LEFT JOIN players p ON (
+            p.friend_id = f.id OR (f.linked_user_id IS NOT NULL AND p.user_id = f.linked_user_id)
+          )
+          LEFT JOIN visible_matches m ON m.id = p.match_id
           WHERE f.user_id = ?
           GROUP BY f.id
-          ORDER BY f.last_played_at DESC, f.updated_at DESC, f.name ASC
+          ORDER BY last_played_at DESC, f.updated_at DESC, f.name ASC
           LIMIT 100
-        `).bind(user.id).all<Record<string, unknown>>()
+        `).bind(user.id, user.id, user.id).all<Record<string, unknown>>()
       : await c.env.DB.prepare(`
-          SELECT f.id, f.name, f.avatar_seed, f.last_played_at,
-            COUNT(DISTINCT p.match_id) joint_matches,
-            SUM(CASE WHEN EXISTS (
+          WITH visible_matches AS (
+            SELECT m.id, m.created_at
+            FROM matches m
+            WHERE m.owner_user_id = ? OR EXISTS (
+              SELECT 1 FROM players selfp WHERE selfp.match_id = m.id AND selfp.user_id = ?
+            )
+          )
+          SELECT f.id, f.name, f.avatar_seed, f.linked_user_id,
+            COALESCE(NULLIF(TRIM(lu.display_name), ''), lu.username) wechat_name,
+            lu.avatar_url wechat_avatar_url, lu.gender wechat_gender,
+            COALESCE(MAX(CASE WHEN p.id IS NOT NULL THEN m.created_at END), f.last_played_at) last_played_at,
+            COUNT(DISTINCT CASE WHEN m.id IS NOT NULL THEN p.match_id END) joint_matches,
+            SUM(CASE WHEN m.id IS NOT NULL AND p.id IS NOT NULL AND EXISTS (
               SELECT 1 FROM hand_outcomes ho
               WHERE ho.hand_id = h.id AND ho.winner_player_id = p.id AND INSTR(COALESCE(ho.note, ''), '杠开') > 0
             ) THEN 1 ELSE 0 END) gang_kai_wins,
-            SUM(CASE WHEN h.result_type = 'ron' AND h.loser_player_id = p.id AND EXISTS (
+            SUM(CASE WHEN m.id IS NOT NULL AND p.id IS NOT NULL AND h.result_type = 'ron' AND h.loser_player_id = p.id AND EXISTS (
               SELECT 1 FROM hand_outcomes ho
               WHERE ho.hand_id = h.id AND INSTR(COALESCE(ho.note, ''), '杠开') > 0
             ) THEN 1 ELSE 0 END) gang_kai_against
           FROM friends f
-          LEFT JOIN players p ON p.friend_id = f.id
-          LEFT JOIN hands h ON h.match_id = p.match_id
+          LEFT JOIN users lu ON lu.id = f.linked_user_id
+          LEFT JOIN players p ON (
+            p.friend_id = f.id OR (f.linked_user_id IS NOT NULL AND p.user_id = f.linked_user_id)
+          )
+          LEFT JOIN visible_matches m ON m.id = p.match_id
+          LEFT JOIN hands h ON h.match_id = m.id
           WHERE f.user_id = ?
           GROUP BY f.id
-          ORDER BY f.last_played_at DESC, f.updated_at DESC, f.name ASC
+          ORDER BY last_played_at DESC, f.updated_at DESC, f.name ASC
           LIMIT 100
-        `).bind(user.id).all<Record<string, unknown>>()
+        `).bind(user.id, user.id, user.id).all<Record<string, unknown>>()
+    const wechatResult = await c.env.DB.prepare(`
+      WITH shared_wechat_users AS (
+        SELECT targetp.user_id target_user_id,
+          COUNT(DISTINCT m.id) joint_matches,
+          MAX(m.created_at) last_played_at
+        FROM matches m
+        JOIN players selfp ON selfp.match_id = m.id AND (
+          selfp.user_id = ? OR (
+            m.owner_user_id = ? AND selfp.user_id IS NULL AND selfp.friend_id IS NULL AND selfp.name = ? COLLATE NOCASE
+          )
+        )
+        JOIN players targetp ON targetp.match_id = m.id
+          AND targetp.user_id IS NOT NULL AND targetp.user_id <> ?
+        WHERE NOT EXISTS (
+          SELECT 1 FROM friends linked
+          WHERE linked.user_id = ? AND linked.linked_user_id = targetp.user_id
+        )
+        GROUP BY targetp.user_id
+      )
+      SELECT u.id user_id,
+        COALESCE(NULLIF(TRIM(u.display_name), ''), u.username) display_name,
+        u.avatar_url, u.gender, shared.joint_matches, shared.last_played_at
+      FROM shared_wechat_users shared
+      JOIN users u ON u.id = shared.target_user_id
+      ORDER BY shared.last_played_at DESC
+      LIMIT 100
+    `).bind(user.id, user.id, playerName, user.id, user.id).all<Record<string, unknown>>()
     const queriedAt = performance.now()
-    const friends: Friend[] = result.results.map(row => ({
+    const manualFriends: Friend[] = result.results.map(row => ({
       id: String(row.id),
+      source: 'manual',
       name: String(row.name),
       avatar_seed: Number(row.avatar_seed),
+      linkedUserId: row.linked_user_id ? String(row.linked_user_id) : null,
+      wechatName: row.wechat_name ? String(row.wechat_name) : null,
+      wechatAvatarUrl: row.wechat_avatar_url ? String(row.wechat_avatar_url) : null,
+      wechatGender: row.wechat_gender === 'male' || row.wechat_gender === 'female' ? row.wechat_gender : null,
       jointMatches: Number(row.joint_matches ?? 0),
       gangKaiWins: Number(row.gang_kai_wins ?? 0),
       gangKaiAgainst: Number(row.gang_kai_against ?? 0),
       lastPlayedAt: row.last_played_at ? String(row.last_played_at) : null,
     }))
+    const wechatFriends: Friend[] = wechatResult.results.map(row => ({
+      id: `wechat:${String(row.user_id)}`,
+      source: 'wechat',
+      name: String(row.display_name),
+      avatar_seed: 0,
+      linkedUserId: String(row.user_id),
+      wechatName: String(row.display_name),
+      wechatAvatarUrl: row.avatar_url ? String(row.avatar_url) : null,
+      wechatGender: row.gender === 'male' || row.gender === 'female' ? row.gender : null,
+      jointMatches: Number(row.joint_matches ?? 0),
+      gangKaiWins: 0,
+      gangKaiAgainst: 0,
+      lastPlayedAt: row.last_played_at ? String(row.last_played_at) : null,
+    }))
+    const friends = [...manualFriends, ...wechatFriends]
+      .sort((left, right) => (right.lastPlayedAt ? Date.parse(right.lastPlayedAt) : 0) - (left.lastPlayedAt ? Date.parse(left.lastPlayedAt) : 0) || right.jointMatches - left.jointMatches)
+      .slice(0, 100)
     const mappedAt = performance.now()
     c.header('Server-Timing', [
       `auth;dur=${(authenticatedAt - startedAt).toFixed(1)}`,
@@ -155,26 +246,83 @@ export function registerMeRoutes(app: Hono<Env>) {
     if (!user) return jsonError(c, '请先登录', 401)
 
     const friendId = c.req.param('id')
-    const [friendResult, rowsResult] = await c.env.DB.batch([
+    const playerName = user.display_name?.trim() || user.username
+    const [friendResult, rowsResult, relationResult, trendResult] = await c.env.DB.batch([
       c.env.DB.prepare(`
-        SELECT id, name, avatar_seed, last_played_at
-        FROM friends WHERE id = ? AND user_id = ?
+        SELECT f.id, f.name, f.avatar_seed, f.linked_user_id, f.last_played_at,
+          COALESCE(NULLIF(TRIM(u.display_name), ''), u.username) wechat_name,
+          u.avatar_url wechat_avatar_url, u.gender wechat_gender
+        FROM friends f
+        LEFT JOIN users u ON u.id = f.linked_user_id
+        WHERE f.id = ? AND f.user_id = ?
       `).bind(friendId, user.id),
       c.env.DB.prepare(`
         SELECT p.id player_id, p.match_id, h.id hand_id, h.result_type,
           h.loser_player_id, ho.winner_player_id outcome_winner_player_id, ho.note outcome_note
         FROM players p
-        JOIN matches m ON m.id = p.match_id AND m.owner_user_id = ?
+        JOIN matches m ON m.id = p.match_id
         LEFT JOIN hands h ON h.match_id = p.match_id
         LEFT JOIN hand_outcomes ho ON ho.hand_id = h.id
-        WHERE p.friend_id = ?
+        WHERE (p.friend_id = ? OR p.user_id = (
+          SELECT linked_user_id FROM friends WHERE id = ? AND user_id = ?
+        )) AND EXISTS (
+          SELECT 1 FROM players selfp
+          WHERE selfp.match_id = m.id AND (
+            selfp.user_id = ? OR (
+              m.owner_user_id = ? AND selfp.user_id IS NULL AND selfp.friend_id IS NULL AND selfp.name = ? COLLATE NOCASE
+            )
+          )
+        )
         ORDER BY h.created_at ASC, ho.outcome_order ASC
-      `).bind(user.id, friendId),
+      `).bind(friendId, friendId, user.id, user.id, user.id, playerName),
+      c.env.DB.prepare(`
+        SELECT h.id hand_id, h.result_type, h.loser_player_id,
+          selfp.id self_player_id, friendp.id friend_player_id,
+          ho.winner_player_id outcome_winner_player_id,
+          h.winner_player_id legacy_winner_player_id
+        FROM matches m
+        JOIN players selfp ON selfp.match_id = m.id AND (
+          selfp.user_id = ? OR (
+            m.owner_user_id = ? AND selfp.user_id IS NULL AND selfp.friend_id IS NULL AND selfp.name = ? COLLATE NOCASE
+          )
+        )
+        JOIN players friendp ON friendp.match_id = m.id AND (
+          friendp.friend_id = ? OR friendp.user_id = (
+            SELECT linked_user_id FROM friends WHERE id = ? AND user_id = ?
+          )
+        )
+        JOIN hands h ON h.match_id = m.id AND h.result_type <> 'event'
+        LEFT JOIN hand_outcomes ho ON ho.hand_id = h.id
+        ORDER BY h.created_at ASC, ho.outcome_order ASC
+      `).bind(user.id, user.id, playerName, friendId, friendId, user.id),
+      c.env.DB.prepare(`
+        SELECT m.id match_id, m.created_at,
+          COALESCE(SUM(hs.score_change), 0) score
+        FROM matches m
+        JOIN players selfp ON selfp.match_id = m.id AND (
+          selfp.user_id = ? OR (
+            m.owner_user_id = ? AND selfp.user_id IS NULL AND selfp.friend_id IS NULL AND selfp.name = ? COLLATE NOCASE
+          )
+        )
+        LEFT JOIN hand_scores hs ON hs.player_id = selfp.id
+        WHERE EXISTS (
+          SELECT 1 FROM players friendp
+          WHERE friendp.match_id = m.id AND (
+            friendp.friend_id = ? OR friendp.user_id = (
+              SELECT linked_user_id FROM friends WHERE id = ? AND user_id = ?
+            )
+          )
+        )
+        GROUP BY m.id, m.created_at
+        ORDER BY m.created_at ASC
+      `).bind(user.id, user.id, playerName, friendId, friendId, user.id),
     ])
     const queriedAt = performance.now()
     const friend = (friendResult as D1Result<Record<string, unknown>>).results[0]
     if (!friend) return jsonError(c, '牌友不存在', 404)
     const rows = rowsResult as D1Result<Record<string, unknown>>
+    const relationRows = relationResult as D1Result<Record<string, unknown>>
+    const trendRows = trendResult as D1Result<Record<string, unknown>>
 
     const matchIds = new Set<string>()
     const handIds = new Set<string>()
@@ -223,6 +371,32 @@ export function registerMeRoutes(app: Hono<Env>) {
       }
     }
 
+    const myWinHands = new Set<string>()
+    const friendWinHands = new Set<string>()
+    const myDealInHands = new Set<string>()
+    const friendDealInHands = new Set<string>()
+    for (const row of relationRows.results) {
+      const handId = String(row.hand_id)
+      const selfPlayerId = String(row.self_player_id)
+      const friendPlayerId = String(row.friend_player_id)
+      const winnerId = row.outcome_winner_player_id
+        ? String(row.outcome_winner_player_id)
+        : row.legacy_winner_player_id
+          ? String(row.legacy_winner_player_id)
+          : ''
+      const loserId = row.loser_player_id ? String(row.loser_player_id) : ''
+      if (winnerId === selfPlayerId) myWinHands.add(handId)
+      if (winnerId === friendPlayerId) friendWinHands.add(handId)
+      if (row.result_type === 'ron' && loserId === selfPlayerId && winnerId === friendPlayerId) myDealInHands.add(handId)
+      if (row.result_type === 'ron' && loserId === friendPlayerId && winnerId === selfPlayerId) friendDealInHands.add(handId)
+    }
+    const trend = trendRows.results.map(row => ({
+      matchId: String(row.match_id),
+      createdAt: String(row.created_at),
+      score: Number(row.score ?? 0),
+    }))
+    const netScore = trend.reduce((total, point) => total + point.score, 0)
+
     const sortPatterns = (patterns: Map<string, number>): FriendPatternStat[] =>
       [...patterns.entries()]
         .map(([name, count]) => ({ name, count }))
@@ -231,8 +405,13 @@ export function registerMeRoutes(app: Hono<Env>) {
     const response: FriendStatistics = {
       friend: {
         id: String(friend.id),
+        source: 'manual',
         name: String(friend.name),
         avatar_seed: Number(friend.avatar_seed),
+        linkedUserId: friend.linked_user_id ? String(friend.linked_user_id) : null,
+        wechatName: friend.wechat_name ? String(friend.wechat_name) : null,
+        wechatAvatarUrl: friend.wechat_avatar_url ? String(friend.wechat_avatar_url) : null,
+        wechatGender: friend.wechat_gender === 'male' || friend.wechat_gender === 'female' ? friend.wechat_gender : null,
         jointMatches: matchIds.size,
         gangKaiWins,
         gangKaiAgainst,
@@ -245,6 +424,12 @@ export function registerMeRoutes(app: Hono<Env>) {
       dealIns,
       winPatterns: sortPatterns(winPatterns),
       dealInPatterns: sortPatterns(dealInPatterns),
+      myWins: myWinHands.size,
+      friendWins: friendWinHands.size,
+      myDealInsToFriend: myDealInHands.size,
+      friendDealInsToMe: friendDealInHands.size,
+      netScore,
+      trend,
     }
     const mappedAt = performance.now()
     c.header('Server-Timing', [
@@ -270,12 +455,16 @@ export function registerMeRoutes(app: Hono<Env>) {
           COUNT(DISTINCT CASE WHEN h.result_type <> 'event' THEN h.id END) hand_count
         FROM matches m
         LEFT JOIN hands h ON h.match_id = m.id
-        WHERE m.owner_user_id = ? AND m.created_at BETWEEN ? AND ?
-      `).bind(user.id, start, end),
+        WHERE m.created_at BETWEEN ? AND ? AND (
+          m.owner_user_id = ? OR EXISTS (
+            SELECT 1 FROM players visible_player WHERE visible_player.match_id = m.id AND visible_player.user_id = ?
+          )
+        )
+      `).bind(start, end, user.id, user.id),
       c.env.DB.prepare(`
         SELECT p.name,
           MAX(CASE WHEN p.user_id = ? OR (
-            p.user_id IS NULL AND p.friend_id IS NULL AND p.name = ? COLLATE NOCASE
+            m.owner_user_id = ? AND p.user_id IS NULL AND p.friend_id IS NULL AND p.name = ? COLLATE NOCASE
           ) THEN 1 ELSE 0 END) is_self,
           COALESCE(SUM(hs.score_change), 0) score,
           SUM(CASE WHEN h.result_type IN ('ron', 'tsumo') AND (
@@ -311,15 +500,21 @@ export function registerMeRoutes(app: Hono<Env>) {
         JOIN players p ON p.match_id = m.id
         LEFT JOIN hands h ON h.match_id = m.id
         LEFT JOIN hand_scores hs ON hs.hand_id = h.id AND hs.player_id = p.id
-        WHERE m.owner_user_id = ? AND m.created_at BETWEEN ? AND ?
+        WHERE m.created_at BETWEEN ? AND ? AND (
+          m.owner_user_id = ? OR EXISTS (
+            SELECT 1 FROM players visible_player WHERE visible_player.match_id = m.id AND visible_player.user_id = ?
+          )
+        )
         GROUP BY p.name
         ORDER BY score DESC, wins DESC, p.name ASC
       `).bind(
         user.id,
-        user.display_name?.trim() || user.username,
         user.id,
+        user.display_name?.trim() || user.username,
         start,
         end,
+        user.id,
+        user.id,
       ),
     ])
     const queriedAt = performance.now()
@@ -363,17 +558,17 @@ export function registerMeRoutes(app: Hono<Env>) {
     if (!period) return jsonError(c, '统计时间范围无效')
 
     const playerName = user.display_name?.trim() || user.username
-    const [rowsResult, featuredResult] = await c.env.DB.batch([
+    const [rowsResult, featuredResult, trendResult] = await c.env.DB.batch([
       c.env.DB.prepare(`
         SELECT h.id hand_id, h.result_type, h.loser_player_id,
           p.id player_id,
           ho.winner_player_id outcome_winner_player_id,
           ho.note outcome_note
         FROM hands h
-        JOIN matches m ON m.id = h.match_id AND m.owner_user_id = ?
+        JOIN matches m ON m.id = h.match_id
         JOIN players p ON p.match_id = m.id AND (
           p.user_id = ? OR (
-            p.user_id IS NULL AND p.friend_id IS NULL AND
+            m.owner_user_id = ? AND p.user_id IS NULL AND p.friend_id IS NULL AND
             p.name = ? COLLATE NOCASE
           )
         )
@@ -386,10 +581,10 @@ export function registerMeRoutes(app: Hono<Env>) {
           COALESCE(hs.score_change, 0) score_change,
           ho.note outcome_note, ho.tile_record outcome_tile_record
         FROM hands h
-        JOIN matches m ON m.id = h.match_id AND m.owner_user_id = ?
+        JOIN matches m ON m.id = h.match_id
         JOIN players p ON p.match_id = m.id AND (
           p.user_id = ? OR (
-            p.user_id IS NULL AND p.friend_id IS NULL AND
+            m.owner_user_id = ? AND p.user_id IS NULL AND p.friend_id IS NULL AND
             p.name = ? COLLATE NOCASE
           )
         )
@@ -400,10 +595,26 @@ export function registerMeRoutes(app: Hono<Env>) {
         ORDER BY COALESCE(hs.score_change, 0) DESC, h.created_at DESC
         LIMIT 1
       `).bind(user.id, user.id, playerName, period.startAt, period.endAt),
+      c.env.DB.prepare(`
+        SELECT m.id match_id, MIN(h.created_at) created_at,
+          COALESCE(SUM(hs.score_change), 0) score
+        FROM matches m
+        JOIN players p ON p.match_id = m.id AND (
+          p.user_id = ? OR (
+            m.owner_user_id = ? AND p.user_id IS NULL AND p.friend_id IS NULL AND p.name = ? COLLATE NOCASE
+          )
+        )
+        JOIN hands h ON h.match_id = m.id
+          AND h.created_at >= ? AND h.created_at < ?
+        LEFT JOIN hand_scores hs ON hs.hand_id = h.id AND hs.player_id = p.id
+        GROUP BY m.id
+        ORDER BY MIN(h.created_at) ASC
+      `).bind(user.id, user.id, playerName, period.startAt, period.endAt),
     ])
     const queriedAt = performance.now()
     const rows = rowsResult as D1Result<Record<string, unknown>>
     const featuredRow = (featuredResult as D1Result<Record<string, unknown>>).results[0]
+    const trendRows = trendResult as D1Result<Record<string, unknown>>
 
     let wins = 0
     let dealIns = 0
@@ -445,6 +656,13 @@ export function registerMeRoutes(app: Hono<Env>) {
       }
     }
 
+    const trend = trendRows.results.map(row => ({
+      matchId: String(row.match_id),
+      createdAt: String(row.created_at),
+      score: Number(row.score ?? 0),
+    }))
+    const netScore = trend.reduce((total, point) => total + point.score, 0)
+
     const response: PersonalStatistics = {
       dimension: period.dimension,
       value: period.value,
@@ -454,6 +672,8 @@ export function registerMeRoutes(app: Hono<Env>) {
       dealIns,
       tsumoWins,
       bigHands,
+      netScore,
+      trend,
       patterns: [...patternCounts.entries()]
         .map(([name, count]) => ({ name, count }))
         .sort((first, second) => second.count - first.count || first.name.localeCompare(second.name, 'zh-CN')),

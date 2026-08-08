@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Taro from '@tarojs/taro'
 import { Button, Input, Picker, ScrollView, Text, Textarea, View } from '@tarojs/components'
 import type {
@@ -12,6 +12,8 @@ import type {
   GroupSessionSummary,
 } from '@shared/types'
 import { FriendAvatar, Header, displayUserName, getPageTopInset } from './shared'
+import { IdentityAvatar } from './identity-avatar'
+import { GroupMemberInfoModal } from './group-member-info'
 
 const statusCopy: Record<GroupSessionStatus, { label: string; tone: string }> = {
   recruiting: { label: '招募中', tone: 'open' },
@@ -64,13 +66,9 @@ function formatConversationTime(value: string | null) {
   return `${date.getMonth() + 1}/${date.getDate()}`
 }
 
-function memberInitial(name: string) {
-  return [...name.trim()][0] || '友'
-}
-
-function GroupMemberAvatar({ member, empty = false }: { member?: Pick<GroupSessionMember, 'name' | 'avatar_seed'>; empty?: boolean }) {
-  if (empty || !member) return <View className='group-member-avatar vacant'><Text>+</Text></View>
-  return <View className={`group-member-avatar avatar-${Number(member.avatar_seed || 0) % 6}`}><Text>{memberInitial(member.name)}</Text></View>
+function GroupMemberAvatar({ member, empty = false }: { member?: Pick<GroupSessionMember, 'name' | 'avatar_seed' | 'avatar_url' | 'gender'>; empty?: boolean }) {
+  if (empty || !member) return <View className='group-member-avatar vacant'><Text>＋</Text></View>
+  return <View className='group-member-avatar identity'><IdentityAvatar name={member.name} avatarUrl={member.avatar_url} gender={member.gender} size='small' /></View>
 }
 
 function GroupCard({ group, onOpen, onJoin }: { group: GroupSessionSummary; onOpen: () => void; onJoin: () => void }) {
@@ -298,7 +296,7 @@ export function GroupCreateScreen({ user, friends, loading, friendPickerOpen, de
   )
   const visibleFriends = useMemo(() => {
     const query = friendQuery.trim().toLocaleLowerCase()
-    return friends.filter(friend => !query || friend.name.toLocaleLowerCase().includes(query))
+    return friends.filter(friend => friend.source !== 'wechat' && (!query || friend.name.toLocaleLowerCase().includes(query)))
   }, [friendQuery, friends])
 
   function openFriendPicker() {
@@ -406,10 +404,14 @@ function memberStatusText(member: GroupSessionMember) {
   return member.status === 'confirmed' ? '已确认' : '已邀请 · 待确认'
 }
 
-export function GroupDetailScreen({ group, currentUserId, loading, onBack, onJoin, onLeave, onUpdateMember, onRemoveMember, onCancel, onStart, onOpenMatch, onOpenChat }: {
+export function GroupDetailScreen({ group, currentUserId, friends, friendsLoading, loading, closeOverlayRequest, onOverlayOpenChange, onBack, onJoin, onLeave, onUpdateMember, onRemoveMember, onCancel, onStart, onOpenMatch, onOpenChat, onEnsureFriends, onFriendsChanged, onOpenFriend }: {
   group: GroupSession
   currentUserId: string
+  friends: Friend[]
+  friendsLoading: boolean
   loading: boolean
+  closeOverlayRequest: number
+  onOverlayOpenChange: (open: boolean) => void
   onBack: () => void
   onJoin: () => void
   onLeave: () => void
@@ -419,6 +421,9 @@ export function GroupDetailScreen({ group, currentUserId, loading, onBack, onJoi
   onStart: () => void
   onOpenMatch: (matchId: string) => void
   onOpenChat: () => void
+  onEnsureFriends: () => Promise<void>
+  onFriendsChanged: () => Promise<void>
+  onOpenFriend: (friend: Friend) => void
 }) {
   const status = statusCopy[group.status]
   const myMember = group.members.find(member => member.user_id === currentUserId)
@@ -427,6 +432,18 @@ export function GroupDetailScreen({ group, currentUserId, loading, onBack, onJoi
   const canLeave = Boolean(myMember && myMember.role !== 'owner' && (group.status === 'recruiting' || group.status === 'full'))
   const canStart = group.is_owner && !group.match_id && group.confirmed_count === group.capacity && (group.status === 'recruiting' || group.status === 'full')
   const canOpenChat = Boolean(myMember?.status === 'confirmed')
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null)
+  const selectedMember = group.members.find(member => member.id === selectedMemberId) || null
+
+  useEffect(() => {
+    onOverlayOpenChange(Boolean(selectedMemberId))
+  }, [onOverlayOpenChange, selectedMemberId])
+
+  useEffect(() => () => onOverlayOpenChange(false), [onOverlayOpenChange])
+
+  useEffect(() => {
+    if (closeOverlayRequest > 0) setSelectedMemberId(null)
+  }, [closeOverlayRequest])
 
   async function copyInvite() {
     await Taro.setClipboardData({ data: group.share_code })
@@ -447,16 +464,16 @@ export function GroupDetailScreen({ group, currentUserId, loading, onBack, onJoi
 
     <View className='group-member-section-head'><Text>参与成员</Text><Text>已确认 {group.confirmed_count}/{group.capacity}</Text></View>
     <View className='group-table-layout'>
-      {group.members.map(member => <View className='group-member-card' key={member.id}>
+      {group.members.map(member => <View className='group-member-card' key={member.id} onClick={() => setSelectedMemberId(member.id)}>
         <GroupMemberAvatar member={member} />
         <View className='grow'><Text className='card-title'>{member.name}</Text><Text className={member.status === 'confirmed' ? 'group-member-status confirmed' : 'group-member-status invited'}>{memberStatusText(member)}</Text></View>
         {canManage && member.role !== 'owner' && <View className='group-member-actions'>
           <Button
             className={member.status === 'confirmed' ? 'group-member-manage muted' : 'group-member-manage'}
             disabled={loading}
-            onClick={() => onUpdateMember(member.id, member.status === 'confirmed' ? 'invited' : 'confirmed')}
+            onClick={event => { event.stopPropagation(); onUpdateMember(member.id, member.status === 'confirmed' ? 'invited' : 'confirmed') }}
           >{member.status === 'confirmed' ? '待确认' : '确认'}</Button>
-          <Button className='group-member-remove' disabled={loading} onClick={() => onRemoveMember(member.id)}>移除</Button>
+          <Button className='group-member-remove' disabled={loading} onClick={event => { event.stopPropagation(); onRemoveMember(member.id) }}>移除</Button>
         </View>}
       </View>)}
       {Array.from({ length: Math.max(0, group.capacity - group.members.length) }, (_, index) => <View className='group-member-card vacant' key={`vacant-${index}`}>
@@ -483,10 +500,20 @@ export function GroupDetailScreen({ group, currentUserId, loading, onBack, onJoi
     {group.status === 'finished' && group.match_id && <Button className='secondary group-primary-action' onClick={() => onOpenMatch(group.match_id!)}>查看牌局记录</Button>}
     {canJoin && <Button className='primary group-primary-action' disabled={loading} onClick={onJoin}>{loading ? '加入中…' : '加入组局'}</Button>}
     {canLeave && <Button className='secondary group-primary-action' disabled={loading} onClick={onLeave}>退出组局</Button>}
-    {canStart && <Button className='primary group-primary-action' disabled={loading} onClick={onStart}>{loading ? '创建牌局中…' : '四人已齐 · 开始记分'}</Button>}
-    {group.is_owner && !canStart && (group.status === 'recruiting' || group.status === 'full') && <Text className='group-start-hint'>确认满四人后即可直接创建牌局并开始记分。</Text>}
+    {canStart && <Button className='primary group-primary-action' disabled={loading} onClick={onStart}>{loading ? '准备座位中…' : '四人已齐 · 确定座位'}</Button>}
+    {group.is_owner && !canStart && (group.status === 'recruiting' || group.status === 'full') && <Text className='group-start-hint'>确认满四人后先确定东南西北，再开始记分。</Text>}
     {(group.status === 'recruiting' || group.status === 'full') && <Button className='primary group-share-action' openType='share'>微信邀请好友</Button>}
     <Button className='secondary group-copy-action' onClick={copyInvite}>复制组局码</Button>
     {canManage && <Button className='danger-link group-cancel-action' disabled={loading} onClick={onCancel}>取消组局</Button>}
+    {selectedMember && <GroupMemberInfoModal
+      member={selectedMember}
+      currentUserId={currentUserId}
+      friends={friends}
+      friendsLoading={friendsLoading}
+      onEnsureFriends={onEnsureFriends}
+      onFriendsChanged={onFriendsChanged}
+      onOpenFriend={friend => { setSelectedMemberId(null); onOpenFriend(friend) }}
+      onClose={() => setSelectedMemberId(null)}
+    />}
   </View></ScrollView>
 }

@@ -1,11 +1,19 @@
 export async function ensureUserProfileSchema(db: D1Database) {
   const columns = await db.prepare('PRAGMA table_info(users)').all<{ name: string }>()
-  if (columns.results.some(column => column.name === 'display_name')) return
-  try {
-    await db.prepare('ALTER TABLE users ADD COLUMN display_name TEXT').run()
-  } catch (error) {
-    const refreshed = await db.prepare('PRAGMA table_info(users)').all<{ name: string }>()
-    if (!refreshed.results.some(column => column.name === 'display_name')) throw error
+  const names = new Set(columns.results.map(column => column.name))
+  const missing = [
+    !names.has('display_name') ? 'ALTER TABLE users ADD COLUMN display_name TEXT' : '',
+    !names.has('gender') ? "ALTER TABLE users ADD COLUMN gender TEXT CHECK (gender IN ('male', 'female'))" : '',
+    !names.has('avatar_url') ? 'ALTER TABLE users ADD COLUMN avatar_url TEXT' : '',
+  ].filter(Boolean)
+  for (const statement of missing) {
+    try {
+      await db.prepare(statement).run()
+    } catch (error) {
+      const refreshed = await db.prepare('PRAGMA table_info(users)').all<{ name: string }>()
+      const columnName = statement.includes('display_name') ? 'display_name' : statement.includes('avatar_url') ? 'avatar_url' : 'gender'
+      if (!refreshed.results.some(column => column.name === columnName)) throw error
+    }
   }
 }
 
@@ -26,6 +34,19 @@ export async function ensureFriendSchema(db: D1Database) {
   await db.prepare(`
     CREATE INDEX IF NOT EXISTS idx_friends_user_last_played
     ON friends(user_id, last_played_at DESC, updated_at DESC)
+  `).run()
+  const friendColumns = await db.prepare('PRAGMA table_info(friends)').all<{ name: string }>()
+  if (!friendColumns.results.some(column => column.name === 'linked_user_id')) {
+    try {
+      await db.prepare('ALTER TABLE friends ADD COLUMN linked_user_id TEXT REFERENCES users(id) ON DELETE SET NULL').run()
+    } catch (error) {
+      const refreshed = await db.prepare('PRAGMA table_info(friends)').all<{ name: string }>()
+      if (!refreshed.results.some(column => column.name === 'linked_user_id')) throw error
+    }
+  }
+  await db.prepare(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_friends_owner_linked_user
+    ON friends(user_id, linked_user_id) WHERE linked_user_id IS NOT NULL
   `).run()
 
   const columns = await db.prepare('PRAGMA table_info(players)').all<{ name: string }>()

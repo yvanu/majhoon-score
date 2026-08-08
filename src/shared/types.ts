@@ -12,6 +12,7 @@ export type GroupSessionStatus = 'recruiting' | 'full' | 'active' | 'finished' |
 export type GroupMemberStatus = 'invited' | 'confirmed'
 export type GroupChatStatus = 'active' | 'readonly'
 export type GroupChatMessageType = 'text' | 'system'
+export type MatchLobbyStatus = 'preparing' | 'started' | 'cancelled'
 
 export interface HandTileRecord {
   pongs: MahjongTile[]
@@ -25,6 +26,8 @@ export interface Player {
   id: string
   name: string
   avatar_seed: number
+  avatar_url: string | null
+  gender: UserGender | null
   friend_id?: string | null
   user_id?: string | null
   seat: number
@@ -33,17 +36,36 @@ export interface Player {
 
 export interface Friend {
   id: string
+  source?: 'manual' | 'wechat'
   name: string
   avatar_seed: number
+  linkedUserId: string | null
+  wechatName: string | null
+  wechatAvatarUrl: string | null
+  wechatGender: UserGender | null
   jointMatches: number
   gangKaiWins: number
   gangKaiAgainst: number
   lastPlayedAt: string | null
 }
 
+export interface KnownUser {
+  id: string
+  displayName: string
+  avatarUrl: string | null
+  gender: UserGender | null
+  lastPlayedAt: string | null
+}
+
 export interface FriendPatternStat {
   name: string
   count: number
+}
+
+export interface ScoreTrendPoint {
+  matchId: string
+  createdAt: string
+  score: number
 }
 
 export interface FriendStatistics {
@@ -55,6 +77,12 @@ export interface FriendStatistics {
   dealIns: number
   winPatterns: FriendPatternStat[]
   dealInPatterns: FriendPatternStat[]
+  myWins: number
+  friendWins: number
+  myDealInsToFriend: number
+  friendDealInsToMe: number
+  netScore: number
+  trend: ScoreTrendPoint[]
 }
 
 export interface MatchPlayerInput {
@@ -63,12 +91,38 @@ export interface MatchPlayerInput {
   isSelf?: boolean
 }
 
+export interface MatchLobbyMember {
+  id: string
+  userId: string | null
+  friendId: string | null
+  name: string
+  avatarSeed: number
+  avatarUrl: string | null
+  gender: UserGender | null
+  joinedAt: string
+}
+
+export interface MatchLobby {
+  id: string
+  shareCode: string
+  ownerUserId: string
+  status: MatchLobbyStatus
+  matchId: string | null
+  members: MatchLobbyMember[]
+  isOwner: boolean
+  isMember: boolean
+  createdAt: string
+  updatedAt: string
+}
+
 export interface GroupSessionMember {
   id: string
   user_id: string | null
   friend_id: string | null
   name: string
   avatar_seed: number
+  avatar_url: string | null
+  gender: UserGender | null
   role: 'owner' | 'member'
   status: GroupMemberStatus
   joined_at: string
@@ -222,12 +276,13 @@ export interface PersonalStatistics {
   dealIns: number
   tsumoWins: number
   bigHands: number
+  netScore: number
+  trend: ScoreTrendPoint[]
   patterns: PersonalPatternStat[]
   featuredBigHand: FeaturedBigHand | null
 }
 
 export interface UserPreferences {
-  confirmBeforeScoreSubmit: boolean
   hapticFeedback: boolean
   quickScores: [number, number]
   autoSortTileRecord: boolean
@@ -271,11 +326,20 @@ export interface DailyStats {
   players: DailyPlayerStat[]
 }
 
+export type UserGender = 'male' | 'female'
+
 export interface AuthUser {
   id: string
   username: string
   display_name: string | null
+  gender: UserGender | null
+  avatar_url: string | null
   created_at: string
+}
+
+export interface UserProfileInput {
+  displayName: string
+  gender: UserGender
 }
 
 export interface AuthResult {
@@ -288,9 +352,11 @@ export interface MatchSummary {
   id: string
   share_code: string
   status: MatchStatus
+  is_owner: boolean
   current_wind: Wind
   current_hand: number
   created_at: string
+  updated_at?: string
   finished_at: string | null
   hand_count: number
   player_names: string[]

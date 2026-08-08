@@ -1,0 +1,15 @@
+.identity-avatar { position: relative; width: 72rpx; height: 72rpx; flex: 0 0 auto; border-radius: 50%; overflow: visible; }
+.identity-avatar.small { width: 56rpx; height: 56rpx; }
+.identity-avatar.large { width: 152rpx; height: 152rpx; }
+.identity-avatar-image, .identity-avatar-default, .identity-avatar-initial { width: 100%; height: 100%; border-radius: 50%; overflow: hidden; }
+.identity-avatar-image { display: block; }
+.identity-avatar-default { position: relative; background: #eef2f5; }
+.identity-avatar-default.male { background: #e8f1f8; }
+.identity-avatar-default.female { background: #f8edf1; }
+.identity-avatar-head { position: absolute; top: 20%; left: 50%; width: 34%; height: 34%; margin-left: -17%; border-radius: 50%; background: rgba(59,67,76,.76); }
+.identity-avatar-body { position: absolute; left: 50%; bottom: -8%; width: 68%; height: 50%; margin-left: -34%; border-radius: 50% 50% 18% 18%; background: rgba(59,67,76,.76); }
+.identity-avatar-default.female .identity-avatar-head, .identity-avatar-default.female .identity-avatar-body { background: rgba(113,71,84,.72); }
+.identity-avatar-initial { display: flex; align-items: center; justify-content: center; background: #eee9de; color: #4f4a43; }
+.identity-avatar-initial text { font-size: 30rpx; font-weight: 800; }
+.identity-avatar.large .identity-avatar-initial text { font-size: 52rpx; }
+.identity-avatar-badge { position: absolute; right: -5rpx; bottom: -5rpx; min-width: 30rpx; height: 30rpx; padding: 0 6rpx; display: flex; align-items: center; justify-content: center; box-sizing: border-box; border: 3rpx solid #fff; border-radius: 999rpx; background: #292724; color: #fff; font-size: 16rpx; font-weight: 800; }

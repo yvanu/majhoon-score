@@ -1,0 +1,12 @@
+.score-trend { margin-top: 14rpx; }
+.score-trend-canvas { position: relative; height: 190rpx; margin: 0 8rpx; overflow: hidden; }
+.score-trend-zero { position: absolute; left: 0; right: 0; height: 1rpx; background: #dcd6cb; }
+.score-trend-segment { position: absolute; z-index: 2; height: 3rpx; border-radius: 999rpx; background: var(--brand-deep); transform-origin: left center; }
+.score-trend-point { position: absolute; z-index: 3; width: 10rpx; height: 10rpx; margin: -5rpx 0 0 -5rpx; border: 3rpx solid #fff; border-radius: 50%; box-sizing: border-box; background: var(--brand-deep); box-shadow: 0 1rpx 5rpx rgba(73,57,31,.12); }
+.score-trend-point.positive { background: var(--ui-positive); }
+.score-trend-point.negative { background: var(--ui-negative); }
+.score-trend-foot { margin-top: 5rpx; display: flex; align-items: center; justify-content: space-between; }
+.score-trend-foot text { color: var(--text-tertiary); font-size: 16rpx; }
+.score-trend-foot .positive { color: var(--ui-positive); font-size: 17rpx; }
+.score-trend-foot .negative { color: var(--ui-negative); font-size: 17rpx; }
+.score-trend-empty { padding: 36rpx 10rpx; color: var(--text-tertiary); font-size: var(--font-caption); text-align: center; }

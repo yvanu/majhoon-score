@@ -1,0 +1,34 @@
+.seat-assignment-page { padding-left: var(--space-page); padding-right: var(--space-page); padding-bottom: calc(48rpx + env(safe-area-inset-bottom)); background: var(--bg-page); }
+.seat-assignment-nav { display: grid; grid-template-columns: 72rpx 1fr 72rpx; align-items: center; gap: var(--space-2); text-align: center; }
+.seat-nav-placeholder { width: 72rpx; }
+.seat-assignment-guide { display: block; margin: var(--space-3) auto 0; color: var(--text-secondary); font-size: var(--font-caption); line-height: 1.55; text-align: center; }
+.seat-table-wrap { position: relative; height: 610rpx; margin: var(--space-4) 0; }
+.seat-table-center { position: absolute; left: 50%; top: 50%; width: 238rpx; height: 164rpx; margin: -82rpx 0 0 -119rpx; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1rpx solid var(--line); border-radius: 40rpx; background: var(--bg-card); }
+.seat-table-center text:first-child { color: var(--text-primary); font-size: var(--font-body); font-weight: 800; }
+.seat-table-center text:last-child { margin-top: 8rpx; color: var(--text-tertiary); font-size: var(--font-caption); }
+.seat-slot { position: absolute; width: 190rpx; min-height: 154rpx; padding: 8rpx; box-sizing: border-box; border: 2rpx solid transparent; border-radius: var(--radius-lg); text-align: center; transition: border-color 180ms ease, background-color 180ms ease; }
+.seat-slot.active { border-color: var(--brand); background: var(--brand-soft); }
+.seat-slot.top { left: 50%; top: 0; margin-left: -95rpx; }
+.seat-slot.bottom { left: 50%; bottom: 0; margin-left: -95rpx; }
+.seat-slot.left { left: 0; top: 50%; margin-top: -77rpx; }
+.seat-slot.right { right: 0; top: 50%; margin-top: -77rpx; }
+.seat-slot-label { position: absolute; left: 8rpx; top: 8rpx; min-width: 40rpx; height: 40rpx; padding: 0 8rpx; display: flex; align-items: center; justify-content: center; gap: 4rpx; box-sizing: border-box; border-radius: 999rpx; background: #fff; color: var(--text-primary); font-size: 20rpx; font-weight: 850; box-shadow: 0 2rpx 8rpx rgba(50,43,32,.06); }
+.seat-slot-label text:last-child { color: var(--brand-deep); }
+.seat-slot-player .identity-avatar { margin: 0 auto; }
+.seat-slot-name { display: block; max-width: 168rpx; margin: 8rpx auto 0; overflow: hidden; color: var(--text-primary); font-size: var(--font-caption); font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.seat-slot-clear { position: absolute; right: 5rpx; top: 5rpx; width: 38rpx; height: 38rpx; line-height: 34rpx; margin: 0; padding: 0; border: 1rpx solid var(--line); border-radius: 50%; background: #fff; color: var(--text-secondary); font-size: 26rpx; }
+.seat-slot-empty { height: 138rpx; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-tertiary); font-size: var(--font-caption); }
+.seat-slot-empty text:first-child { color: var(--brand-deep); font-size: 40rpx; line-height: 1; }
+.seat-candidates { padding: var(--space-4); border: 1rpx solid var(--line); border-radius: var(--radius-lg); background: var(--bg-card); }
+.seat-candidate-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-3); }
+.seat-candidate-head text:first-child { color: var(--text-primary); font-size: var(--font-body); font-weight: 800; }
+.seat-candidate-head text:last-child { color: var(--brand-deep); font-size: var(--font-caption); }
+.seat-candidate-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: var(--space-2); }
+.seat-candidate { min-width: 0; padding: var(--space-2) 4rpx; border: 2rpx solid transparent; border-radius: var(--radius-md); background: var(--bg-muted); text-align: center; }
+.seat-candidate.assigned { border-color: #e6e0d6; background: #fff; }
+.seat-candidate .identity-avatar { margin: 0 auto; }
+.seat-candidate-name, .seat-candidate-state { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.seat-candidate-name { margin-top: 8rpx; color: var(--text-primary); font-size: 22rpx; font-weight: 750; }
+.seat-candidate-state { margin-top: 4rpx; color: var(--text-tertiary); font-size: 18rpx; }
+.seat-candidate.assigned .seat-candidate-state { color: var(--brand-deep); }
+.seat-confirm { margin-top: var(--space-4); }

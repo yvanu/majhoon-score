@@ -12,7 +12,7 @@ export async function currentUser(c: Context<Env>): Promise<AuthUser | null> {
   const token = bearer(c)
   if (!token) return null
   return await c.env.DB.prepare(`
-    SELECT u.id, u.username, u.display_name, u.created_at
+    SELECT u.id, u.username, u.display_name, u.gender, u.avatar_url, u.created_at
     FROM sessions s
     JOIN users u ON u.id = s.user_id
     WHERE s.token_hash = ? AND s.expires_at > ?
@@ -101,7 +101,7 @@ export async function exchangeWechatCode(c: Context<Env>, code: string) {
 
 export async function findOrCreateWechatUser(c: Context<Env>, openid: string, unionid: string | null) {
   const existing = await c.env.DB.prepare(`
-    SELECT id, username, display_name, created_at FROM users WHERE wechat_openid = ?
+    SELECT id, username, display_name, gender, avatar_url, created_at FROM users WHERE wechat_openid = ?
   `).bind(openid).first<AuthUser>()
   if (existing) return existing
 
@@ -113,10 +113,10 @@ export async function findOrCreateWechatUser(c: Context<Env>, openid: string, un
       INSERT INTO users(id, username, wechat_openid, wechat_unionid, created_at)
       VALUES(?, ?, ?, ?, ?)
     `).bind(id, username, openid, unionid, createdAt).run()
-    return { id, username, display_name: null, created_at: createdAt }
+    return { id, username, display_name: null, gender: null, avatar_url: null, created_at: createdAt }
   } catch (error) {
     const raced = await c.env.DB.prepare(`
-      SELECT id, username, display_name, created_at FROM users WHERE wechat_openid = ?
+      SELECT id, username, display_name, gender, avatar_url, created_at FROM users WHERE wechat_openid = ?
     `).bind(openid).first<AuthUser>()
     if (raced) return raced
     throw error

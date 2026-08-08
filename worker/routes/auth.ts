@@ -46,19 +46,6 @@ export function registerAuthRoutes(app: Hono<Env>) {
     return user ? c.json({ user }) : jsonError(c, '未登录', 401)
   })
 
-  app.put('/api/me/profile', async c => {
-    const user = await currentUser(c)
-    if (!user) return jsonError(c, '请先登录', 401)
-    const body = await c.req.json().catch(() => null) as { displayName?: unknown } | null
-    const displayName = typeof body?.displayName === 'string' ? body.displayName.trim() : ''
-    if (!displayName || displayName.length > 12 || /[\u0000-\u001f\u007f]/.test(displayName)) {
-      return jsonError(c, '牌桌昵称需为 1–12 个字符')
-    }
-    await c.env.DB.prepare('UPDATE users SET display_name = ? WHERE id = ?')
-      .bind(displayName, user.id).run()
-    return c.json({ user: { ...user, display_name: displayName } })
-  })
-
   app.post('/api/auth/logout', async c => {
     const token = bearer(c)
     if (token) {

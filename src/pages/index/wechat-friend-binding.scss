@@ -1,0 +1,12 @@
+.wechat-friend-bind-entry { margin-top: 16rpx; padding: 18rpx; display: flex; align-items: center; justify-content: space-between; gap: 14rpx; border: 1rpx solid var(--line); border-radius: var(--radius-md); background: var(--bg-muted); }
+.wechat-friend-bind-entry > view text { display: block; }
+.wechat-friend-bind-entry > view text:first-child { color: var(--text-primary); font-size: var(--font-body); font-weight: 800; }
+.wechat-friend-bind-entry > view text:last-child { margin-top: 4rpx; color: var(--text-secondary); font-size: var(--font-caption); line-height: 1.45; }
+.wechat-friend-bind-entry > text:last-child { color: var(--brand-deep); font-size: 34rpx; }
+.wechat-friend-bind-modal { max-height: 76vh; }
+.wechat-friend-bind-note { display: block; margin: 6rpx 0 14rpx; color: var(--text-secondary); font-size: var(--font-caption); line-height: 1.55; }
+.wechat-friend-bind-list { max-height: 46vh; }
+.wechat-friend-bind-row { padding: 14rpx 0; display: flex; align-items: center; gap: 14rpx; border-bottom: 1rpx solid var(--line); }
+.wechat-friend-bind-row .grow text { display: block; }
+.wechat-friend-bind-row .grow text:last-child { margin-top: 4rpx; color: var(--text-secondary); font-size: var(--font-caption); }
+.wechat-friend-bind-empty { display: block; padding: 38rpx 12rpx; color: var(--text-tertiary); font-size: var(--font-caption); text-align: center; }

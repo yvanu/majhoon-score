@@ -3,9 +3,12 @@ import { jsonError, now } from './core'
 import type { Env } from './env'
 import { registerAuthRoutes } from './routes/auth'
 import { registerChatRoutes } from './routes/chat'
+import { registerFriendLinkRoutes } from './routes/friend-links'
 import { registerGroupRoutes } from './routes/groups'
+import { registerLobbyRoutes } from './routes/lobbies'
 import { registerMatchRoutes } from './routes/matches'
 import { registerMeRoutes } from './routes/me'
+import { registerProfileRoutes } from './routes/profile'
 
 const app = new Hono<Env>()
 
@@ -37,6 +40,9 @@ app.get('/assets/mahjong/:file', async c => {
 
 app.get('/api/health', c => c.json({ ok: true, service: 'mahjong-score-wechat', timestamp: now() }))
 registerAuthRoutes(app)
+registerProfileRoutes(app)
+registerFriendLinkRoutes(app)
+registerLobbyRoutes(app)
 registerMeRoutes(app)
 registerGroupRoutes(app)
 registerChatRoutes(app)

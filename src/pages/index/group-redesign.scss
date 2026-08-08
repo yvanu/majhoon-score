@@ -1,0 +1,72 @@
+.groups-page, .group-detail-page, .group-create-page { background: var(--bg-page); color: var(--text-primary); }
+.groups-page { padding-left: var(--space-page); padding-right: var(--space-page); }
+.group-page-hero { margin-bottom: 18rpx; }
+.group-action-row { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10rpx; }
+.group-action-tile { min-height: 86rpx; padding: 14rpx 16rpx; display: flex; align-items: center; gap: 12rpx; border: 1rpx solid var(--line); border-radius: var(--radius-md); background: var(--bg-card); box-shadow: none; }
+.group-action-tile.active { border-color: var(--brand); background: var(--brand-soft); }
+.group-action-icon { width: 42rpx; height: 42rpx; display: flex; align-items: center; justify-content: center; border-radius: 13rpx; background: var(--brand-soft); color: var(--brand-deep); font-size: 26rpx; font-weight: 700; }
+.group-action-title { display: block; color: var(--text-primary); font-size: 22rpx; font-weight: 800; }
+.group-action-note { display: block; margin-top: 2rpx; color: var(--text-tertiary); font-size: 17rpx; }
+.group-code-entry { margin-top: 10rpx; padding: 8rpx; display: grid; grid-template-columns: 1fr 110rpx; gap: 8rpx; border: 1rpx solid var(--line); border-radius: var(--radius-md); background: #fff; }
+.group-code-entry input { height: 60rpx; padding: 0 12rpx; font-size: 22rpx; }
+.group-code-entry button { height: 60rpx; line-height: 60rpx; margin: 0; padding: 0; border: 0; border-radius: 14rpx; background: var(--brand-soft); color: var(--brand-deep); font-size: 20rpx; }
+.group-tabs { margin: 8rpx 0 16rpx; padding: 4rpx; display: grid; grid-template-columns: repeat(3,1fr); gap: 3rpx; border-radius: 18rpx; background: #ebe8e2; }
+.group-tab { min-width: 0; min-height: 60rpx; padding: 0 5rpx; display: flex; align-items: center; justify-content: center; gap: 5rpx; border-radius: 15rpx; color: var(--text-secondary); font-size: 21rpx; }
+.group-tab.active { background: #fff; color: var(--text-primary); font-weight: 800; box-shadow: 0 2rpx 8rpx rgba(56,49,39,.06); }
+.group-tab-count { min-width: 25rpx; height: 25rpx; padding: 0 5rpx; display: flex; align-items: center; justify-content: center; box-sizing: border-box; border-radius: 999rpx; background: #f3f0ea; color: var(--text-tertiary); font-size: 15rpx; }
+.group-tab-count.unread { background: var(--ui-negative); color: #fff; }
+.group-list-head { margin: 4rpx 2rpx 10rpx; display: flex; align-items: center; justify-content: space-between; }
+.group-list-head > view text { display: block; }
+.group-list-head > view text:first-child { color: var(--text-primary); font-size: 24rpx; font-weight: 800; }
+.group-list-head > view text:last-child { margin-top: 2rpx; color: var(--text-tertiary); font-size: 17rpx; }
+.group-refresh { height: 44rpx; line-height: 44rpx; margin: 0; padding: 0 10rpx; border: 0; background: transparent; color: var(--text-secondary); font-size: 18rpx; }
+.group-list { display: flex; flex-direction: column; gap: 10rpx; }
+.group-list-card { min-height: 150rpx; padding: 15rpx 16rpx; box-sizing: border-box; border: 1rpx solid var(--line); border-radius: var(--radius-md); background: var(--bg-card); box-shadow: none; }
+.group-list-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10rpx; }
+.group-list-card-title { max-width: 440rpx; overflow: hidden; color: var(--text-primary); font-size: 24rpx; font-weight: 850; text-overflow: ellipsis; white-space: nowrap; }
+.group-card-status-wrap { display: flex; align-items: center; gap: 6rpx; }
+.group-status { padding: 3rpx 8rpx; border-radius: 999rpx; background: var(--bg-muted); color: var(--text-secondary); font-size: 16rpx; }
+.group-status.open, .group-status.active { background: #edf7f1; color: var(--ui-positive); }
+.group-status.cancelled { background: #fff0ef; color: var(--ui-negative); }
+.group-list-card-meta { margin-top: 7rpx; display: flex; align-items: center; gap: 7rpx; overflow: hidden; white-space: nowrap; }
+.group-list-card-time { color: var(--text-primary); font-size: 20rpx; font-weight: 700; }
+.group-rule-tag, .group-note-tag { padding: 2rpx 7rpx; border-radius: 8rpx; background: var(--bg-muted); color: var(--text-tertiary); font-size: 15rpx; }
+.group-list-card-bottom { margin-top: 11rpx; display: flex; align-items: center; gap: 9rpx; }
+.group-member-stack { display: flex; align-items: center; min-width: 130rpx; }
+.group-stack-avatar { position: relative; margin-left: -8rpx; }
+.group-stack-avatar:first-child { margin-left: 0; }
+.group-member-avatar { width: 44rpx; height: 44rpx; display: flex; align-items: center; justify-content: center; border: 2rpx solid #fff; border-radius: 50%; box-sizing: border-box; overflow: visible; }
+.group-member-avatar.identity .identity-avatar { width: 40rpx; height: 40rpx; }
+.group-member-avatar.vacant { border-style: dashed; border-color: #d9d2c6; background: #faf8f4; color: var(--text-tertiary); font-size: 22rpx; }
+.group-stack-state { position: absolute; right: -4rpx; bottom: -3rpx; min-width: 19rpx; height: 19rpx; padding: 0 3rpx; display: flex; align-items: center; justify-content: center; border: 2rpx solid #fff; border-radius: 999rpx; background: #6b6761; color: #fff; font-size: 10rpx; }
+.group-stack-state.confirmed { background: var(--ui-positive); }
+.group-stack-state.owner { background: var(--brand-deep); }
+.group-list-card-count { min-width: 0; flex: 1; }
+.group-list-card-count text { display: block; }
+.group-list-card-count text:first-child { color: var(--text-primary); font-size: 20rpx; font-weight: 800; }
+.group-list-card-count text:last-child { margin-top: 1rpx; color: var(--text-tertiary); font-size: 15rpx; }
+.group-list-card-action { min-width: 92rpx; height: 44rpx; padding: 0 10rpx; display: flex; align-items: center; justify-content: center; gap: 3rpx; border-radius: 13rpx; background: var(--bg-muted); color: var(--text-secondary); font-size: 18rpx; font-weight: 700; }
+.group-list-card-action.join, .group-list-card-action.owner { background: var(--brand-soft); color: var(--brand-deep); }
+.group-chat-unread-badge { min-width: 27rpx; height: 27rpx; padding: 0 6rpx; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; border-radius: 999rpx; background: var(--ui-negative); color: #fff; font-size: 14rpx; }
+
+/* 组局详情 */
+.group-detail-page { padding-left: var(--space-page); padding-right: var(--space-page); padding-bottom: 50rpx; }
+.group-detail-hero { padding: 20rpx; border: 1rpx solid var(--line); border-radius: var(--radius-lg); background: var(--bg-card); box-shadow: none; }
+.group-detail-time { color: var(--brand-deep); font-size: 20rpx; font-weight: 750; }
+.group-detail-location { display: block; margin-top: 5rpx; color: var(--text-primary); font-size: 32rpx; font-weight: 900; }
+.group-detail-owner, .group-detail-note { display: block; margin-top: 8rpx; color: var(--text-secondary); font-size: 19rpx; line-height: 1.45; }
+.group-code-row { margin-top: 14rpx; padding-top: 12rpx; display: flex; align-items: center; gap: 8rpx; border-top: 1rpx solid var(--line); color: var(--text-tertiary); font-size: 17rpx; }
+.group-code-row text:nth-child(2) { color: var(--text-primary); font-weight: 750; }
+.group-member-section-head { margin: 24rpx 2rpx 10rpx; }
+.group-table-layout { display: flex; flex-direction: column; gap: 8rpx; }
+.group-member-card { min-height: 76rpx; padding: 10rpx 12rpx; display: flex; align-items: center; gap: 12rpx; border: 1rpx solid var(--line); border-radius: var(--radius-md); background: var(--bg-card); box-shadow: none; }
+.group-member-card .group-member-avatar { width: 54rpx; height: 54rpx; }
+.group-member-card .group-member-avatar.identity .identity-avatar { width: 50rpx; height: 50rpx; }
+.group-member-card.vacant { border-style: dashed; background: rgba(255,255,255,.55); }
+.group-member-status { color: var(--text-tertiary); font-size: 17rpx; }
+.group-member-status.confirmed { color: var(--ui-positive); }
+.group-member-actions { display: flex; gap: 6rpx; }
+.group-member-actions button { height: 44rpx; line-height: 44rpx; margin: 0; padding: 0 9rpx; border-radius: 11rpx; font-size: 16rpx; }
+.group-chat-entry { margin-top: 14rpx; padding: 15rpx; display: flex; align-items: center; gap: 12rpx; border: 1rpx solid var(--line); border-radius: var(--radius-md); background: var(--bg-card); }
+.group-chat-entry-icon { width: 46rpx; height: 46rpx; display: flex; align-items: center; justify-content: center; border-radius: 14rpx; background: var(--brand-soft); color: var(--brand-deep); font-size: 18rpx; font-weight: 800; }
+.group-primary-action, .group-share-action, .group-copy-action { margin-top: 12rpx; }

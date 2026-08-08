@@ -1,0 +1,27 @@
+.group-member-info-modal { max-height: 78vh; }
+.group-member-info-identity { padding: 6rpx 0 20rpx; display: flex; align-items: center; gap: 18rpx; }
+.group-member-info-name { display: block; color: var(--text-primary) !important; font-size: var(--font-card-title) !important; font-weight: 850; }
+.group-member-info-identity .grow text:not(.group-member-info-name) { margin-top: 4rpx; color: var(--text-secondary); font-size: var(--font-caption); }
+.group-member-relationship-card { margin-top: 8rpx; padding: 16rpx; border: 1rpx solid var(--line); border-radius: var(--radius-md); background: var(--surface); }
+.group-member-relationship-head { display: flex; align-items: center; justify-content: space-between; gap: 12rpx; }
+.group-member-relationship-head text:first-child { color: var(--text-primary); font-size: var(--font-body); font-weight: 800; }
+.group-member-relationship-head text:last-child { color: var(--text-secondary); font-size: var(--font-caption); }
+.group-member-relationship-grid { margin-top: 14rpx; display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 8rpx; }
+.group-member-relationship-grid > view { min-width: 0; text-align: center; }
+.group-member-relationship-grid > view text { display: block; }
+.group-member-relationship-grid > view text:first-child { color: var(--text-primary); font-size: 28rpx; font-weight: 850; }
+.group-member-relationship-grid > view text:last-child { margin-top: 3rpx; color: var(--text-tertiary); font-size: 20rpx; white-space: nowrap; }
+.group-member-linked-card, .group-member-bind-entry { margin-top: 10rpx; padding: 16rpx; display: flex; align-items: center; gap: 14rpx; border: 1rpx solid var(--line); border-radius: var(--radius-md); background: var(--bg-muted); }
+.group-member-bind-entry { justify-content: space-between; }
+.group-member-bind-entry > view text { display: block; }
+.group-member-bind-entry > view text:first-child { color: var(--text-primary); font-size: var(--font-body); font-weight: 800; }
+.group-member-bind-entry > view text:last-child { margin-top: 4rpx; color: var(--text-secondary); font-size: var(--font-caption); }
+.group-member-bind-entry > text:last-child { color: var(--brand-deep); font-size: 34rpx; }
+.group-member-self-note { display: block; margin-top: 12rpx; padding: 14rpx; border-radius: var(--radius-md); background: var(--bg-muted); color: var(--text-tertiary); font-size: var(--font-caption); text-align: center; }
+.group-member-binding-panel { margin-top: 18rpx; padding-top: 16rpx; border-top: 1rpx solid var(--line); }
+.group-member-binding-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8rpx; }
+.group-member-binding-head text:first-child { color: var(--text-primary); font-size: var(--font-body); font-weight: 800; }
+.group-member-binding-head text:last-child { color: var(--brand-deep); font-size: var(--font-caption); }
+.group-member-binding-list { max-height: 36vh; }
+.group-member-binding-row { padding: 12rpx 0; display: flex; align-items: center; gap: 12rpx; border-bottom: 1rpx solid var(--line); }
+.group-member-binding-empty { display: block; padding: 28rpx; color: var(--text-tertiary); font-size: var(--font-caption); text-align: center; }

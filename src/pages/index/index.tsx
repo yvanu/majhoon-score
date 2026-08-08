@@ -17,40 +17,57 @@ import type {
   HandMutationResult,
   HandType,
   Match,
-  MatchPlayerInput,
+  MatchLobby,
   MatchSummary,
   PersonalStatistics,
   StatisticsDimension,
   UserPreferences,
+  UserProfileInput,
 } from '@shared/types'
 import { api, AUTH_KEY, CURRENT_KEY } from '../../services/api'
 import {
   ConfirmDialog,
   LoadingScreen,
-  needsNickname,
+  displayUserName,
+  needsProfileCompletion,
   statisticsValue,
 } from './shared'
 import type { DialogOptions, DialogState, Screen, SyncStatus } from './shared'
 import {
   Auth,
   BottomNav,
-  Create,
   DailyStatsScreen,
   FriendStatisticsScreen,
   FriendsScreen,
   HistoryScreen,
-  Home,
-  Join,
-  NicknameScreen,
   PersonalStatisticsScreen,
   ProfileScreen,
   SettingsScreen,
 } from './screens'
 import { GroupCreateScreen, GroupDetailScreen, GroupSessionsScreen } from './group-screens'
 import { GroupChatScreen } from './chat-screen'
+import { Home } from './home-screen'
+import { LobbyScreen } from './lobby-screen'
 import { MatchScreen, ScoreScreen } from './match-screens'
+import { ProfileSetupScreen } from './profile-setup'
+import { SeatAssignmentScreen } from './seat-assignment'
+import type { SeatParticipant } from './seat-assignment'
 import { readUserPreferences, saveUserPreferences } from './preferences'
 import './index.scss'
+import './design-system.scss'
+import './identity-avatar.scss'
+import './home-screen.scss'
+import './profile-setup.scss'
+import './lobby-screen.scss'
+import './seat-assignment.scss'
+import './match-redesign.scss'
+import './friend-binding.scss'
+import './wechat-friend-binding.scss'
+import './group-member-info.scss'
+import './group-redesign.scss'
+import './chat-redesign.scss'
+import './score-trend-chart.scss'
+import './content-redesign.scss'
 
 const TAB_CACHE_TTL = 60_000
 const FRIEND_STATS_CACHE_TTL = 5 * 60_000
@@ -69,6 +86,14 @@ type MatchSnapshot = {
   match: Match
   canEdit: boolean
   savedAt: number
+}
+
+type SeatAssignmentState = {
+  source: 'lobby' | 'group'
+  sourceId: string
+  sourceLabel: string
+  participants: SeatParticipant[]
+  returnScreen: Screen
 }
 
 function readDashboardSnapshot(): DashboardSnapshot | null {
@@ -112,7 +137,7 @@ function applyHandMutation(current: Match, result: HandMutationResult, replacedH
   }
 }
 
-const bottomTabScreens = new Set<Screen>(['home', 'history', 'groups', 'friends', 'profile'])
+const bottomTabScreens = new Set<Screen>(['home', 'groups', 'friends', 'profile'])
 
 function shouldTrapNativeBack(screen: Screen) {
   return !bottomTabScreens.has(screen)
@@ -126,6 +151,8 @@ export default function Index() {
   const screenHistory = useRef<Screen[]>(['home'])
   const [backTrapOpen, setBackTrapOpen] = useState(false)
   const [match, setMatch] = useState<Match | null>(matchSnapshot?.match ?? null)
+  const [matchLobby, setMatchLobby] = useState<MatchLobby | null>(null)
+  const [seatAssignment, setSeatAssignment] = useState<SeatAssignmentState | null>(null)
   const [matchCanEdit, setMatchCanEdit] = useState(matchSnapshot?.canEdit ?? false)
   const [matchRefreshing, setMatchRefreshing] = useState(false)
   const [reviewMatch, setReviewMatch] = useState<Match | null>(null)
@@ -161,12 +188,11 @@ export default function Index() {
   const [scoreDrawerKey, setScoreDrawerKey] = useState(0)
   const [scoreTileEditorOpen, setScoreTileEditorOpen] = useState(false)
   const [scoreTileEditorCloseRequest, setScoreTileEditorCloseRequest] = useState(0)
-  const [createFriendPickerOpen, setCreateFriendPickerOpen] = useState(false)
-  const [createFriendPickerCloseRequest, setCreateFriendPickerCloseRequest] = useState(0)
   const [groupFriendPickerOpen, setGroupFriendPickerOpen] = useState(false)
-  const [joinCode, setJoinCode] = useState('')
   const [matchDetailOpen, setMatchDetailOpen] = useState(false)
   const [matchDetailCloseRequest, setMatchDetailCloseRequest] = useState(0)
+  const [auxiliaryOverlayOpen, setAuxiliaryOverlayOpen] = useState(false)
+  const [auxiliaryOverlayCloseRequest, setAuxiliaryOverlayCloseRequest] = useState(0)
   const [lastSaveNotice, setLastSaveNotice] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle')
@@ -197,19 +223,30 @@ export default function Index() {
   const historyVisibleCount = useRef(20)
   const pendingPageScrollTop = useRef<number | null>(null)
   const pendingGroupCode = useRef('')
+  const pendingLobbyCode = useRef('')
   const authSuccessScreen = useRef<Screen>('home')
   const reviewReturnScreen = useRef<Screen>('home')
   const matchReturnScreen = useRef<Screen>('home')
   const backTrapRearmTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  Taro.useLoad<{ groupCode?: string }>(options => {
-    const code = options.groupCode?.trim().toUpperCase() || ''
-    if (!code) return
-    pendingGroupCode.current = code
+  Taro.useLoad<{ groupCode?: string; lobbyCode?: string; scene?: string }>(options => {
+    const groupCode = options.groupCode?.trim().toUpperCase() || ''
+    const scene = options.scene ? decodeURIComponent(options.scene).trim() : ''
+    const sceneLobbyCode = scene.startsWith('lobby_') ? scene.slice('lobby_'.length).toUpperCase() : ''
+    const lobbyCode = options.lobbyCode?.trim().toUpperCase() || sceneLobbyCode
+    if (lobbyCode) pendingLobbyCode.current = lobbyCode
+    else if (groupCode) pendingGroupCode.current = groupCode
+    else return
     if (!Taro.getStorageSync<string>(AUTH_KEY)) showAuth('home')
   })
 
   Taro.useShareAppMessage(() => {
+    if (screenRef.current === 'lobby' && matchLobby) {
+      return {
+        title: `${displayUserName(user)}邀你加入南京麻将牌局`,
+        path: `/pages/index/index?lobbyCode=${encodeURIComponent(matchLobby.shareCode)}`,
+      }
+    }
     if (screenRef.current === 'group-detail' && activeGroup) {
       return {
         title: `${activeGroup.owner_name}邀你${new Date(activeGroup.start_at).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}打麻将`,
@@ -228,7 +265,14 @@ export default function Index() {
   }, [])
 
   useEffect(() => {
-    if (!user || needsNickname(user) || !pendingGroupCode.current) return
+    if (!user || needsProfileCompletion(user)) return
+    if (pendingLobbyCode.current) {
+      const code = pendingLobbyCode.current
+      pendingLobbyCode.current = ''
+      void openMatchLobbyByCode(code)
+      return
+    }
+    if (!pendingGroupCode.current) return
     const code = pendingGroupCode.current
     pendingGroupCode.current = ''
     void openGroupByCode(code)
@@ -250,12 +294,13 @@ export default function Index() {
       Taro.removeStorageSync(MATCH_CACHE_KEY)
       return
     }
-    if (match?.id !== current.id) return
-    if (match.status !== 'active') {
+    const activeMatch = match
+    if (!activeMatch || activeMatch.id !== current.id) return
+    if (activeMatch.status !== 'active') {
       Taro.removeStorageSync(MATCH_CACHE_KEY)
       return
     }
-    Taro.setStorageSync(MATCH_CACHE_KEY, { match, canEdit: matchCanEdit, savedAt: Date.now() } satisfies MatchSnapshot)
+    Taro.setStorageSync(MATCH_CACHE_KEY, { match: activeMatch, canEdit: matchCanEdit, savedAt: Date.now() } satisfies MatchSnapshot)
   }, [match, matchCanEdit])
 
   useEffect(() => {
@@ -322,9 +367,9 @@ export default function Index() {
       setGroupFriendPickerOpen(false)
       return
     }
-    if (createFriendPickerOpen) {
-      setCreateFriendPickerOpen(false)
-      setCreateFriendPickerCloseRequest(current => current + 1)
+    if (auxiliaryOverlayOpen) {
+      setAuxiliaryOverlayOpen(false)
+      setAuxiliaryOverlayCloseRequest(current => current + 1)
       return
     }
     if (scoreDrawerOpen) {
@@ -336,7 +381,7 @@ export default function Index() {
       setMatchDetailCloseRequest(current => current + 1)
       return
     }
-    if (screenRef.current === 'nickname' && needsNickname(user)) return
+    if (screenRef.current === 'nickname' && needsProfileCompletion(user)) return
     if (screenRef.current === 'review') {
       closeMatchReview()
       return
@@ -423,7 +468,7 @@ export default function Index() {
     if (token) {
       tasks.push(api.me().then(currentUser => {
         setUser(currentUser.user)
-        if (needsNickname(currentUser.user)) {
+        if (needsProfileCompletion(currentUser.user)) {
           setNicknameReturn('home')
           setScreen('nickname')
         }
@@ -891,39 +936,179 @@ export default function Index() {
     })
   }
 
-  async function startGroupSession() {
-    if (!activeGroup) return
-    await run(async () => {
-      const result = await api.startGroupSession(activeGroup.id)
-      updateGroupState(result.group)
-      setReviewMatch(null)
-      setMatch(result.match)
-      setAdminToken(result.adminToken)
-      setMatchCanEdit(true)
-      Taro.setStorageSync(CURRENT_KEY, { id: result.match.id, token: result.adminToken })
-      invalidateStatisticsCaches()
-      groupsLoadedAt.current = 0
-      matchReturnScreen.current = 'group-detail'
-      setScreen('match')
-      await Taro.showToast({ title: '牌局已创建', icon: 'success' })
-      void refreshDashboard().catch(error => {
-        console.error('Refresh dashboard after starting group match failed:', error)
+  function startGroupSession() {
+    if (!activeGroup || !activeGroup.is_owner) return
+    const confirmed = activeGroup.members.filter(member => member.status === 'confirmed')
+    if (confirmed.length !== 4) {
+      void Taro.showToast({ title: '需要四位已确认成员才能开始', icon: 'none' })
+      return
+    }
+    setSeatAssignment({
+      source: 'group',
+      sourceId: activeGroup.id,
+      sourceLabel: `组局开局 · ${activeGroup.location}`,
+      returnScreen: screenRef.current,
+      participants: confirmed.map(member => ({
+        id: member.id,
+        name: member.name,
+        avatarUrl: member.avatar_url,
+        gender: member.gender,
+        badge: member.user_id ? '微信' : '牌友',
+      })),
+    })
+    setScreen('seating')
+  }
+
+  function showCreate() {
+    if (!user) {
+      showAuth('home')
+      return
+    }
+    void run(async () => {
+      const result = await api.createMatchLobby()
+      setMatchLobby(result.lobby)
+      setScreen('lobby')
+      void loadFriends().catch(error => {
+        console.error('Prefetch friends for match lobby failed:', error)
       })
     })
   }
 
-  function showCreate() {
-    setCreateFriendPickerOpen(false)
-    setScreen('create')
-    if (!user) return
-    void loadFriends().catch(error => {
-      console.error('Prefetch friends for match creation failed:', error)
+  async function openMatchLobbyByCode(code: string) {
+    if (!user) {
+      pendingLobbyCode.current = code.trim().toUpperCase()
+      showAuth('home')
+      return
+    }
+    await run(async () => {
+      const result = await api.getMatchLobby(code.trim().toUpperCase())
+      setMatchLobby(result.lobby)
+      setScreen('lobby')
+      if (result.lobby.isOwner) {
+        void loadFriends().catch(error => console.error('Prefetch friends for shared lobby failed:', error))
+      }
     })
   }
 
-  function showJoin() {
-    setJoinCode('')
-    setScreen('join')
+  async function refreshMatchLobby() {
+    const lobbyId = matchLobby?.id
+    if (!lobbyId) return
+    const result = await api.getMatchLobby(lobbyId)
+    setMatchLobby(current => current?.id === lobbyId ? result.lobby : current)
+  }
+
+  async function joinMatchLobby() {
+    if (!matchLobby) return
+    await run(async () => {
+      const result = await api.joinMatchLobby(matchLobby.id)
+      setMatchLobby(result.lobby)
+    })
+  }
+
+  async function addLobbySelf() {
+    if (!matchLobby) return
+    await run(async () => {
+      const result = await api.addMatchLobbyMember(matchLobby.id, { source: 'self' })
+      setMatchLobby(result.lobby)
+    })
+  }
+
+  async function addLobbyFriend(friendId: string) {
+    if (!matchLobby) return
+    await run(async () => {
+      const result = await api.addMatchLobbyMember(matchLobby.id, { source: 'friend', friendId })
+      setMatchLobby(result.lobby)
+    })
+  }
+
+  async function addLobbyGuest(name: string) {
+    if (!matchLobby) return
+    await run(async () => {
+      const result = await api.addMatchLobbyMember(matchLobby.id, { source: 'guest', name })
+      setMatchLobby(result.lobby)
+      friendsLoadedAt.current = 0
+    })
+  }
+
+  async function removeLobbyMember(memberId: string) {
+    if (!matchLobby) return
+    await run(async () => {
+      const result = await api.removeMatchLobbyMember(matchLobby.id, memberId)
+      setMatchLobby(result.lobby)
+    })
+  }
+
+  async function cancelMatchLobby() {
+    if (!matchLobby) return
+    const confirmed = await showDialog({
+      title: '关闭这张准备桌？',
+      content: '关闭后新的微信好友将无法继续加入；不会影响已经存在的历史牌局。',
+      confirmText: '关闭准备桌',
+      variant: 'danger',
+    })
+    if (!confirmed) return
+    await run(async () => {
+      const result = await api.cancelMatchLobby(matchLobby.id)
+      setMatchLobby(result.lobby)
+      replaceScreen('home')
+    })
+  }
+
+  function beginLobbySeating() {
+    if (!matchLobby?.isOwner || matchLobby.status !== 'preparing' || matchLobby.members.length !== 4) return
+    setSeatAssignment({
+      source: 'lobby',
+      sourceId: matchLobby.id,
+      sourceLabel: '牌局开局',
+      returnScreen: 'lobby',
+      participants: matchLobby.members.map(member => ({
+        id: member.id,
+        name: member.name,
+        avatarUrl: member.avatarUrl,
+        gender: member.gender,
+        badge: member.userId ? '微信' : '牌友',
+      })),
+    })
+    setScreen('seating')
+  }
+
+  function activateCreatedMatch(created: { match: Match; adminToken: string }, returnScreen: Screen) {
+    setReviewMatch(null)
+    setMatch(created.match)
+    setAdminToken(created.adminToken)
+    setMatchCanEdit(true)
+    Taro.setStorageSync(CURRENT_KEY, { id: created.match.id, token: created.adminToken })
+    invalidateStatisticsCaches()
+    matchReturnScreen.current = returnScreen
+    setSeatAssignment(null)
+    setScreen('match')
+  }
+
+  async function confirmSeatAssignment(memberIds: string[]) {
+    if (!seatAssignment) return
+    await run(async () => {
+      if (seatAssignment.source === 'lobby') {
+        const result = await api.startMatchLobby(seatAssignment.sourceId, memberIds)
+        setMatchLobby(result.lobby)
+        activateCreatedMatch(result, 'home')
+        friendsLoadedAt.current = 0
+        await Taro.showToast({ title: '牌局已创建', icon: 'success' })
+        void refreshDashboard().catch(error => console.error('Refresh dashboard after lobby start failed:', error))
+        return
+      }
+
+      const result = await api.startGroupSession(seatAssignment.sourceId, memberIds)
+      updateGroupState(result.group)
+      groupsLoadedAt.current = 0
+      activateCreatedMatch(result, seatAssignment.returnScreen)
+      await Taro.showToast({ title: '牌局已创建', icon: 'success' })
+      void refreshDashboard().catch(error => console.error('Refresh dashboard after group start failed:', error))
+    })
+  }
+
+  function closeSeatAssignment() {
+    setSeatAssignment(null)
+    goBack()
   }
 
   function showHistory() {
@@ -971,7 +1156,8 @@ export default function Index() {
     const pending = friendStatsRequests.current.get(friendId)
     if (pending) return pending
     setFriendStatsLoadingId(friendId)
-    const request = api.friendStatistics(friendId).then(result => {
+    const wechatUserId = friendId.startsWith('wechat:') ? friendId.slice('wechat:'.length) : ''
+    const request = (wechatUserId ? api.userStatistics(wechatUserId) : api.friendStatistics(friendId)).then(result => {
       friendStatsCache.current.set(friendId, { value: result, loadedAt: Date.now() })
       return result
     }).finally(() => {
@@ -1001,6 +1187,33 @@ export default function Index() {
 
   function closeFriend() {
     navigateBack(true)
+  }
+
+  async function refreshActiveFriendAfterBinding() {
+    const friendId = activeFriendId.current
+    if (!friendId) return
+    friendStatsCache.current.delete(friendId)
+    friendsLoadedAt.current = 0
+    const [statistics] = await Promise.all([
+      loadFriendStatistics(friendId, true),
+      loadFriends(true),
+    ])
+    if (activeFriendId.current === friendId) {
+      setFriendStats(statistics)
+      setActiveFriend(statistics.friend)
+    }
+  }
+
+  async function switchWechatFriendToLinkedFriend(friendId: string) {
+    const previousFriendId = activeFriendId.current
+    if (previousFriendId) friendStatsCache.current.delete(previousFriendId)
+    friendStatsCache.current.delete(friendId)
+    friendsLoadedAt.current = 0
+    await loadFriends(true)
+    const statistics = await loadFriendStatistics(friendId, true)
+    activeFriendId.current = friendId
+    setFriendStats(statistics)
+    setActiveFriend(statistics.friend)
   }
 
   function personalStatisticsKey(dimension: StatisticsDimension, value: string) {
@@ -1093,30 +1306,6 @@ export default function Index() {
     })
   }
 
-  async function createMatch(players: MatchPlayerInput[]) {
-    await run(async () => {
-      const data = await api.createMatch(players)
-      setReviewMatch(null)
-      setMatch(data.match)
-      setAdminToken(data.adminToken)
-      setMatchCanEdit(true)
-      Taro.setStorageSync(CURRENT_KEY, { id: data.match.id, token: data.adminToken })
-      matchReturnScreen.current = 'home'
-      setScreen('match')
-      friendsLoadedAt.current = 0
-      invalidateStatisticsCaches()
-      await Taro.showToast({ title: '牌局已创建', icon: 'success' })
-      if (user) {
-        void refreshDashboard().catch(error => {
-          console.error('Refresh dashboard after creating match failed:', error)
-        })
-        void loadFriends(true).catch(error => {
-          console.error('Refresh friends after creating match failed:', error)
-        })
-      }
-    })
-  }
-
   async function syncAfterLogin(saved: { id: string; token: string } | null) {
     const friendsPromise = loadFriends(true).catch(error => {
       console.error('Prefetch friends failed:', error)
@@ -1140,7 +1329,7 @@ export default function Index() {
     setUser(data.user)
     const saved = Taro.getStorageSync<{ id: string; token: string }>(CURRENT_KEY)
     const target = authSuccessScreen.current
-    if (needsNickname(data.user)) {
+    if (needsProfileCompletion(data.user)) {
       setNicknameReturn(target)
       replaceScreen('nickname')
     } else {
@@ -1158,14 +1347,20 @@ export default function Index() {
     })
   }
 
-  async function saveDisplayName(displayName: string) {
+  async function saveUserProfile(profile: UserProfileInput) {
     await run(async () => {
-      const result = await api.updateProfile(displayName)
+      const result = await api.updateProfile(profile)
       setUser(result.user)
       invalidateStatisticsCaches()
       replaceScreen(nicknameReturn)
-      await Taro.showToast({ title: '牌桌昵称已保存', icon: 'success' })
+      await Taro.showToast({ title: '个人资料已保存', icon: 'success' })
     })
+  }
+
+  async function uploadUserAvatar(filePath: string) {
+    const updated = await api.uploadProfileAvatar(filePath)
+    setUser(updated)
+    return updated
   }
 
   async function logout() {
@@ -1186,8 +1381,6 @@ export default function Index() {
     setGroupCodeEntryOpen(false)
     setGroupCodeInput('')
     setFriendQuery('')
-    setJoinCode('')
-    setCreateFriendPickerOpen(false)
     setGroupFriendPickerOpen(false)
     historyListScrollTop.current = 0
     historyVisibleCount.current = 20
@@ -1242,14 +1435,6 @@ export default function Index() {
   async function submitHand(input: HandInput, summary: string): Promise<boolean> {
     if (!match || !matchCanEdit || match.status !== 'active') return false
     const handId = editingHandId
-    if (preferences.confirmBeforeScoreSubmit) {
-      const confirmed = await showDialog({
-        title: handId ? '确认修改记录' : '确认保存记录',
-        content: summary,
-        confirmText: handId ? '确认修改' : '确认保存',
-      })
-      if (!confirmed) return false
-    }
     return run(async () => {
       const data = handId
         ? await api.updateHand(match.id, handId, input, adminToken)
@@ -1312,21 +1497,6 @@ export default function Index() {
     setScoreTileEditorOpen(false)
     setScoreDrawerKey(current => current + 1)
     setScoreDrawerOpen(true)
-  }
-
-  async function quickRecordDraw() {
-    if (!match || !matchCanEdit || match.status !== 'active') return
-    const confirmed = await showDialog({
-      title: '记录流局',
-      content: '确认本局流局，四位玩家分数均不发生变化？',
-      confirmText: '确认记录',
-    })
-    if (!confirmed) return
-    setEditingHandId(null)
-    await submitHand({
-      type: 'draw',
-      scores: match.players.map(player => ({ playerId: player.id, change: 0 })),
-    }, '本局流局')
   }
 
   async function undoLatestRecord() {
@@ -1393,17 +1563,15 @@ export default function Index() {
     }
   }
 
-  const activeTab = screen === 'history'
-    ? 'matches'
-    : screen === 'groups'
-      ? 'groups'
-      : screen === 'friends'
-        ? 'friends'
-        : screen === 'profile'
-          ? 'profile'
-          : screen === 'home'
-            ? 'home'
-            : null
+  const activeTab = screen === 'groups'
+    ? 'groups'
+    : screen === 'friends'
+      ? 'friends'
+      : screen === 'profile'
+        ? 'profile'
+        : screen === 'home'
+          ? 'home'
+          : null
   const unreadChatCount = groupSessions.reduce(
     (total, group) => total + ((group.is_owner || group.is_member) ? group.chat_unread_count : 0),
     0,
@@ -1414,35 +1582,52 @@ export default function Index() {
     {screen === 'home' && <Home
       user={user}
       currentMatch={match?.status === 'active' ? match : null}
-      recentMatch={history[0] || null}
+      recentMatches={history}
       dailyStats={dailyStats}
       syncStatus={syncStatus}
       onContinue={() => { matchReturnScreen.current = 'home'; setScreen('match') }}
       onStart={showCreate}
-      onJoin={showJoin}
       onOpen={(code, statusHint) => openMatch(code, statusHint)}
       onHistory={showHistory}
       onDaily={showDailyStats}
       onLogin={() => showAuth('home')}
     />}
-    {screen === 'create' && <Create
+    {screen === 'seating' && seatAssignment && <SeatAssignmentScreen
+      participants={seatAssignment.participants}
+      loading={loading}
+      sourceLabel={seatAssignment.sourceLabel}
+      onBack={closeSeatAssignment}
+      onConfirm={confirmSeatAssignment}
+    />}
+    {screen === 'lobby' && user && matchLobby && <LobbyScreen
+      lobby={matchLobby}
       user={user}
       friends={friends}
       friendsLoading={friendsLoading}
-      closePickerRequest={createFriendPickerCloseRequest}
-      onPickerOpenChange={setCreateFriendPickerOpen}
-      onBack={goBack}
-      onCreate={createMatch}
       loading={loading}
+      closeOverlayRequest={auxiliaryOverlayCloseRequest}
+      onOverlayOpenChange={setAuxiliaryOverlayOpen}
+      onBack={goBack}
+      onRefresh={refreshMatchLobby}
+      onJoin={joinMatchLobby}
+      onAddSelf={addLobbySelf}
+      onAddFriend={addLobbyFriend}
+      onAddGuest={addLobbyGuest}
+      onRemoveMember={member => removeLobbyMember(member.id)}
+      onStartSeating={beginLobbySeating}
+      onCancel={cancelMatchLobby}
+      onEnsureFriends={() => loadFriends()}
+      onFriendsChanged={async () => { friendsLoadedAt.current = 0; await loadFriends(true) }}
+      onOpenFriend={openFriend}
     />}
-    {screen === 'join' && <Join code={joinCode} onCodeChange={setJoinCode} onBack={goBack} onOpen={code => openMatch(code)} loading={loading} />}
     {screen === 'auth' && <Auth onBack={goBack} onWechatLogin={wechatLogin} loading={loading} />}
-    {screen === 'nickname' && user && <NicknameScreen
+    {screen === 'nickname' && user && <ProfileSetupScreen
       user={user}
-      required={needsNickname(user)}
+      required={needsProfileCompletion(user)}
       loading={loading}
       onBack={goBack}
-      onSave={saveDisplayName}
+      onSave={saveUserProfile}
+      onUploadAvatar={uploadUserAvatar}
     />}
     {screen === 'history' && user && <HistoryScreen
       matches={history}
@@ -1488,7 +1673,11 @@ export default function Index() {
       ? <GroupDetailScreen
           group={activeGroup}
           currentUserId={user.id}
+          friends={friends}
+          friendsLoading={friendsLoading}
           loading={loading}
+          closeOverlayRequest={auxiliaryOverlayCloseRequest}
+          onOverlayOpenChange={setAuxiliaryOverlayOpen}
           onBack={closeGroup}
           onJoin={joinGroupSession}
           onLeave={leaveGroupSession}
@@ -1498,6 +1687,9 @@ export default function Index() {
           onStart={startGroupSession}
           onOpenMatch={matchId => openMatch(matchId, activeGroup.status === 'finished' ? 'finished' : 'active')}
           onOpenChat={openGroupChat}
+          onEnsureFriends={() => loadFriends()}
+          onFriendsChanged={async () => { friendsLoadedAt.current = 0; await loadFriends(true) }}
+          onOpenFriend={openFriend}
         />
       : <LoadingScreen title='组局详情' message='正在加载时间、地点和参与成员…' onBack={goBack} />)}
     {screen === 'group-chat' && user && activeGroup && <GroupChatScreen
@@ -1506,6 +1698,7 @@ export default function Index() {
       loading={loading}
       onBack={goBack}
       onStart={startGroupSession}
+      onOpenMatch={matchId => { void openMatch(matchId, 'active') }}
       onRead={markActiveGroupChatRead}
       onActivity={updateActiveGroupChatActivity}
     />}
@@ -1517,7 +1710,15 @@ export default function Index() {
       onOpen={openFriend}
     />}
     {screen === 'friend' && (friendStats
-      ? <FriendStatisticsScreen statistics={friendStats} onBack={closeFriend} />
+      ? <FriendStatisticsScreen
+          statistics={friendStats}
+          friends={friends}
+          closeOverlayRequest={auxiliaryOverlayCloseRequest}
+          onOverlayOpenChange={setAuxiliaryOverlayOpen}
+          onBack={closeFriend}
+          onBindingChanged={refreshActiveFriendAfterBinding}
+          onWechatLinked={switchWechatFriendToLinkedFriend}
+        />
       : <LoadingScreen
           title={activeFriend?.name || '牌友战绩'}
           message={friendStatsLoadingId ? '正在加载牌友战绩…' : '暂无牌友战绩数据'}
@@ -1545,7 +1746,7 @@ export default function Index() {
       syncStatus={syncStatus}
       onChange={updatePreferences}
       onBack={goBack}
-      onEditNickname={() => { setNicknameReturn('settings'); setScreen('nickname') }}
+      onEditProfile={() => { setNicknameReturn('settings'); setScreen('nickname') }}
       onLogout={logout}
       showDialog={showDialog}
     />}
@@ -1558,13 +1759,7 @@ export default function Index() {
       undoNotice={lastSaveNotice}
       closeDetailRequest={matchDetailCloseRequest}
       onDetailOpenChange={setMatchDetailOpen}
-      onAdd={type => {
-        if (type === 'draw') {
-          void quickRecordDraw()
-          return
-        }
-        openScoreEntry(type)
-      }}
+      onAdd={openScoreEntry}
       onEdit={editHand}
       onUndo={undo}
       onUndoNotice={undoLatestRecord}
@@ -1592,7 +1787,6 @@ export default function Index() {
       active={activeTab}
       unreadChats={unreadChatCount}
       onHome={() => setScreen('home')}
-      onMatches={showHistory}
       onGroups={showGroups}
       onFriends={showFriends}
       onProfile={showProfile}
@@ -1603,6 +1797,8 @@ export default function Index() {
           key={`${scoreDrawerKey}:${editingHandId || scoreEntryType}`}
           players={match.players}
           currentUserId={user?.id || null}
+          currentWind={match.current_wind}
+          currentHand={match.current_hand}
           initialHand={editingHandId ? match.hands.find(hand => hand.id === editingHandId) || null : null}
           initialType={scoreEntryType}
           preferences={preferences}

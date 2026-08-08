@@ -8,6 +8,7 @@ import type {
   Player,
   StatisticsDimension,
 } from '@shared/types'
+import { IdentityAvatar } from './identity-avatar'
 
 export const seatLabels = ['东', '南', '西', '北']
 export const windName: Record<string, string> = { east: '东', south: '南', west: '西', north: '北' }
@@ -60,7 +61,7 @@ export function shiftStatisticsValue(dimension: StatisticsDimension, value: stri
   return String(Number(value) + amount)
 }
 
-export type Screen = 'home' | 'create' | 'join' | 'auth' | 'nickname' | 'history' | 'daily' | 'groups' | 'group-create' | 'group-detail' | 'group-chat' | 'friends' | 'friend' | 'personal' | 'profile' | 'settings' | 'match' | 'review'
+export type Screen = 'home' | 'lobby' | 'seating' | 'auth' | 'nickname' | 'history' | 'daily' | 'groups' | 'group-create' | 'group-detail' | 'group-chat' | 'friends' | 'friend' | 'personal' | 'profile' | 'settings' | 'match' | 'review'
 export type TileRecordSection = 'pongs' | 'exposedKongs' | 'concealedKongs' | 'hand' | 'winningTile'
 export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'offline'
 export type DialogVariant = 'default' | 'danger' | 'info' | 'error'
@@ -97,10 +98,30 @@ function AvatarFace({ name, palette, seat, large = false, selected = false, isSe
 }
 
 export function Avatar({ player, large = false, selected = false, isSelf = false }: { player: Player; large?: boolean; selected?: boolean; isSelf?: boolean }) {
+  if (player.avatar_url || player.gender || player.user_id) {
+    return <View className={selected ? 'avatar-identity-wrap selected' : 'avatar-identity-wrap'}>
+      <IdentityAvatar
+        name={player.name}
+        gender={player.gender}
+        avatarUrl={player.avatar_url}
+        size={large ? 'large' : 'normal'}
+        badge={isSelf ? '我' : undefined}
+      />
+    </View>
+  }
   return <AvatarFace name={player.name} palette={player.seat} seat={player.seat} large={large} selected={selected} isSelf={isSelf} />
 }
 
 export function FriendAvatar({ friend, large = false }: { friend: Friend; large?: boolean }) {
+  if (friend.linkedUserId) {
+    return <IdentityAvatar
+      name={friend.wechatName || friend.name}
+      gender={friend.wechatGender}
+      avatarUrl={friend.wechatAvatarUrl}
+      size={large ? 'large' : 'normal'}
+      badge='微信'
+    />
+  }
   return <AvatarFace name={friend.name} palette={Number(friend.avatar_seed || 0)} large={large} />
 }
 
@@ -160,8 +181,10 @@ export function getPageTopInset() {
   return cachedPageTopInset
 }
 
-export function needsNickname(user: AuthUser | null) {
-  return Boolean(user && !user.display_name?.trim() && /^微信用户[0-9a-f]+$/i.test(user.username))
+export function needsProfileCompletion(user: AuthUser | null) {
+  if (!user) return false
+  const generatedWechatName = !user.display_name?.trim() && /^微信用户[0-9a-f]+$/i.test(user.username)
+  return generatedWechatName || !user.gender
 }
 
 export function displayUserName(user: AuthUser | null) {
