@@ -293,78 +293,106 @@ export function GroupCreateScreen({ user, friends, loading, friendPickerOpen, de
     onFriendPickerOpenChange(false)
   }
 
-  return <View className='group-create-shell'>
-    <ScrollView scrollY className='group-page-scroll group-create-scroll' showScrollbar={false}>
-      <View className='page group-create-page' style={{ paddingTop: `${getPageTopInset()}px` }}>
-        <Header title='发起组局' onBack={onBack} />
-        <View className='group-create-hero'>
-          <Text className='eyebrow'>发起邀约</Text>
-          <Text className='title-small'>约一桌南京麻将</Text>
-          <Text>发起人：{displayUserName(user)} · 固定四人局</Text>
+  return <View className='group-create-v4-shell'>
+    <ScrollView scrollY className='group-create-v4-scroll' showScrollbar={false}>
+      <View className='group-create-v4-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+        <View className='group-create-v4-nav'>
+          <Button className='group-create-v4-back' hoverClass='none' onClick={onBack}>‹</Button>
+          <View><Text>发起组局</Text><Text>南京麻将 · 4 人局</Text></View>
+          <View className='group-create-v4-nav-spacer' />
         </View>
-        <Text className='group-form-title'>什么时候开始</Text>
-        <View className='group-form-grid'>
-          <Picker mode='date' value={date} start={localDateValue(new Date())} end={localDateValue(new Date(Date.now() + 180 * 86_400_000))} onChange={event => setDate(String(event.detail.value))}>
-            <View className='group-picker-field'><Text>日期</Text><Text>{date}</Text></View>
-          </Picker>
-          <Picker mode='time' value={time} onChange={event => setTime(String(event.detail.value))}>
-            <View className='group-picker-field'><Text>时间</Text><Text>{time}</Text></View>
-          </Picker>
+
+        <View className='group-create-v4-intro'>
+          <Text>约一桌牌</Text>
+          <Text>确定时间和地点后，可先邀请常用牌友；创建后仍可分享到微信。</Text>
         </View>
-        <Text className='group-form-title'>在哪里打</Text>
-        <View className='field group-location-field'><Input value={location} maxlength={60} placeholder='例如：老地方棋牌室、家里' onInput={event => setLocation(event.detail.value)} /></View>
-        <Text className='group-form-title'>先邀请牌友 <Text className='group-form-optional'>可选，最多3人</Text></Text>
-        <View className='group-invite-card' onClick={openFriendPicker}>
-          <View className='group-invite-card-head'>
-            <View><Text>{selectedFriends.length ? `已选择 ${selectedFriends.length} 位牌友` : '选择常用牌友'}</Text><Text>{friends.length ? `从 ${friends.length} 位牌友中选择，最多邀请3人` : '暂无常用牌友，也可创建后分享到微信群'}</Text></View>
-            <Text>{selectedFriends.length ? '修改' : '选择'} ›</Text>
+
+        <View className='group-create-v4-section'>
+          <Text className='group-create-v4-label'>开始时间</Text>
+          <View className='group-create-v4-time-grid'>
+            <Picker mode='date' value={date} start={localDateValue(new Date())} end={localDateValue(new Date(Date.now() + 180 * 86_400_000))} onChange={event => setDate(String(event.detail.value))}>
+              <View className='group-create-v4-picker'><Text>日期</Text><Text>{date}</Text><Text>›</Text></View>
+            </Picker>
+            <Picker mode='time' value={time} onChange={event => setTime(String(event.detail.value))}>
+              <View className='group-create-v4-picker'><Text>时间</Text><Text>{time}</Text><Text>›</Text></View>
+            </Picker>
           </View>
-          {selectedFriends.length > 0 && <View className='group-selected-friends'>{selectedFriends.map(friend => <View className='group-selected-friend' key={friend.id}>
-            <FriendAvatar friend={friend} />
-            <Text>{friend.name}</Text>
-          </View>)}</View>}
         </View>
-        <Text className='group-form-title'>备注 <Text className='group-form-optional'>可选</Text></Text>
-        <View className='field group-note-field'><Textarea value={note} maxlength={160} placeholder='例如：晚饭后开始，预计打两将' onInput={event => setNote(event.detail.value)} /></View>
-        <View className='group-create-dock-spacer' />
+
+        <View className='group-create-v4-section'>
+          <Text className='group-create-v4-label'>地点</Text>
+          <View className='group-create-v4-input'>
+            <Input value={location} maxlength={60} placeholder='例如：老地方棋牌室、家里' onInput={event => setLocation(event.detail.value)} />
+          </View>
+        </View>
+
+        <View className='group-create-v4-section'>
+          <View className='group-create-v4-label-row'><Text>先邀请牌友</Text><Text>可选 · 最多 3 人</Text></View>
+          <View className='group-create-v4-invite' onClick={openFriendPicker}>
+            <View className='group-create-v4-invite-head'>
+              <View><Text>{selectedFriends.length ? `已选择 ${selectedFriends.length} 位牌友` : '选择常用牌友'}</Text><Text>{friends.length ? `从 ${friends.length} 位牌友中选择` : '暂无常用牌友，也可创建后微信邀请'}</Text></View>
+              <Text>{selectedFriends.length ? '修改' : '选择'} ›</Text>
+            </View>
+            {selectedFriends.length > 0 && <View className='group-create-v4-selected'>{selectedFriends.map(friend => <View className='group-create-v4-selected-item' key={friend.id}>
+              <View><FriendAvatar friend={friend} /></View>
+              <Text>{friend.name}</Text>
+            </View>)}</View>}
+          </View>
+        </View>
+
+        <View className='group-create-v4-section'>
+          <View className='group-create-v4-label-row'><Text>备注</Text><Text>可选</Text></View>
+          <View className='group-create-v4-note'>
+            <Textarea value={note} maxlength={160} placeholder='例如：晚饭后开始，预计打两将' onInput={event => setNote(event.detail.value)} />
+            <Text>{note.length}/160</Text>
+          </View>
+        </View>
+
+        <View className='group-create-v4-summary'>
+          <View><Text>发起人</Text><Text>{displayUserName(user)}</Text></View>
+          <View><Text>人数</Text><Text>固定 4 人</Text></View>
+        </View>
+        <View className='group-create-v4-spacer' />
       </View>
     </ScrollView>
-    <View className='group-create-action-dock'>
-      <View className='group-create-action-copy'><Text>{formatGroupTime(startAt.toISOString())}</Text><Text>{location.trim() || '请填写组局地点'} · 已选 {friendIds.length}/3</Text></View>
-      <Button className='primary group-create-submit' disabled={!valid || loading} onClick={() => onCreate({
+
+    <View className='group-create-v4-dock'>
+      <View className='group-create-v4-dock-copy'><Text>{formatGroupTime(startAt.toISOString())}</Text><Text>{location.trim() || '请填写组局地点'} · 已选 {friendIds.length}/3</Text></View>
+      <Button className='group-create-v4-submit' hoverClass='none' disabled={!valid || loading} onClick={() => onCreate({
         startAt: startAt.toISOString(),
         location: location.trim(),
         note: note.trim(),
         friendIds,
       })}>{loading ? '创建中…' : '发起组局'}</Button>
     </View>
-    {friendPickerOpen && <View className='group-friend-picker-backdrop'>
-      <View className='group-friend-picker-sheet'>
-        <View className='group-friend-picker-head'>
-          <View><Text>选择牌友</Text><Text>已选 {draftFriendIds.length}/3 · 直接在原位置勾选或取消</Text></View>
-          <Button onClick={() => onFriendPickerOpenChange(false)}>×</Button>
+
+    {friendPickerOpen && <View className='group-create-v4-picker-backdrop'>
+      <View className='group-create-v4-picker-modal'>
+        <View className='group-create-v4-picker-head'>
+          <View><Text>选择牌友</Text><Text>已选 {draftFriendIds.length}/3</Text></View>
+          <Button hoverClass='none' onClick={() => onFriendPickerOpenChange(false)}>×</Button>
         </View>
-        <View className='group-friend-picker-search'>
-          <Text>搜</Text>
+        <View className='group-create-v4-search'>
+          <View className='group-create-v4-search-icon'><View /></View>
           <Input value={friendQuery} maxlength={20} placeholder='搜索牌友昵称' onInput={event => setFriendQuery(event.detail.value)} />
           <Text>{visibleFriends.length} 人</Text>
         </View>
-        <ScrollView scrollY className='group-friend-picker-list' showScrollbar={false}>
-          {!friends.length && <View className='group-friend-picker-empty'><Text>还没有常用牌友</Text><Text>可以先发起组局，再通过微信邀请好友。</Text></View>}
-          {friends.length > 0 && !visibleFriends.length && <View className='group-friend-picker-empty'><Text>没有找到相关牌友</Text><Text>换一个昵称关键词试试。</Text></View>}
+        <ScrollView scrollY className='group-create-v4-friend-list' showScrollbar={false}>
+          {!friends.length && <View className='group-create-v4-picker-empty'><Text>还没有常用牌友</Text><Text>可以先发起组局，再通过微信邀请好友。</Text></View>}
+          {friends.length > 0 && !visibleFriends.length && <View className='group-create-v4-picker-empty'><Text>没有找到相关牌友</Text><Text>换一个昵称关键词试试。</Text></View>}
           {visibleFriends.map(friend => {
             const selected = draftFriendIds.includes(friend.id)
             const disabled = !selected && draftFriendIds.length >= 3
-            return <View className={`group-friend-picker-item${selected ? ' selected' : ''}${disabled ? ' disabled' : ''}`} key={friend.id} onClick={() => toggleDraftFriend(friend)}>
-              <FriendAvatar friend={friend} />
-              <View className='grow'><Text>{friend.name}</Text><Text>共同 {friend.jointMatches} 将</Text></View>
-              <Text className='group-friend-picker-check'>{selected ? '✓' : '+'}</Text>
+            return <View className={`group-create-v4-friend-row${selected ? ' selected' : ''}${disabled ? ' disabled' : ''}`} key={friend.id} onClick={() => toggleDraftFriend(friend)}>
+              <View className='group-create-v4-friend-avatar'><FriendAvatar friend={friend} /></View>
+              <View className='group-create-v4-friend-copy'><Text>{friend.name}</Text><Text>共同 {friend.jointMatches} 将</Text></View>
+              <View className='group-create-v4-check'><Text>{selected ? '✓' : '+'}</Text></View>
             </View>
           })}
         </ScrollView>
-        <View className='group-friend-picker-actions'>
-          <Button className='secondary' onClick={() => onFriendPickerOpenChange(false)}>取消</Button>
-          <Button className='primary' onClick={confirmFriendSelection}>确定邀请（{draftFriendIds.length}/3）</Button>
+        <View className='group-create-v4-picker-actions'>
+          <Button hoverClass='none' onClick={() => onFriendPickerOpenChange(false)}>取消</Button>
+          <Button hoverClass='none' onClick={confirmFriendSelection}>确定（{draftFriendIds.length}/3）</Button>
         </View>
       </View>
     </View>}
