@@ -192,7 +192,7 @@ export function SettingsScreen({ user, preferences, syncStatus, onChange, onBack
       </SettingsSection>
 
       {user && <Button className='settings-v4-logout' hoverClass='none' onClick={() => { void confirmLogout() }}>退出登录</Button>}
-      <Text className='settings-v4-version'>雀记 · 微信小程序 · v1.7.92</Text>
+      <Text className='settings-v4-version'>雀记 · 微信小程序 · v1.7.93</Text>
     </View>
   </ScrollView>
 }
