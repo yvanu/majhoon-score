@@ -31,18 +31,29 @@ import { ScoreTrendChart } from './score-trend-chart'
 import { WechatFriendBindingControl } from './wechat-friend-binding'
 
 export function DailyStatsScreen({ stats, onBack }: { stats: DailyStats; onBack: () => void }) {
-  return <View className='page' style={{ paddingTop: `${getPageTopInset()}px` }}><Header title='每日战绩统计' onBack={onBack} />
-    <View className='daily-overview'>
-      <View><Text>日期</Text><Text className='daily-overview-value'>{stats.date}</Text></View>
-      <View><Text>牌局</Text><Text className='daily-overview-value'>{stats.matchCount} 将</Text></View>
-      <View><Text>局数</Text><Text className='daily-overview-value'>{stats.handCount} 局</Text></View>
+  return <View className='daily-v4-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+    <View className='daily-v4-nav'>
+      <Button className='daily-v4-back' hoverClass='none' onClick={onBack}>‹</Button>
+      <View><Text>今日战绩</Text><Text>{stats.date}</Text></View>
+      <View className='daily-v4-nav-spacer' />
     </View>
-    {!stats.players.length && <View className='empty'><View className='empty-line-mark'><View /><View /></View><Text className='card-title'>今日暂无战绩</Text><Text>完成牌局后会显示在这里</Text></View>}
-    <View className='daily-list'>{stats.players.map((player, index) => <View className='daily-player' key={player.name}>
-      <Text className='rank'>#{index + 1}</Text>
-      <View className='grow'><Text className='card-title'>{player.name}</Text><Text>胡牌 {player.wins} · 自摸 {player.tsumo} · 点炮 {player.deal_in}</Text></View>
-      <Text className={player.score >= 0 ? 'positive' : 'negative'}>{player.score > 0 ? '+' : ''}{player.score}</Text>
-    </View>)}</View>
+
+    <View className='daily-v4-summary'>
+      <View><Text>今天共记录</Text><Text>{stats.matchCount}</Text><Text>将</Text></View>
+      <View><Text>完成局数</Text><Text>{stats.handCount}</Text><Text>局</Text></View>
+    </View>
+
+    <View className='daily-v4-section-head'><Text>牌桌表现</Text><Text>{stats.players.length} 位玩家</Text></View>
+    {!stats.players.length ? <View className='daily-v4-empty'><Text>今日暂无战绩</Text><Text>完成牌局后会显示在这里</Text></View> : <View className='daily-v4-list'>
+      {stats.players.map((player, index) => <View className={`daily-v4-player${player.isSelf ? ' self' : ''}`} key={player.name}>
+        <View className={`daily-v4-avatar tone-${index % 4}`}><Text>{[...player.name.trim()][0] || '雀'}</Text></View>
+        <View className='daily-v4-player-main'>
+          <View className='daily-v4-name-row'><Text>{player.name}</Text>{player.isSelf && <Text>我</Text>}</View>
+          <Text>胡牌 {player.wins} · 自摸 {player.tsumo} · 点炮 {player.deal_in}</Text>
+        </View>
+        <Text className={`daily-v4-score ${player.score >= 0 ? 'positive' : 'negative'}`}>{player.score > 0 ? '+' : ''}{player.score}</Text>
+      </View>)}
+    </View>}
   </View>
 }
 
