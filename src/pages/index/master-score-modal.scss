@@ -189,22 +189,6 @@
   white-space: nowrap;
 }
 .master-score-player-card.selected > text { color: #171714; font-weight: 800; }
-.master-score-player-card.selected::after {
-  position: absolute;
-  right: 9.615rpx;
-  top: 9.615rpx;
-  width: 30.769rpx;
-  height: 30.769rpx;
-  border-radius: 50%;
-  background: #F3B43F;
-  color: #171714;
-  content: '✓';
-  font-size: 19.231rpx;
-  font-weight: 800;
-  line-height: 30.769rpx;
-  text-align: center;
-}
-
 .master-score-field-head {
   min-height: 38.462rpx;
   margin-top: 38.462rpx;
@@ -656,10 +640,23 @@
 }
 
 /* 13_self_draw_modal */
+.master-score-dialog-tsumo > .master-score-field-label {
+  position: absolute;
+  left: 34.615rpx;
+  top: 196.154rpx;
+  margin: 0;
+}
 .master-score-dialog-tsumo .master-score-player-grid {
   position: absolute;
   left: 34.615rpx;
   top: 230.769rpx;
+  width: 603.846rpx;
+  margin: 0;
+}
+.master-score-dialog-tsumo > .master-score-field-head:not(.notes) {
+  position: absolute;
+  left: 34.615rpx;
+  top: 423.077rpx;
   width: 603.846rpx;
   margin: 0;
 }
@@ -669,6 +666,13 @@
   top: 473.077rpx;
   width: 603.846rpx;
   height: 111.538rpx;
+  margin: 0;
+}
+.master-score-dialog-tsumo > .master-score-field-head.notes {
+  position: absolute;
+  left: 34.615rpx;
+  top: 634.615rpx;
+  width: 603.846rpx;
   margin: 0;
 }
 .master-score-dialog-tsumo .master-score-note-grid {
@@ -699,11 +703,23 @@
   width: 73.077rpx !important;
   height: 73.077rpx !important;
 }
+.master-score-dialog-ron > .master-score-field-label:not(.second) {
+  position: absolute;
+  left: 34.615rpx;
+  top: 184.615rpx;
+  margin: 0;
+}
 .master-score-dialog-ron .ron-losers {
   position: absolute;
   left: 34.615rpx;
   top: 230.769rpx;
   width: 603.846rpx;
+  margin: 0;
+}
+.master-score-dialog-ron > .master-score-field-label.second {
+  position: absolute;
+  left: 34.615rpx;
+  top: 415.385rpx;
   margin: 0;
 }
 .master-score-dialog-ron .ron-winners {
@@ -713,12 +729,26 @@
   width: 603.846rpx;
   margin: 0;
 }
+.master-score-dialog-ron > .master-score-field-head:not(.notes) {
+  position: absolute;
+  left: 34.615rpx;
+  top: 657.692rpx;
+  width: 603.846rpx;
+  margin: 0;
+}
 .master-score-dialog-ron .master-score-control {
   position: absolute;
   left: 34.615rpx;
   top: 703.846rpx;
   width: 603.846rpx;
   height: 107.692rpx;
+  margin: 0;
+}
+.master-score-dialog-ron > .master-score-field-head.notes {
+  position: absolute;
+  left: 34.615rpx;
+  top: 871.154rpx;
+  width: 603.846rpx;
   margin: 0;
 }
 .master-score-dialog-ron .master-score-note-row {

@@ -232,8 +232,11 @@
   color: #9D9180;
   font-size: 17.308rpx;
 }
-.master-start-rule-card > text {
+.master-start-rule-link {
   margin-top: 4rpx;
+  display: flex;
+  align-items: center;
+  gap: 5.769rpx;
   color: #A49A8D;
   font-size: 17.308rpx;
 }

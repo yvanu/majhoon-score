@@ -311,7 +311,7 @@ export function GroupChatScreen({ group, user, loading: actionLoading, onBack, o
     <View className='master-chat-main' style={{ paddingTop: `${getPageTopInset()}px` }}>
       <View className='master-chat-nav'>
         <Button hoverClass='none' onClick={onBack}><MasterBackGlyph /></Button>
-        <View><Text>{masterChatTitle}</Text><Text>{group.confirmed_count}人 · {formatGroupTime(group.start_at).replace(' ', '')}</Text></View>
+        <View><Text>{masterChatTitle}</Text><Text>{group.confirmed_count} 人 · {formatGroupTime(group.start_at)}</Text></View>
       </View>
 
       {canStart && <View className='master-chat-ready'><Text>人已到齐，可以开局</Text><Button hoverClass='none' disabled={actionLoading} onClick={onStart}>{actionLoading ? '处理中…' : '开始记分'}</Button></View>}

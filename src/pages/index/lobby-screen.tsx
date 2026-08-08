@@ -3,7 +3,7 @@ import { Button, Image, Input, ScrollView, Text, View } from '@tarojs/components
 import type { AuthUser, Friend, GroupSessionMember, MatchLobby, MatchLobbyMember } from '@shared/types'
 import { matchLobbyQrUrl } from '../../services/api'
 import { IdentityAvatar } from './identity-avatar'
-import { MasterBackGlyph, getPageTopInset } from './shared'
+import { MasterBackGlyph, MasterRightChevronGlyph, getPageTopInset } from './shared'
 import { GroupMemberInfoModal } from './group-member-info'
 
 const seatSpots = [
@@ -129,7 +129,7 @@ export function LobbyScreen({ lobby, user, friends, friendsLoading, loading, clo
 
     <View className='master-start-rule-card'>
       <View><Text>南京麻将 · 标准规则</Text><Text>从组局进入时仅确认座位与庄家</Text></View>
-      <Text>查看规则 ›</Text>
+      <View className='master-start-rule-link'><Text>查看规则</Text><MasterRightChevronGlyph /></View>
     </View>
 
     {!lobby.isMember && lobby.status === 'preparing' && !full && <Button className='master-start-join' hoverClass='none' disabled={loading} onClick={() => { void onJoin() }}>{loading ? '加入中…' : '先加入这桌'}</Button>}

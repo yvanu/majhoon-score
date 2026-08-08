@@ -1383,8 +1383,8 @@ export default function Index() {
   }
 
   function showPersonalStatistics(
-    dimension: StatisticsDimension = 'month',
-    value: string = statisticsValue('month'),
+    dimension: StatisticsDimension = 'day',
+    value: string = statisticsValue('day'),
   ) {
     if (!user) {
       showAuth('personal')
@@ -1913,7 +1913,7 @@ export default function Index() {
       reviewReturnLabel={reviewReturnLabel()}
     /> : <LoadingScreen title='牌局详情' message='正在加载战况与逐局记录…' onBack={goBack} />)}
     </View>
-    {activeTab && <BottomNav
+    {activeTab && screen !== 'profile' && <BottomNav
       active={activeTab}
       unreadChats={unreadChatCount}
       onHome={() => setScreen('home')}

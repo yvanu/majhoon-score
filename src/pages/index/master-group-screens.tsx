@@ -9,7 +9,7 @@ import type {
   GroupSessionInput,
   GroupSessionSummary,
 } from '@shared/types'
-import { FriendAvatar, MasterBackGlyph, MasterRightChevronGlyph, displayUserName, getPageTopInset } from './shared'
+import { FriendAvatar, MasterBackGlyph, MasterRightChevronGlyph, getPageTopInset } from './shared'
 import { IdentityAvatar } from './identity-avatar'
 
 function localDateValue(date: Date) {
@@ -220,7 +220,7 @@ export function GroupCreateScreen({ user, friends, loading, friendPickerOpen, de
     <View className='master-create-row'>
       <View><Text>时间</Text><Text>选择组局时间</Text></View>
       <View className='master-create-picker-pair'>
-        <Picker mode='date' value={date} start={localDateValue(new Date())} onChange={event => setDate(String(event.detail.value))}><Text>{date === localDateValue(new Date()) ? '今天' : date}</Text></Picker>
+        <Picker mode='date' value={date} start={localDateValue(new Date())} onChange={event => setDate(String(event.detail.value))}><Text>{formatGroupTime(startAt.toISOString()).split(' ')[0]}</Text></Picker>
         <Picker mode='time' value={time} onChange={event => setTime(String(event.detail.value))}><Text>{time} ›</Text></Picker>
       </View>
     </View>
@@ -232,10 +232,9 @@ export function GroupCreateScreen({ user, friends, loading, friendPickerOpen, de
 
     <View className='master-create-section-head'><Text>邀请牌友</Text><Text>可稍后再邀请</Text></View>
     <View className='master-create-invite' onClick={openPicker}>
-      <View><View><IdentityAvatar name={displayUserName(user)} gender={user.gender} avatarUrl={user.avatar_url} /></View><Text>{displayUserName(user)}</Text></View>
       {selectedFriends.slice(0, 3).map(friend => <View key={friend.id}><View><FriendAvatar friend={friend} /></View><Text>{friend.name}</Text></View>)}
-      {Array.from({ length: Math.max(0, 2 - selectedFriends.length) }, (_, index) => <View key={`placeholder-${index}`} className='placeholder'><View><Text>⌣</Text></View><Text>牌友</Text></View>)}
-      {selectedFriends.length < 3 && <View><View className='add'><View className='master-create-plus-horizontal' /><View className='master-create-plus-vertical' /></View><Text>邀请</Text></View>}
+      {Array.from({ length: Math.max(0, 3 - selectedFriends.length) }, (_, index) => <View key={`placeholder-${index}`} className='placeholder'><View className='master-create-placeholder-face'><View className='eye left' /><View className='eye right' /><View className='smile' /></View><Text>牌友</Text></View>)}
+      <View><View className='add'><View className='master-create-plus-horizontal' /><View className='master-create-plus-vertical' /></View><Text>邀请</Text></View>
     </View>
 
     <Text className='master-create-section-label'>备注</Text>
@@ -310,20 +309,18 @@ export function GroupDetailScreen({ group, currentUserId, friends, friendsLoadin
       <Text className='master-detail-section-title'>成员</Text>
       <View className='master-detail-members'>{group.members.slice(0, 4).map(member => <View key={member.id}>
         <View className='master-detail-member-avatar'><IdentityAvatar name={member.name} avatarUrl={member.avatar_url} gender={member.gender} /></View>
-        {member.status === 'confirmed' && <Text className='master-detail-member-check'>✓</Text>}
+        {member.status === 'confirmed' && <View className='master-detail-member-check'><View /></View>}
         <Text>{member.user_id === currentUserId ? '我' : member.name}</Text>
       </View>)}</View>
 
-      <View className='master-detail-link' onClick={() => { if (group.is_member) onOpenChat() }}><View><Text>群聊</Text><Text>{group.chat_last_message_preview ? '有新消息' : '查看组局消息'}</Text></View><Text>进入 ›</Text></View>
-      <View className='master-detail-link'><View><Text>时间与地点</Text><Text>{formatGroupTime(group.start_at)}</Text></View><Text>{group.location} ›</Text></View>
+      <View className='master-detail-link' onClick={() => { if (group.is_member) onOpenChat() }}><View><Text>群聊</Text><Text>{group.chat_unread_count > 0 ? `${group.chat_unread_count} 条新消息` : '暂无新消息'}</Text></View><View className='master-detail-enter'><Text>进入</Text><MasterRightChevronGlyph /></View></View>
+      <View className='master-detail-link'><View><Text>时间与地点</Text><Text>{formatGroupTime(group.start_at)}</Text></View><View className='master-detail-enter'><Text>{group.location}</Text><MasterRightChevronGlyph /></View></View>
       <View className='master-detail-status'><View><Text>成员状态</Text><Text>{ready ? '4 人均已确认，等待发起人开始记分' : `${group.confirmed_count} 人已确认`}</Text></View><Text>{group.confirmed_count}/{group.capacity}</Text></View>
 
       {canStart && <Button className='master-detail-primary' hoverClass='none' disabled={loading} onClick={onStart}>{loading ? '准备中…' : '开始记分'}</Button>}
       {group.status === 'active' && group.match_id && <Button className='master-detail-primary' hoverClass='none' onClick={() => onOpenMatch(group.match_id!)}>进入牌局</Button>}
       {group.status === 'finished' && group.match_id && <Button className='master-detail-primary' hoverClass='none' onClick={() => onOpenMatch(group.match_id!)}>查看牌局</Button>}
       {canJoin && <Button className='master-detail-primary' hoverClass='none' disabled={loading} onClick={onJoin}>加入组局</Button>}
-      {canLeave && <Text className='master-detail-minor' onClick={onLeave}>退出组局</Text>}
-      {group.is_owner && (group.status === 'recruiting' || group.status === 'full') && <Text className='master-detail-minor danger' onClick={onCancel}>取消组局</Text>}
     </View>
   </ScrollView>
 }

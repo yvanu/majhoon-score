@@ -62,6 +62,7 @@ export function Home({ user, currentMatch, recentMatches, dailyStats, syncStatus
   const subtitle = syncStatus === 'offline' ? '当前网络异常，恢复后继续同步' : '快速开局，也能随时回看最近牌局'
 
   return <View className='home-hf-screen'>
+    <View className='home-hf-more'><View /><View /></View>
     <View className='home-hf-header'>
       <Text className='home-hf-title'>今天打几圈？</Text>
       <Text className='home-hf-subtitle'>{subtitle}</Text>

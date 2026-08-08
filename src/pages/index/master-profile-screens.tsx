@@ -47,7 +47,7 @@ export function deriveMasterPlayStyle(statistics: PersonalStatistics | null) {
   const features = [
     attack >= 60 ? '更倾向主动做大牌' : '更倾向先保证成牌效率',
     stability >= 70 ? '领先时收得更稳' : '比分变化时调整较积极',
-    risk >= 60 ? '点炮后下一局仍敢进攻' : '点炮后下一局显得更保守',
+    risk >= 60 ? '点炮后下一局仍敢进攻' : '点炮后下一局明显保守',
   ]
   return { title, tag: `${title}型牌风`, attack, stability, risk, features }
 }
@@ -148,10 +148,10 @@ export function PersonalStatisticsScreen({ statistics, loading, onBack, onChange
         <Button hoverClass='none' onClick={onBigHands}>看详情</Button>
       </View>
       <View className='master-stats-metrics'>
-        <View><Text>总局数</Text><Text>{statistics.totalHands} 局</Text><Text>当前周期</Text></View>
-        <View><Text>胡牌率</Text><Text>{percent(statistics.wins, statistics.totalHands)}</Text><Text>胡 {statistics.wins} 次</Text></View>
-        <View><Text>自摸率</Text><Text>{percent(statistics.tsumoWins, statistics.totalHands)}</Text><Text>自摸 {statistics.tsumoWins} 次</Text></View>
-        <View><Text>点炮率</Text><Text>{percent(statistics.dealIns, statistics.totalHands)}</Text><Text>点炮 {statistics.dealIns} 次</Text></View>
+        <View><Text>总局数</Text><Text>{statistics.totalHands} 局</Text><Text>{statistics.dimension === 'day' ? '较昨日 --' : '当前周期'}</Text></View>
+        <View><Text>胡牌率</Text><Text>{percent(statistics.wins, statistics.totalHands)}</Text><Text>{statistics.dimension === 'day' ? '较昨日 --' : `胡 ${statistics.wins} 次`}</Text></View>
+        <View><Text>自摸率</Text><Text>{percent(statistics.tsumoWins, statistics.totalHands)}</Text><Text>{statistics.dimension === 'day' ? '较昨日 --' : `自摸 ${statistics.tsumoWins} 次`}</Text></View>
+        <View><Text>点炮率</Text><Text>{percent(statistics.dealIns, statistics.totalHands)}</Text><Text>{statistics.dimension === 'day' ? '较昨日 --' : `点炮 ${statistics.dealIns} 次`}</Text></View>
       </View>
       <Text className='master-stats-section-title'>近 {Math.min(7, statistics.trend.length || 7)} 场趋势</Text>
       <View className='master-stats-trend'><Text>近{Math.min(7, statistics.trend.length || 7)}场 {statistics.netScore > 0 ? '+' : ''}{statistics.netScore}</Text><ScoreTrendChart points={statistics.trend.slice(-7)} /></View>

@@ -7,6 +7,25 @@
 }
 
 /* 01_home: all major blocks use the master SVG 390×844 coordinates directly. */
+.home-hf-more {
+  position: absolute;
+  left: 634.615rpx;
+  top: 111.538rpx;
+  width: 76.923rpx;
+  height: 76.923rpx;
+  border-radius: 38.462rpx;
+  background: #FFFFFF;
+}
+.home-hf-more > view {
+  position: absolute;
+  top: 30.523rpx;
+  width: 7.877rpx;
+  height: 7.877rpx;
+  border-radius: 50%;
+  background: #66635C;
+}
+.home-hf-more > view:first-child { left: 28.754rpx; }
+.home-hf-more > view:last-child { left: 59.523rpx; }
 .home-hf-header {
   position: absolute;
   left: 38.462rpx;

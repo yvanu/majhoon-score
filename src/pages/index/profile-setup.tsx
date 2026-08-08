@@ -52,7 +52,7 @@ export function ProfileSetupScreen({ user, required, loading, onBack, onSave, on
 
     <View className='master-profile-setup-avatar-wrap'>
       <Button className='master-profile-setup-avatar-button' openType='chooseAvatar' hoverClass='none' disabled={avatarUploading || loading} onChooseAvatar={event => { void chooseAvatar(event.detail.avatarUrl) }}>
-        {avatarUrl || gender
+        {avatarUrl
           ? <View className='master-profile-setup-avatar-real'><IdentityAvatar name={normalizedName || '雀记'} gender={gender} avatarUrl={avatarUrl} size='large' fallback='neutral' /></View>
           : <View className='master-profile-setup-smile'><View className='eye left' /><View className='eye right' /><View className='smile' /></View>}
       </Button>

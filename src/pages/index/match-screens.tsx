@@ -1167,11 +1167,21 @@ export function ScoreScreen({ players, currentUserId, currentWind, currentHand, 
   const displayedRonPrimaryNote = displayedRonDraft?.notes[0] || '无大胡'
   const masterEventScores = eventScores.filter(score => score.change !== 0)
   const masterViewType: string = type
+  const tileEditorPlayer = tileEditorTarget === 'tsumo'
+    ? players.find(player => player.id === winner)
+    : players.find(player => player.id === tileEditorTarget)
+  const tileEditorNote = tileEditorTarget === 'tsumo'
+    ? notes[0] || '无花果'
+    : ronDrafts[tileEditorTarget || '']?.notes[0] || '无大胡'
+  const tileEditorScore = tileEditorTarget === 'tsumo'
+    ? tsumoPaymentValue * Math.max(0, players.length - 1)
+    : Math.max(0, Math.round(Number(ronDrafts[tileEditorTarget || '']?.amount) || 0))
+  const tileEditorSubtitle = `第${currentHand}局 · ${tileEditorPlayer ? masterPlayerLabel(tileEditorPlayer) : '我'} · ${tileEditorNote} · +${tileEditorScore}`
 
   if (tileEditorTarget) {
     return <View className='master-score-dialog master-score-tile-dialog'>
       <View className='master-score-header tile'>
-        <View><Text>录入牌谱</Text><Text>{windName[currentWind]}风 · 第{currentHand}局 · {type === 'tsumo' ? '自摸' : '点炮'}</Text></View>
+        <View><Text>录入牌谱</Text><Text>{tileEditorSubtitle}</Text></View>
         <Button hoverClass='none' onClick={() => setTileEditorTarget(null)}><MasterCloseGlyph /></Button>
       </View>
       <ScrollView scrollY className='master-score-tile-scroll' showScrollbar={false}>
