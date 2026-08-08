@@ -11,7 +11,7 @@ import type {
   GroupSessionStatus,
   GroupSessionSummary,
 } from '@shared/types'
-import { FriendAvatar, Header, displayUserName, getPageTopInset } from './shared'
+import { FriendAvatar, displayUserName, getPageTopInset } from './shared'
 import { IdentityAvatar } from './identity-avatar'
 import { GroupMemberInfoModal } from './group-member-info'
 
@@ -450,70 +450,71 @@ export function GroupDetailScreen({ group, currentUserId, friends, friendsLoadin
     await Taro.showToast({ title: '组局码已复制', icon: 'success' })
   }
 
-  return <ScrollView scrollY className='group-page-scroll' showScrollbar={false}><View className='page group-detail-page' style={{ paddingTop: `${getPageTopInset()}px` }}>
-    <Header title='组局详情' onBack={onBack} />
-    <View className='group-detail-hero'>
-      <View className='group-detail-head'>
-        <View><Text className='group-detail-time'>{formatGroupTime(group.start_at)}</Text><Text className='group-detail-location'>{group.location}</Text></View>
-        <Text className={`group-status ${status.tone}`}>{status.label}</Text>
+  return <ScrollView scrollY className='group-detail-v4-scroll' showScrollbar={false}>
+    <View className='group-detail-v4-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+      <View className='group-detail-v4-nav'>
+        <Button className='group-detail-v4-back' hoverClass='none' onClick={onBack}>‹</Button>
+        <View><Text>组局详情</Text><Text>{status.label}</Text></View>
+        <View className='group-detail-v4-nav-spacer' />
       </View>
-      <Text className='group-detail-owner'>发起人：{group.owner_name}</Text>
-      {group.note && <Text className='group-detail-note'>{group.note}</Text>}
-      <View className='group-code-row' onClick={copyInvite}><Text>组局码</Text><Text>{group.share_code}</Text><Text>复制</Text></View>
-    </View>
 
-    <View className='group-member-section-head'><Text>参与成员</Text><Text>已确认 {group.confirmed_count}/{group.capacity}</Text></View>
-    <View className='group-table-layout'>
-      {group.members.map(member => <View className='group-member-card' key={member.id} onClick={() => setSelectedMemberId(member.id)}>
-        <GroupMemberAvatar member={member} />
-        <View className='grow'><Text className='card-title'>{member.name}</Text><Text className={member.status === 'confirmed' ? 'group-member-status confirmed' : 'group-member-status invited'}>{memberStatusText(member)}</Text></View>
-        {canManage && member.role !== 'owner' && <View className='group-member-actions'>
-          <Button
-            className={member.status === 'confirmed' ? 'group-member-manage muted' : 'group-member-manage'}
-            disabled={loading}
-            onClick={event => { event.stopPropagation(); onUpdateMember(member.id, member.status === 'confirmed' ? 'invited' : 'confirmed') }}
-          >{member.status === 'confirmed' ? '待确认' : '确认'}</Button>
-          <Button className='group-member-remove' disabled={loading} onClick={event => { event.stopPropagation(); onRemoveMember(member.id) }}>移除</Button>
-        </View>}
-      </View>)}
-      {Array.from({ length: Math.max(0, group.capacity - group.members.length) }, (_, index) => <View className='group-member-card vacant' key={`vacant-${index}`}>
-        <GroupMemberAvatar empty />
-        <View className='grow'><Text className='card-title'>等待牌友加入</Text><Text className='group-member-status'>可通过组局码邀请</Text></View>
-      </View>)}
-    </View>
-
-    <View className={`group-chat-entry${canOpenChat ? '' : ' disabled'}`} onClick={() => { if (canOpenChat) onOpenChat() }}>
-      <View className='group-chat-entry-icon'><Text>聊</Text></View>
-      <View className='grow'>
-        <View className='group-chat-entry-title-row'>
-          <Text className='group-chat-entry-title'>组局群聊</Text>
-          {group.chat_unread_count > 0 && <Text className='group-chat-unread-badge'>{group.chat_unread_count > 99 ? '99+' : group.chat_unread_count}</Text>}
+      <View className='group-detail-v4-hero'>
+        <View className='group-detail-v4-hero-head'>
+          <View><Text className='group-detail-v4-time'>{formatGroupTime(group.start_at)}</Text><Text className='group-detail-v4-location'>{group.location}</Text></View>
+          <Text className={`group-detail-v4-status ${status.tone}`}>{status.label}</Text>
         </View>
-        <Text className='group-chat-entry-preview'>{canOpenChat
-          ? group.chat_last_message_preview || '和牌友确认一下时间与位置'
-          : '确认加入组局后即可参与群聊'}</Text>
+        <View className='group-detail-v4-meta-row'><Text>南京麻将</Text><Text>{group.confirmed_count}/{group.capacity} 人</Text><Text>发起人 {group.owner_name}</Text></View>
+        {group.note && <Text className='group-detail-v4-note'>{group.note}</Text>}
+        <View className='group-detail-v4-code' onClick={copyInvite}><View><Text>组局码</Text><Text>{group.share_code}</Text></View><Text>复制</Text></View>
       </View>
-      <Text className='group-chat-entry-arrow'>{canOpenChat ? '›' : '锁'}</Text>
-    </View>
 
-    {group.status === 'active' && group.match_id && <Button className='primary group-primary-action' onClick={() => onOpenMatch(group.match_id!)}>进入正在进行的牌局</Button>}
-    {group.status === 'finished' && group.match_id && <Button className='secondary group-primary-action' onClick={() => onOpenMatch(group.match_id!)}>查看牌局记录</Button>}
-    {canJoin && <Button className='primary group-primary-action' disabled={loading} onClick={onJoin}>{loading ? '加入中…' : '加入组局'}</Button>}
-    {canLeave && <Button className='secondary group-primary-action' disabled={loading} onClick={onLeave}>退出组局</Button>}
-    {canStart && <Button className='primary group-primary-action' disabled={loading} onClick={onStart}>{loading ? '准备座位中…' : '四人已齐 · 确定座位'}</Button>}
-    {group.is_owner && !canStart && (group.status === 'recruiting' || group.status === 'full') && <Text className='group-start-hint'>确认满四人后先确定东南西北，再开始记分。</Text>}
-    {(group.status === 'recruiting' || group.status === 'full') && <Button className='primary group-share-action' openType='share'>微信邀请好友</Button>}
-    <Button className='secondary group-copy-action' onClick={copyInvite}>复制组局码</Button>
-    {canManage && <Button className='danger-link group-cancel-action' disabled={loading} onClick={onCancel}>取消组局</Button>}
-    {selectedMember && <GroupMemberInfoModal
-      member={selectedMember}
-      currentUserId={currentUserId}
-      friends={friends}
-      friendsLoading={friendsLoading}
-      onEnsureFriends={onEnsureFriends}
-      onFriendsChanged={onFriendsChanged}
-      onOpenFriend={friend => { setSelectedMemberId(null); onOpenFriend(friend) }}
-      onClose={() => setSelectedMemberId(null)}
-    />}
-  </View></ScrollView>
+      <View className='group-detail-v4-section-head'><View><Text>成员</Text><Text>组局阶段只确认参与人，开局时再确定座位</Text></View><Text>{group.confirmed_count}/{group.capacity}</Text></View>
+      <View className='group-detail-v4-members'>
+        {group.members.map(member => <View className='group-detail-v4-member' key={member.id} onClick={() => setSelectedMemberId(member.id)}>
+          <View className='group-detail-v4-member-avatar'><GroupMemberAvatar member={member} /></View>
+          <View className='group-detail-v4-member-copy'><View><Text>{member.name}</Text>{member.role === 'owner' && <Text>房主</Text>}</View><Text className={member.status === 'confirmed' ? 'confirmed' : ''}>{memberStatusText(member)}</Text></View>
+          {canManage && member.role !== 'owner' ? <View className='group-detail-v4-member-actions'>
+            <Button hoverClass='none' disabled={loading} onClick={event => { event.stopPropagation(); onUpdateMember(member.id, member.status === 'confirmed' ? 'invited' : 'confirmed') }}>{member.status === 'confirmed' ? '改为待确认' : '确认'}</Button>
+            <Button hoverClass='none' disabled={loading} onClick={event => { event.stopPropagation(); onRemoveMember(member.id) }}>移除</Button>
+          </View> : <Text className='group-detail-v4-member-arrow'>›</Text>}
+        </View>)}
+        {Array.from({ length: Math.max(0, group.capacity - group.members.length) }, (_, index) => <View className='group-detail-v4-member vacant' key={`vacant-${index}`}>
+          <View className='group-detail-v4-vacant-avatar'><Text>＋</Text></View>
+          <View className='group-detail-v4-member-copy'><View><Text>等待牌友加入</Text></View><Text>可通过微信邀请或组局码加入</Text></View>
+        </View>)}
+      </View>
+
+      <View className={`group-detail-v4-chat${canOpenChat ? '' : ' disabled'}`} onClick={() => { if (canOpenChat) onOpenChat() }}>
+        <View className='group-detail-v4-chat-icon'><View /><View /><View /></View>
+        <View className='group-detail-v4-chat-copy'>
+          <View><Text>组局群聊</Text>{group.chat_unread_count > 0 && <Text className='group-detail-v4-unread'>{group.chat_unread_count > 99 ? '99+' : group.chat_unread_count}</Text>}</View>
+          <Text>{canOpenChat ? group.chat_last_message_preview || '和牌友确认一下时间与位置' : '确认加入组局后即可参与群聊'}</Text>
+        </View>
+        <Text className='group-detail-v4-chat-arrow'>{canOpenChat ? '›' : '—'}</Text>
+      </View>
+
+      <View className='group-detail-v4-actions'>
+        {group.status === 'active' && group.match_id && <Button className='group-detail-v4-primary' hoverClass='none' onClick={() => onOpenMatch(group.match_id!)}>进入正在进行的牌局</Button>}
+        {group.status === 'finished' && group.match_id && <Button className='group-detail-v4-secondary' hoverClass='none' onClick={() => onOpenMatch(group.match_id!)}>查看牌局记录</Button>}
+        {canJoin && <Button className='group-detail-v4-primary' hoverClass='none' disabled={loading} onClick={onJoin}>{loading ? '加入中…' : '加入组局'}</Button>}
+        {canStart && <Button className='group-detail-v4-primary' hoverClass='none' disabled={loading} onClick={onStart}>{loading ? '准备座位中…' : '开始牌局 · 确定座位'}</Button>}
+        {(group.status === 'recruiting' || group.status === 'full') && <Button className='group-detail-v4-share' hoverClass='none' openType='share'>邀请微信好友</Button>}
+        {canLeave && <Button className='group-detail-v4-secondary' hoverClass='none' disabled={loading} onClick={onLeave}>退出组局</Button>}
+        <Button className='group-detail-v4-secondary' hoverClass='none' onClick={copyInvite}>复制组局码</Button>
+        {group.is_owner && !canStart && (group.status === 'recruiting' || group.status === 'full') && <Text className='group-detail-v4-hint'>四人确认后进入座位分配，东家自动成为庄家。</Text>}
+        {canManage && <Button className='group-detail-v4-danger' hoverClass='none' disabled={loading} onClick={onCancel}>取消组局</Button>}
+      </View>
+
+      {selectedMember && <GroupMemberInfoModal
+        member={selectedMember}
+        currentUserId={currentUserId}
+        friends={friends}
+        friendsLoading={friendsLoading}
+        onEnsureFriends={onEnsureFriends}
+        onFriendsChanged={onFriendsChanged}
+        onOpenFriend={friend => { setSelectedMemberId(null); onOpenFriend(friend) }}
+        onClose={() => setSelectedMemberId(null)}
+      />}
+    </View>
+  </ScrollView>
 }
