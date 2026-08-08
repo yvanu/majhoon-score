@@ -78,6 +78,7 @@ import './tabbar-v4.scss'
 import './settings-v4.scss'
 import './history-v4.scss'
 import './personal-stats-v4.scss'
+import './friend-detail-v4.scss'
 
 const TAB_CACHE_TTL = 60_000
 const FRIEND_STATS_CACHE_TTL = 5 * 60_000

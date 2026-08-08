@@ -203,41 +203,65 @@ export function FriendsScreen({ friends, loading, query, onQueryChange, onOpen }
 
 export function FriendStatisticsScreen({ statistics, friends, closeOverlayRequest, onOverlayOpenChange, onBack, onBindingChanged, onWechatLinked }: { statistics: FriendStatistics; friends: Friend[]; closeOverlayRequest: number; onOverlayOpenChange: (open: boolean) => void; onBack: () => void; onBindingChanged: () => Promise<void>; onWechatLinked: (friendId: string) => Promise<void> }) {
   const { friend } = statistics
-  return <View className='page friend-statistics-page' style={{ paddingTop: `${getPageTopInset()}px` }}>
-    <Header title='牌友战绩' onBack={onBack} />
-    <View className='friend-statistics-hero'>
-      <FriendAvatar friend={friend} large />
-      <View className='grow'><Text className='title-small'>{friend.name}</Text>{friend.source === 'wechat' ? <Text>微信用户</Text> : friend.linkedUserId && friend.wechatName ? <Text>微信昵称：{friend.wechatName}</Text> : null}<Text>共同 {friend.jointMatches} 将 · 共 {statistics.totalHands} 局</Text></View>
+  const identityCopy = friend.source === 'wechat'
+    ? '微信用户'
+    : friend.linkedUserId && friend.wechatName
+      ? `微信昵称：${friend.wechatName}`
+      : '手工牌友'
+
+  return <ScrollView scrollY className='friend-v4-scroll' showScrollbar={false}>
+    <View className='friend-v4-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+      <View className='friend-v4-nav'>
+        <Button className='friend-v4-back' hoverClass='none' onClick={onBack}>‹</Button>
+        <View><Text>牌友详情</Text><Text>我和他的共同战绩</Text></View>
+        <View className='friend-v4-nav-spacer' />
+      </View>
+
+      <View className='friend-v4-identity'>
+        <View className='friend-v4-avatar'><FriendAvatar friend={friend} large /></View>
+        <View className='friend-v4-identity-copy'>
+          <View><Text>{friend.name}</Text>{(friend.source === 'wechat' || friend.linkedUserId) && <Text className='friend-v4-wechat'>微信</Text>}</View>
+          <Text>{identityCopy}</Text>
+          <Text>共同 {friend.jointMatches} 将 · {statistics.totalHands} 局</Text>
+        </View>
+      </View>
+
+      <View className='friend-v4-binding'>
+        {friend.source === 'wechat' && friend.linkedUserId
+          ? <WechatFriendBindingControl
+              targetUserId={friend.linkedUserId}
+              targetName={friend.wechatName || friend.name}
+              friends={friends}
+              closeRequest={closeOverlayRequest}
+              onOpenChange={onOverlayOpenChange}
+              onLinked={onWechatLinked}
+            />
+          : <FriendBindingControl friend={friend} closeRequest={closeOverlayRequest} onOpenChange={onOverlayOpenChange} onChanged={onBindingChanged} />}
+      </View>
+
+      <View className='friend-v4-net-card'>
+        <View><Text>与他的共同牌局净分</Text><Text className={statistics.netScore > 0 ? 'positive' : statistics.netScore < 0 ? 'negative' : ''}>{statistics.netScore > 0 ? '+' : ''}{statistics.netScore}</Text></View>
+        <View><Text>{friend.jointMatches}</Text><Text>将</Text><Text>{statistics.totalHands}</Text><Text>局</Text></View>
+      </View>
+
+      <View className='friend-v4-relation-grid'>
+        <View><Text>{statistics.myWins}</Text><Text>我胡牌</Text></View>
+        <View><Text>{statistics.friendWins}</Text><Text>他胡牌</Text></View>
+        <View><Text>{statistics.myDealInsToFriend}</Text><Text>我点炮给他</Text></View>
+        <View><Text>{statistics.friendDealInsToMe}</Text><Text>他点炮给我</Text></View>
+      </View>
+
+      <View className='friend-v4-card'>
+        <View className='friend-v4-card-head'><View><Text>对战净分走势</Text><Text>按每场共同牌局中我的净分展示</Text></View></View>
+        <ScoreTrendChart points={statistics.trend} emptyText='还没有可展示的共同牌局走势' />
+      </View>
+
+      <View className='friend-v4-card'>
+        <View className='friend-v4-card-head'><View><Text>他的牌型记录</Text><Text>只展示已经出现过的大胡</Text></View></View>
+        <View className='friend-v4-patterns'>{statistics.winPatterns.length ? statistics.winPatterns.slice(0, 8).map(pattern => <View className='friend-v4-pattern-row' key={pattern.name}><Text>{pattern.name}</Text><Text>{pattern.count} 次</Text></View>) : <Text className='friend-v4-pattern-empty'>暂无大胡记录</Text>}</View>
+      </View>
     </View>
-    {friend.source === 'wechat' && friend.linkedUserId
-      ? <WechatFriendBindingControl
-          targetUserId={friend.linkedUserId}
-          targetName={friend.wechatName || friend.name}
-          friends={friends}
-          closeRequest={closeOverlayRequest}
-          onOpenChange={onOverlayOpenChange}
-          onLinked={onWechatLinked}
-        />
-      : <FriendBindingControl friend={friend} closeRequest={closeOverlayRequest} onOpenChange={onOverlayOpenChange} onChanged={onBindingChanged} />}
-    <View className='friend-versus-card'>
-      <View><Text>共同牌局净分</Text><Text className={statistics.netScore > 0 ? 'positive' : statistics.netScore < 0 ? 'negative' : ''}>{statistics.netScore > 0 ? '+' : ''}{statistics.netScore}</Text></View>
-      <View><Text>{friend.jointMatches} 将</Text><Text>{statistics.totalHands} 局</Text></View>
-    </View>
-    <View className='friend-relation-grid'>
-      <View><Text>{statistics.myWins}</Text><Text>我胡牌</Text></View>
-      <View><Text>{statistics.friendWins}</Text><Text>{friend.name}胡牌</Text></View>
-      <View><Text>{statistics.myDealInsToFriend}</Text><Text>我点炮给他</Text></View>
-      <View><Text>{statistics.friendDealInsToMe}</Text><Text>他点炮给我</Text></View>
-    </View>
-    <View className='friend-trend-card'>
-      <View className='personal-section-head'><View><Text>对战净分走势</Text><Text>按共同牌局中的我的净分展示</Text></View></View>
-      <ScoreTrendChart points={statistics.trend} emptyText='还没有可展示的共同牌局走势' />
-    </View>
-    <View className='friend-detail-list-card'>
-      <View className='personal-section-head'><View><Text>他的牌型记录</Text><Text>只展示已经出现过的大胡</Text></View></View>
-      <View className='personal-pattern-list'>{statistics.winPatterns.length ? statistics.winPatterns.slice(0, 8).map(pattern => <View className='personal-pattern-row' key={pattern.name}><Text>{pattern.name}</Text><Text>{pattern.count} 次</Text></View>) : <Text className='personal-pattern-empty'>暂无大胡记录</Text>}</View>
-    </View>
-  </View>
+  </ScrollView>
 }
 
 const mahjongAssetNames: Record<MahjongTile, string> = {
