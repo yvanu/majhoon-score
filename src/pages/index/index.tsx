@@ -76,6 +76,7 @@ import './friends-main-v4.scss'
 import './profile-main-v4.scss'
 import './tabbar-v4.scss'
 import './settings-v4.scss'
+import './history-v4.scss'
 
 const TAB_CACHE_TTL = 60_000
 const FRIEND_STATS_CACHE_TTL = 5 * 60_000
@@ -1644,6 +1645,7 @@ export default function Index() {
       scrollTop={historyListScrollTop.current}
       onVisibleCountChange={count => { historyVisibleCount.current = count }}
       onScroll={scrollTop => { historyListScrollTop.current = scrollTop }}
+      onBack={goBack}
       onOpen={current => openMatch(current.id, current.status)}
       onDelete={deleteHistoryMatch}
     />}

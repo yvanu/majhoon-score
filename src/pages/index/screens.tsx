@@ -82,58 +82,71 @@ function matchDayLabel(value: string) {
     : `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`
 }
 
-export function HistoryScreen({ matches, loading, initialVisibleCount, scrollTop, onVisibleCountChange, onScroll, onOpen, onDelete }: {
+export function HistoryScreen({ matches, loading, initialVisibleCount, scrollTop, onVisibleCountChange, onScroll, onBack, onOpen, onDelete }: {
   matches: MatchSummary[]
   loading: boolean
   initialVisibleCount: number
   scrollTop: number
   onVisibleCountChange: (count: number) => void
   onScroll: (scrollTop: number) => void
+  onBack: () => void
   onOpen: (match: MatchSummary) => void
   onDelete: (id: string) => void
 }) {
   const [visibleCount, setVisibleCount] = useState(Math.max(TAB_LIST_PAGE_SIZE, initialVisibleCount))
+  const [filter, setFilter] = useState<'all' | 'active' | 'finished'>('all')
+  const filteredMatches = filter === 'all' ? matches : matches.filter(match => match.status === filter)
   useEffect(() => {
     setVisibleCount(current => {
-      const next = Math.min(current, Math.max(TAB_LIST_PAGE_SIZE, matches.length))
+      const next = Math.min(current, Math.max(TAB_LIST_PAGE_SIZE, filteredMatches.length))
       if (next !== current) onVisibleCountChange(next)
       return next
     })
-  }, [matches.length, onVisibleCountChange])
-  const visibleMatches = matches.slice(0, visibleCount)
+  }, [filteredMatches.length, onVisibleCountChange])
+  const visibleMatches = filteredMatches.slice(0, visibleCount)
 
-  return <View className='page tab-page history-page' style={{ paddingTop: `${getPageTopInset()}px` }}><View className='page-title-row compact-title-row'><View><Text className='eyebrow'>牌局记录</Text><Text className='title-small'>我的牌局</Text></View><Text className='count-badge'>{matches.length}</Text></View>
-    {loading && !matches.length && <View className='empty'><View className='empty-line-mark'><View /><View /></View><Text className='card-title'>正在加载牌局</Text></View>}
-    {!loading && !matches.length && <View className='empty'><View className='empty-line-mark'><View /><View /></View><Text className='card-title'>暂无历史牌局</Text><Text>登录后创建的牌局会显示在这里</Text></View>}
+  return <View className='history-v4-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+    <View className='history-v4-nav'>
+      <Button className='history-v4-back' hoverClass='none' onClick={onBack}>‹</Button>
+      <View><Text>牌局记录</Text><Text>共 {matches.length} 将</Text></View>
+      <View className='history-v4-nav-spacer' />
+    </View>
+
+    <View className='history-v4-tabs'>
+      {([['all','全部'],['active','进行中'],['finished','已结束']] as const).map(item => <View className={`history-v4-tab${filter === item[0] ? ' active' : ''}`} key={item[0]} onClick={() => { setFilter(item[0]); setVisibleCount(TAB_LIST_PAGE_SIZE) }}><Text>{item[1]}</Text></View>)}
+    </View>
+
+    {loading && !matches.length && <View className='history-v4-empty'><Text>正在加载牌局</Text><Text>同步你的历史记录</Text></View>}
+    {!loading && !matches.length && <View className='history-v4-empty'><Text>暂无历史牌局</Text><Text>创建或参与的牌局会显示在这里</Text></View>}
+    {!loading && matches.length > 0 && !filteredMatches.length && <View className='history-v4-empty'><Text>这个分类还没有牌局</Text><Text>切换到其它状态看看</Text></View>}
+
     <ScrollView
       scrollY
       scrollTop={scrollTop}
       lowerThreshold={120}
-      className='history-list'
+      className='history-v4-list'
       onScroll={event => onScroll(event.detail.scrollTop)}
       onScrollToLower={() => setVisibleCount(current => {
-        const next = Math.min(matches.length, current + TAB_LIST_PAGE_SIZE)
+        const next = Math.min(filteredMatches.length, current + TAB_LIST_PAGE_SIZE)
         onVisibleCountChange(next)
         return next
       })}
     >{visibleMatches.map((current, index) => {
       const dayKey = matchDayKey(current.created_at)
       const previousDayKey = index > 0 ? matchDayKey(visibleMatches[index - 1].created_at) : ''
-      return <View className='history-entry' key={current.id}>
-        {dayKey !== previousDayKey && <Text className='history-day-label'>{matchDayLabel(current.created_at)}</Text>}
-        <View className={`history-card compact ${current.status}`} onClick={() => onOpen(current)}>
-          <View className='history-card-main'>
-            <View className='history-card-title-row'>
-              <Text className='card-title'>{formatMatchTime(current.created_at)}</Text>
-              <Text className={`history-status-pill ${current.status}`}>{current.status === 'finished' ? '已结束' : '进行中'}</Text>
-            </View>
-            <Text className='history-card-meta'>{current.player_names.length ? `${current.player_names.join(' · ')} · ` : ''}{current.hand_count} 局{current.status === 'active' ? ' · 点击继续' : ''}</Text>
+      return <View className='history-v4-entry' key={current.id}>
+        {dayKey !== previousDayKey && <Text className='history-v4-day'>{matchDayLabel(current.created_at)}</Text>}
+        <View className='history-v4-card' onClick={() => onOpen(current)}>
+          <View className='history-v4-avatars'>{current.player_names.slice(0,4).map((name, playerIndex) => <View className={`history-v4-avatar tone-${playerIndex}`} key={`${name}-${playerIndex}`}><Text>{[...name.trim()][0] || '雀'}</Text></View>)}</View>
+          <View className='history-v4-card-main'>
+            <View className='history-v4-card-title-row'><Text>{formatMatchTime(current.created_at)}</Text><Text className={current.status}>{current.status === 'finished' ? '已结束' : '进行中'}</Text></View>
+            <Text className='history-v4-card-meta'>{current.player_names.join(' · ')} · {current.hand_count} 局</Text>
           </View>
-          {current.is_owner && <Button className='history-delete-button' disabled={loading} onClick={event => { event.stopPropagation(); onDelete(current.id) }}>删除</Button>}
-          <Text className='card-arrow'>›</Text>
+          {current.is_owner && <Button className='history-v4-delete' hoverClass='none' disabled={loading} onClick={event => { event.stopPropagation(); onDelete(current.id) }}>删除</Button>}
+          <Text className='history-v4-arrow'>›</Text>
         </View>
       </View>
-    })}{visibleCount < matches.length && <Text className='tab-list-more'>继续上滑加载更多</Text>}</ScrollView>
+    })}{visibleCount < filteredMatches.length && <Text className='history-v4-more'>继续上滑加载更多</Text>}</ScrollView>
   </View>
 }
 
