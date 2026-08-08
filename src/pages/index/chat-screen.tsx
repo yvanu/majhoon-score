@@ -314,10 +314,7 @@ export function GroupChatScreen({ group, user, loading: actionLoading, onBack, o
           <Text className='chat-v3-nav-title'>组局群聊</Text>
           <Text className='chat-v3-nav-subtitle'>{group.location}</Text>
         </View>
-        <View className={`chat-v3-connection ${connectionStatus === 'live' ? 'live' : ''}`}>
-          <View className='chat-v3-connection-dot' />
-          <Text>{connectionCopy}</Text>
-        </View>
+        <View className='chat-v3-nav-spacer' />
       </View>
 
       <View className='chat-v3-context'>
@@ -327,7 +324,7 @@ export function GroupChatScreen({ group, user, loading: actionLoading, onBack, o
         </View>
         <View className='chat-v3-context-side'>
           <Text className={`chat-v3-state ${groupState.tone}`}>{groupState.label}</Text>
-          <Text className='chat-v3-progress'>{group.confirmed_count}/{group.capacity} 人</Text>
+          <Text className='chat-v3-progress'>{group.confirmed_count}/{group.capacity} 人 · {connectionCopy}</Text>
         </View>
       </View>
 

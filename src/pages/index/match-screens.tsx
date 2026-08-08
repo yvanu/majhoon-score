@@ -223,7 +223,7 @@ export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing
         <Text className='match-v4-title'>{match.status === 'finished' ? '牌局战况' : '正在记分'}</Text>
         <Text className='match-v4-subtitle'>{windName[match.current_wind]}风 · 第 {match.current_hand} 局</Text>
       </View>
-      <Button className='match-v4-more' hoverClass='none' onClick={share}>···</Button>
+      <View className='match-v4-nav-spacer' />
     </View>
 
     <View className='match-v4-status-row'>

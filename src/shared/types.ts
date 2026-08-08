@@ -44,6 +44,7 @@ export interface Friend {
   wechatAvatarUrl: string | null
   wechatGender: UserGender | null
   jointMatches: number
+  netScore: number
   gangKaiWins: number
   gangKaiAgainst: number
   lastPlayedAt: string | null

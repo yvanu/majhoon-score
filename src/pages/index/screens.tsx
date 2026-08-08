@@ -61,25 +61,25 @@ export function Auth({ onBack, onWechatLogin, loading }: {
   onWechatLogin: () => void
   loading: boolean
 }) {
-  return <View className='auth-v4-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
-    <View className='auth-v4-nav'>
-      <Button className='auth-v4-back' hoverClass='none' onClick={onBack}>‹</Button>
+  return <View className='auth-final-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+    <View className='auth-final-nav'>
+      <Button hoverClass='none' onClick={onBack}>‹</Button>
       <Text>微信登录</Text>
-      <View className='auth-v4-nav-spacer' />
+      <View />
     </View>
 
-    <View className='auth-v4-hero'>
-      <View className='auth-v4-mark'><Text>雀</Text><View /></View>
-      <Text className='auth-v4-brand'>雀记</Text>
-      <Text className='auth-v4-tagline'>南京麻将记分小程序</Text>
-      <Text className='auth-v4-copy'>记录每一局，也记住一起打牌的人。</Text>
+    <View className='auth-final-hero'>
+      <Text>微信授权后，快速开始记分</Text>
+      <Text>只用于识别你自己的牌局、牌友和战绩</Text>
+      <View className='auth-final-wechat-mark'>
+        <View className='auth-final-bubble one'><View /><View /></View>
+        <View className='auth-final-bubble two'><View /><View /></View>
+      </View>
     </View>
 
-    <View className='auth-v4-card'>
-      <Text className='auth-v4-card-title'>使用微信身份继续</Text>
-      <Text className='auth-v4-card-note'>牌局、牌友与战绩会跟随当前账号同步。</Text>
-      <Button className='auth-v4-login' hoverClass='none' disabled={loading} onClick={onWechatLogin}>{loading ? '登录中…' : '微信快捷登录'}</Button>
-      <View className='auth-v4-privacy'><View /><Text>登录仅使用当前小程序的微信用户标识；昵称与头像由你主动选择。</Text></View>
+    <View className='auth-final-actions'>
+      <Button hoverClass='none' disabled={loading} onClick={onWechatLogin}>{loading ? '登录中…' : '微信一键登录'}</Button>
+      <Text>登录仅使用当前小程序的微信用户标识；昵称、头像与性别由你主动完善。</Text>
     </View>
   </View>
 }
@@ -184,42 +184,35 @@ export function FriendsScreen({ friends, loading, query, onQueryChange, onOpen }
     .sort((left, right) => (right.lastPlayedAt ? Date.parse(right.lastPlayedAt) : 0) - (left.lastPlayedAt ? Date.parse(left.lastPlayedAt) : 0) || right.jointMatches - left.jointMatches)
     .filter(friend => !normalizedQuery || friend.name.toLocaleLowerCase().includes(normalizedQuery))
 
-  return <View className='friends-v4-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
-    <View className='friends-v4-header'>
-      <View><Text className='friends-v4-title'>牌友</Text><Text className='friends-v4-subtitle'>一起打过牌的人</Text></View>
-      <Text className='friends-v4-count'>{friends.length}</Text>
+  return <View className='friends-final-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+    <View className='friends-final-header'>
+      <Text>牌友</Text>
+      <Text>一起打牌的人</Text>
     </View>
 
-    {!!friends.length && <View className='friends-v4-search'>
-      <View className='friends-v4-search-icon'><View /></View>
-      <Input value={query} maxlength={12} placeholder='搜索牌友昵称' onInput={event => onQueryChange(event.detail.value)} />
-      {query && <Text className='friends-v4-search-clear' onClick={() => onQueryChange('')}>×</Text>}
+    {!!friends.length && <View className='friends-final-search'>
+      <View className='friends-final-search-icon'><View /></View>
+      <Input value={query} maxlength={12} placeholder='搜索牌友' onInput={event => onQueryChange(event.detail.value)} />
+      {query && <Text onClick={() => onQueryChange('')}>×</Text>}
     </View>}
 
-    {loading && !friends.length && <View className='friends-v4-empty'><Text>正在加载牌友</Text><Text>同步共同牌局和微信身份</Text></View>}
-    {!loading && !friends.length && <View className='friends-v4-empty'>
-      <Text>还没有牌友</Text>
-      <Text>手工记录的牌友，以及共同打过牌的微信用户，会自动出现在这里</Text>
-    </View>}
-    {!loading && !!friends.length && !visibleFriends.length && <View className='friends-v4-empty'><Text>没有找到“{query.trim()}”</Text><Text>换一个昵称试试</Text></View>}
+    {loading && !friends.length && <View className='friends-final-empty'><Text>正在加载牌友</Text><Text>同步共同牌局和微信身份</Text></View>}
+    {!loading && !friends.length && <View className='friends-final-empty'><Text>还没有牌友</Text><Text>一起打过牌的微信用户和手工牌友会显示在这里</Text></View>}
+    {!loading && !!friends.length && !visibleFriends.length && <View className='friends-final-empty'><Text>没有找到“{query.trim()}”</Text><Text>换一个昵称试试</Text></View>}
 
-    {!!visibleFriends.length && <View className='friends-v4-list'>
-      {visibleFriends.map(friend => {
-        const wechatLinked = friend.source === 'wechat' || Boolean(friend.linkedUserId)
-        return <View className='friends-v4-row' key={friend.id} onClick={() => onOpen(friend)}>
-          <View className='friends-v4-avatar'><FriendAvatar friend={friend} /></View>
-          <View className='friends-v4-main'>
-            <View className='friends-v4-name-row'>
-              <Text>{friend.name}</Text>
-              {wechatLinked && <Text className='friends-v4-wechat-badge'>微信</Text>}
-            </View>
-            {friend.source !== 'wechat' && friend.linkedUserId && friend.wechatName && <Text className='friends-v4-wechat-name'>微信昵称：{friend.wechatName}</Text>}
-            <Text className='friends-v4-meta'>共同 {friend.jointMatches} 将 · {friend.lastPlayedAt ? `最近 ${formatMatchTime(friend.lastPlayedAt)}` : '尚无共同牌局'}</Text>
-          </View>
-          <Text className='friends-v4-arrow'>›</Text>
+    {!!visibleFriends.length && <View className='friends-final-list'>{visibleFriends.map(friend => {
+      const wechatLinked = friend.source === 'wechat' || Boolean(friend.linkedUserId)
+      const relationNetScore = friend.netScore ?? 0
+      return <View className='friends-final-row' key={friend.id} onClick={() => onOpen(friend)}>
+        <View className='friends-final-avatar'><FriendAvatar friend={friend} /></View>
+        <View className='friends-final-main'>
+          <View className='friends-final-name-row'><Text>{friend.name}</Text>{wechatLinked && <Text>微信</Text>}</View>
+          <Text className='friends-final-meta'>{friend.source !== 'wechat' && friend.linkedUserId && friend.wechatName ? `${friend.wechatName} · ` : ''}{friend.lastPlayedAt ? `最近 ${formatMatchTime(friend.lastPlayedAt)}` : '尚无共同牌局'}</Text>
         </View>
-      })}
-    </View>}
+        <View className='friends-final-side'><Text className={relationNetScore > 0 ? 'positive' : relationNetScore < 0 ? 'negative' : ''}>{relationNetScore > 0 ? '+' : ''}{relationNetScore}</Text><Text>关系净分 · {friend.jointMatches}将</Text></View>
+        <Text className='friends-final-arrow'>›</Text>
+      </View>
+    })}</View>}
   </View>
 }
 
@@ -427,10 +420,6 @@ export function PersonalStatisticsScreen({ statistics, loading, autoSortTileReco
   </ScrollView>
 }
 
-function profilePercentage(count: number, total: number) {
-  return total ? Math.round(count / total * 100) : 0
-}
-
 function derivePlayStyle(statistics: PersonalStatistics | null) {
   if (!statistics || statistics.totalHands < 20) {
     const total = statistics?.totalHands || 0
@@ -488,54 +477,45 @@ export function ProfileScreen({ user, statistics, statisticsLoading, syncStatus,
 }) {
   const syncText = !user ? '登录后同步' : syncStatus === 'syncing' ? '正在同步' : syncStatus === 'offline' ? '同步异常' : '数据已同步'
   const style = derivePlayStyle(statistics)
-  const totalHands = statistics?.totalHands || 0
-  const winRate = profilePercentage(statistics?.wins || 0, totalHands)
-  const tsumoRate = profilePercentage(statistics?.tsumoWins || 0, totalHands)
-  const dealInRate = profilePercentage(statistics?.dealIns || 0, totalHands)
-  const bigHandRate = profilePercentage(statistics?.bigHands || 0, totalHands)
 
-  return <View className='profile-v4-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
-    <View className='profile-v4-header'>
-      <Text className='profile-v4-page-title'>我的</Text>
-      <Button className='profile-v4-settings' hoverClass='none' onClick={user ? onSettings : onLogin} ariaLabel='设置'>
-        <View className='profile-v4-gear'><View /><View /></View>
-      </Button>
+  return <View className='profile-final-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+    <View className='profile-final-header'>
+      <Text>我的</Text>
+      <Text>个人资料与牌局表现</Text>
     </View>
 
-    <View className='profile-v4-identity'>
-      <View className='profile-v4-avatar'><IdentityAvatar name={displayUserName(user)} gender={user?.gender || null} avatarUrl={user?.avatar_url || null} size='large' /></View>
-      <View className='profile-v4-identity-copy'>
-        <Text className='profile-v4-name'>{displayUserName(user)}</Text>
-        <View className={`profile-v4-sync ${syncStatus}`}><View /><Text>{syncText}</Text></View>
+    <View className='profile-final-identity' onClick={user ? onSettings : onLogin}>
+      <View className='profile-final-avatar'><IdentityAvatar name={displayUserName(user)} gender={user?.gender || null} avatarUrl={user?.avatar_url || null} size='large' /></View>
+      <View className='profile-final-identity-copy'>
+        <Text className='profile-final-name'>{displayUserName(user)}</Text>
+        <View className='profile-final-identity-meta'><Text>南京麻将</Text>{statistics && <Text className={statistics.netScore > 0 ? 'score positive' : statistics.netScore < 0 ? 'score negative' : 'score'}>本月净分 {statistics.netScore > 0 ? '+' : ''}{statistics.netScore}</Text>}<Text className={syncStatus}>{syncText}</Text></View>
       </View>
-      <Text className='profile-v4-identity-arrow' onClick={user ? onSettings : onLogin}>›</Text>
+      <Text className='profile-final-arrow'>›</Text>
     </View>
 
-    <View className='profile-v4-style-card' onClick={user ? onPersonalStatistics : onLogin}>
-      <View className='profile-v4-card-head'>
-        <View><Text>我的牌风</Text><Text>{statisticsLoading ? '分析中…' : statistics ? `本月样本 ${statistics.totalHands} 局` : '等待数据'}</Text></View>
+    <View className='profile-final-section-label'><Text>我的牌风</Text><Text>{statistics ? `本月样本 ${statistics.totalHands} 局` : '等待数据'}</Text></View>
+    <View className='profile-final-style-card' onClick={user ? onPersonalStatistics : onLogin}>
+      <View className='profile-final-style-copy'>
+        <Text>{statisticsLoading && !statistics ? '正在分析牌风' : style.title}</Text>
+        <Text>{statisticsLoading && !statistics ? '正在汇总本月胡牌、点炮与牌型记录' : style.description}</Text>
+      </View>
+      <View className='profile-final-style-tags'>{style.tags.map(tag => <Text key={tag}>{tag}</Text>)}</View>
+      <Text className='profile-final-style-arrow'>›</Text>
+    </View>
+
+    <View className='profile-final-section-label entries'><Text>快捷入口</Text></View>
+    <View className='profile-final-entry-list'>
+      <View className='profile-final-entry' onClick={user ? onPersonalStatistics : onLogin}>
+        <View><Text>我的战绩</Text><Text>{statistics ? `${statistics.label} · ${statistics.totalHands}局 · 净分 ${statistics.netScore > 0 ? '+' : ''}${statistics.netScore}` : '胡牌率、净分走势与大胡记录'}</Text></View>
         <Text>›</Text>
       </View>
-      <Text className='profile-v4-style-title'>{statisticsLoading && !statistics ? '正在分析牌风' : style.title}</Text>
-      <Text className='profile-v4-style-description'>{statisticsLoading && !statistics ? '正在汇总本月胡牌、点炮与牌型记录' : style.description}</Text>
-      <View className='profile-v4-style-tags'>{style.tags.map(tag => <Text key={tag}>{tag}</Text>)}</View>
+      <View className='profile-final-entry' onClick={user ? onSettings : onLogin}>
+        <View><Text>设置</Text><Text>个人资料、记分偏好与组局偏好</Text></View>
+        <Text>›</Text>
+      </View>
     </View>
 
-    <View className='profile-v4-performance-card' onClick={user ? onPersonalStatistics : onLogin}>
-      <View className='profile-v4-card-head performance'>
-        <View><Text>我的战绩</Text><Text>本月表现</Text></View>
-        <Text>查看详情 ›</Text>
-      </View>
-      <View className='profile-v4-metrics'>
-        <View><Text>{statisticsLoading && !statistics ? '--' : `${winRate}%`}</Text><Text>胡牌率</Text></View>
-        <View><Text>{statisticsLoading && !statistics ? '--' : `${tsumoRate}%`}</Text><Text>自摸率</Text></View>
-        <View><Text>{statisticsLoading && !statistics ? '--' : `${dealInRate}%`}</Text><Text>点炮率</Text></View>
-        <View><Text>{statisticsLoading && !statistics ? '--' : `${bigHandRate}%`}</Text><Text>大胡率</Text></View>
-      </View>
-      <Text className='profile-v4-performance-note'>{statistics ? `${statistics.label} · 共记录 ${statistics.totalHands} 局` : '登录并记录牌局后生成个人战绩'}</Text>
-    </View>
-
-    <Text className='profile-v4-version'>雀记 · 微信小程序</Text>
+    <Text className='profile-final-version'>雀记 · 微信小程序</Text>
   </View>
 }
 

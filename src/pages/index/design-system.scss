@@ -1,17 +1,17 @@
 /* 雀记统一视觉基线：只定义可复用 token 与跨页面基础组件，业务页面样式继续按模块维护。 */
 :root {
-  --ui-bg: #f6f5f2;
+  --ui-bg: #f8f7f2;
   --ui-surface: #ffffff;
   --ui-surface-warm: #fffdf9;
   --ui-brand: #f3b43f;
-  --ui-brand-strong: #dfa022;
+  --ui-brand-strong: #d99a18;
   --ui-brand-soft: #fff2d5;
   --ui-text: #1c1c1e;
-  --ui-text-secondary: #6b6b6b;
-  --ui-text-tertiary: #9a9a9a;
-  --ui-line: #e6e3de;
+  --ui-text-secondary: #6b6862;
+  --ui-text-tertiary: #9a958d;
+  --ui-line: #e8e4dc;
   --ui-positive: #2c8c63;
-  --ui-negative: #e34d4d;
+  --ui-negative: #d6504f;
   --ui-radius-large: 30rpx;
   --ui-radius-medium: 20rpx;
   --ui-radius-small: 14rpx;

@@ -98,7 +98,7 @@ export function LobbyScreen({ lobby, user, friends, friendsLoading, loading, clo
     <View className='lobby-v4-nav'>
       <Button className='lobby-v4-back' hoverClass='none' onClick={onBack}>‹</Button>
       <View><Text>牌局准备</Text><Text>{lobby.members.length}/4 人已就位</Text></View>
-      {canEdit ? <Button className='lobby-v4-close' hoverClass='none' onClick={() => { void onCancel() }}>关闭</Button> : <View className='lobby-v4-nav-spacer' />}
+      <View className='lobby-v4-nav-spacer' />
     </View>
 
     <View className='lobby-v4-table'>
@@ -135,6 +135,7 @@ export function LobbyScreen({ lobby, user, friends, friendsLoading, loading, clo
         <Button hoverClass='none' onClick={() => setQrOpen(true)}>好友扫码加入</Button>
       </View>}
       {lobby.isOwner && full && lobby.status === 'preparing' && <Button className='lobby-v4-primary' hoverClass='none' disabled={loading} onClick={onStartSeating}>开始牌局 · 确定座位</Button>}
+      {canEdit && <Button className='lobby-v4-secondary lobby-v4-cancel-table' hoverClass='none' disabled={loading} onClick={() => { void onCancel() }}>关闭准备桌</Button>}
       {lobby.status === 'cancelled' && <View className='lobby-v4-closed'><Text>这张准备桌已关闭</Text></View>}
       {lobby.status === 'started' && <View className='lobby-v4-closed'><Text>牌局已经开始</Text></View>}
     </View>

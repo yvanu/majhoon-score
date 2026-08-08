@@ -71,14 +71,14 @@ function GroupMemberAvatar({ member, empty = false }: { member?: Pick<GroupSessi
   return <View className='group-member-avatar identity'><IdentityAvatar name={member.name} avatarUrl={member.avatar_url} gender={member.gender} size='small' /></View>
 }
 
-function GroupsV4AvatarStack({ group, max = 4 }: { group: GroupSessionSummary; max?: number }) {
+function GroupsFinalAvatarStack({ group, max = 4 }: { group: GroupSessionSummary; max?: number }) {
   const visible = group.members.slice(0, max)
   const vacant = Math.max(0, Math.min(max - visible.length, group.capacity - visible.length))
-  return <View className='groups-v4-avatar-stack'>
-    {visible.map(member => <View className='groups-v4-stack-avatar' key={member.id}>
+  return <View className='groups-final-avatar-stack'>
+    {visible.map(member => <View className='groups-final-stack-avatar' key={member.id}>
       <IdentityAvatar name={member.name} avatarUrl={member.avatar_url} gender={member.gender} size='small' />
     </View>)}
-    {Array.from({ length: vacant }, (_, index) => <View className='groups-v4-stack-vacant' key={`vacant-${index}`}><Text>＋</Text></View>)}
+    {Array.from({ length: vacant }, (_, index) => <View className='groups-final-stack-vacant' key={`vacant-${index}`}><Text>＋</Text></View>)}
   </View>
 }
 
@@ -96,30 +96,27 @@ function GroupCard({ group, onOpen, onJoin }: { group: GroupSessionSummary; onOp
     ? '人员已齐'
     : `还缺 ${Math.max(0, group.capacity - group.confirmed_count)} 人`
 
-  return <View className='groups-v4-card' onClick={onOpen}>
-    <View className='groups-v4-card-top'>
-      <View className='groups-v4-card-heading'>
-        <Text className='groups-v4-card-time'>{formatGroupTime(group.start_at)}</Text>
-        <Text className='groups-v4-card-location'>{group.location}</Text>
+  return <View className='groups-final-card' onClick={onOpen}>
+    <View className='groups-final-card-main'>
+      <View className='groups-final-card-topline'>
+        <Text className='groups-final-card-time'>{formatGroupTime(group.start_at)}</Text>
+        <Text className={`groups-final-card-status ${status.tone}`}>{status.label}</Text>
       </View>
-      <Text className={`groups-v4-card-status ${status.tone}`}>{status.label}</Text>
-    </View>
-    <View className='groups-v4-card-tags'>
-      <Text>南京麻将</Text>
-      {group.note && <Text>{group.note}</Text>}
-    </View>
-    <View className='groups-v4-card-bottom'>
-      <GroupsV4AvatarStack group={group} />
-      <View className='groups-v4-card-progress'>
-        <Text>{group.confirmed_count}/{group.capacity}</Text>
-        <Text>{progressLabel}</Text>
+      <Text className='groups-final-card-location'>{group.location}</Text>
+      <View className='groups-final-card-tags'>
+        <Text>南京麻将</Text>
+        {group.note && <Text>{group.note}</Text>}
       </View>
-      <Button className={`groups-v4-card-action${canQuickJoin ? ' join' : ''}`} hoverClass='none' onClick={event => {
-        event.stopPropagation()
-        if (canQuickJoin) onJoin()
-        else onOpen()
-      }}>{actionLabel}</Button>
+      <View className='groups-final-card-footer'>
+        <GroupsFinalAvatarStack group={group} />
+        <Text className='groups-final-card-count'>{group.confirmed_count}/{group.capacity}人 · {progressLabel}</Text>
+      </View>
     </View>
+    <Button className={`groups-final-card-action${canQuickJoin ? ' join' : ''}`} hoverClass='none' onClick={event => {
+      event.stopPropagation()
+      if (canQuickJoin) onJoin()
+      else onOpen()
+    }}>{actionLabel}</Button>
   </View>
 }
 
@@ -163,80 +160,72 @@ export function GroupSessionsScreen({ groups, loading, tab, code, showCodeEntry,
   const totalUnread = conversations.reduce((total, group) => total + group.chat_unread_count, 0)
   const visible = tab === 'open' ? openGroups : myGroups
 
-  return <View className='groups-v4-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
-    <View className='groups-v4-header'>
-      <View><Text className='groups-v4-title'>组局</Text><Text className='groups-v4-subtitle'>约牌与消息</Text></View>
-      <Button className='groups-v4-header-create' hoverClass='none' onClick={onCreate}><View /><View /></Button>
+  const pageTitle = tab === 'open' ? '正在组局' : tab === 'mine' ? '我的组局' : '群聊'
+  const pageSubtitle = tab === 'open'
+    ? '看看附近有什么牌桌'
+    : tab === 'mine'
+      ? '我发起和参加的牌局'
+      : totalUnread > 0 ? `${totalUnread} 条未读消息` : '组局消息会一直保留'
+
+  return <View className='groups-final-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+    <View className='groups-final-header'>
+      <Text className='groups-final-kicker'>组局 · 南京麻将</Text>
+      <Text className='groups-final-title'>{pageTitle}</Text>
+      <Text className='groups-final-subtitle'>{pageSubtitle}</Text>
     </View>
 
-    <View className='groups-v4-quick-actions'>
-      <View className='groups-v4-quick-card' onClick={onCreate}>
-        <View className='groups-v4-quick-icon create'><View /><View /></View>
-        <View><Text>发布组局</Text><Text>约三位牌友</Text></View>
-      </View>
-      <View className={`groups-v4-quick-card${showCodeEntry ? ' active' : ''}`} onClick={() => onShowCodeEntryChange(!showCodeEntry)}>
-        <View className='groups-v4-quick-icon code'><View /><View /><View /></View>
-        <View><Text>组局码加入</Text><Text>输入好友邀请码</Text></View>
-      </View>
+    <View className='groups-final-tools'>
+      <Button className='groups-final-create' hoverClass='none' onClick={onCreate}>＋ 发布组局</Button>
+      <Button className={showCodeEntry ? 'groups-final-code active' : 'groups-final-code'} hoverClass='none' onClick={() => onShowCodeEntryChange(!showCodeEntry)}>组局码</Button>
     </View>
 
-    {showCodeEntry && <View className='groups-v4-code-entry'>
+    {showCodeEntry && <View className='groups-final-code-entry'>
       <Input value={code} maxlength={12} focus placeholder='输入好友发来的组局码' onInput={event => onCodeChange(event.detail.value.trim().toUpperCase())} />
-      <Button hoverClass='none' disabled={!code.trim() || loading} onClick={() => onOpenCode(code.trim())}>查找</Button>
+      <Button hoverClass='none' disabled={!code.trim() || loading} onClick={() => onOpenCode(code.trim())}>加入</Button>
     </View>}
 
-    <View className='groups-v4-tabs'>
-      <View className={tab === 'open' ? 'groups-v4-tab active' : 'groups-v4-tab'} onClick={() => onTabChange('open')}>
-        <Text>正在组局</Text><Text className='groups-v4-tab-count'>{openGroups.length}</Text>
+    <View className='groups-final-tabs'>
+      <View className={tab === 'open' ? 'groups-final-tab active' : 'groups-final-tab'} onClick={() => onTabChange('open')}>
+        <Text>正在组局</Text><Text>{openGroups.length}</Text>
       </View>
-      <View className={tab === 'mine' ? 'groups-v4-tab active' : 'groups-v4-tab'} onClick={() => onTabChange('mine')}>
-        <Text>我的组局</Text><Text className='groups-v4-tab-count'>{myGroups.length}</Text>
+      <View className={tab === 'mine' ? 'groups-final-tab active' : 'groups-final-tab'} onClick={() => onTabChange('mine')}>
+        <Text>我的组局</Text><Text>{myGroups.length}</Text>
       </View>
-      <View className={tab === 'chats' ? 'groups-v4-tab active' : 'groups-v4-tab'} onClick={() => onTabChange('chats')}>
-        <Text>群聊</Text><Text className={`groups-v4-tab-count${totalUnread > 0 ? ' unread' : ''}`}>{totalUnread > 0 ? totalUnread : conversations.length}</Text>
+      <View className={tab === 'chats' ? 'groups-final-tab active' : 'groups-final-tab'} onClick={() => onTabChange('chats')}>
+        <Text>群聊</Text><Text className={totalUnread > 0 ? 'unread' : ''}>{totalUnread > 0 ? totalUnread : conversations.length}</Text>
       </View>
     </View>
 
-    <View className='groups-v4-section-head'>
-      <View><Text>{tab === 'chats' ? '群聊' : tab === 'open' ? '正在组局' : '我的组局'}</Text><Text>{tab === 'chats' ? (totalUnread > 0 ? `${totalUnread} 条未读` : `${conversations.length} 个会话`) : `${visible.length} 场`}</Text></View>
-      <Text className='groups-v4-refresh' onClick={() => { if (!loading) onRefresh() }}>{loading ? '刷新中…' : '刷新'}</Text>
+    <View className='groups-final-meta-row'>
+      <Text>{tab === 'chats' ? `${conversations.length} 个会话` : `${visible.length} 场 · 按开始时间排序`}</Text>
+      <Text onClick={() => { if (!loading) onRefresh() }}>{loading ? '刷新中…' : '刷新'}</Text>
     </View>
 
     {tab === 'chats' ? <>
-      {loading && !groups.length && <View className='groups-v4-empty'><Text>正在加载群聊</Text><Text>同步最近会话和未读消息</Text></View>}
-      {!loading && !conversations.length && <View className='groups-v4-empty'><Text>还没有组局群聊</Text><Text>发起或加入组局后，会话会固定显示在这里</Text></View>}
-      <View className='groups-v4-conversation-list'>{conversations.map(group => {
+      {loading && !groups.length && <View className='groups-final-empty'><Text>正在加载群聊</Text><Text>同步最近会话和未读消息</Text></View>}
+      {!loading && !conversations.length && <View className='groups-final-empty'><Text>还没有组局群聊</Text><Text>发起或加入一场组局后，会话会固定显示在这里</Text></View>}
+      {!!conversations.length && <View className='groups-final-conversation-list'>{conversations.map(group => {
         const status = statusCopy[group.status]
         const preview = group.chat_last_message_preview || (group.status === 'cancelled' ? '组局已取消，群聊已关闭' : '暂无消息，点击进入群聊')
-        return <View className='groups-v4-conversation-row' key={group.id} onClick={() => onOpenChat(group)}>
-          <GroupsV4AvatarStack group={group} max={3} />
-          <View className='groups-v4-conversation-main'>
-            <View className='groups-v4-conversation-title-row'>
-              <Text>{group.location}</Text>
-              <Text>{formatConversationTime(group.chat_last_message_at)}</Text>
-            </View>
-            <View className='groups-v4-conversation-preview-row'>
-              <Text className={group.chat_unread_count > 0 ? 'unread' : ''}>{preview}</Text>
-              {group.chat_unread_count > 0 && <Text className='groups-v4-unread'>{group.chat_unread_count > 99 ? '99+' : group.chat_unread_count}</Text>}
-            </View>
-            <View className='groups-v4-conversation-meta'><Text>{formatGroupTime(group.start_at)}</Text><Text className={status.tone}>{status.label}</Text><Text>{group.confirmed_count}/{group.capacity} 人</Text></View>
+        return <View className='groups-final-conversation-row' key={group.id} onClick={() => onOpenChat(group)}>
+          <GroupsFinalAvatarStack group={group} max={3} />
+          <View className='groups-final-conversation-main'>
+            <View className='groups-final-conversation-title-row'><Text>{group.location}</Text><Text>{formatConversationTime(group.chat_last_message_at)}</Text></View>
+            <View className='groups-final-conversation-preview-row'><Text className={group.chat_unread_count > 0 ? 'unread' : ''}>{preview}</Text>{group.chat_unread_count > 0 && <Text className='groups-final-unread'>{group.chat_unread_count > 99 ? '99+' : group.chat_unread_count}</Text>}</View>
+            <Text className='groups-final-conversation-meta'>{formatGroupTime(group.start_at)} · {status.label} · {group.confirmed_count}/{group.capacity}人</Text>
           </View>
-          <Text className='groups-v4-row-arrow'>›</Text>
+          <Text className='groups-final-row-arrow'>›</Text>
         </View>
-      })}</View>
+      })}</View>}
     </> : <>
-      {loading && !groups.length && <View className='groups-v4-empty'><Text>正在加载组局</Text><Text>同步最新的组局信息</Text></View>}
-      {!loading && !visible.length && <View className='groups-v4-empty'>
+      {loading && !groups.length && <View className='groups-final-empty'><Text>正在加载组局</Text><Text>同步最新的牌桌信息</Text></View>}
+      {!loading && !visible.length && <View className='groups-final-empty'>
+        <View className='groups-final-empty-mark'><Text>雀</Text></View>
         <Text>{tab === 'open' ? '还没有正在招募的组局' : '你还没有组局记录'}</Text>
-        <Text>{tab === 'open' ? '可以先发布一桌，再邀请牌友加入' : '发起或加入组局后会显示在这里'}</Text>
-        <Button className='groups-v4-empty-action' hoverClass='none' onClick={onCreate}>发布组局</Button>
+        <Text>{tab === 'open' ? '发起第一桌，再邀请牌友加入' : '发起或加入组局后会显示在这里'}</Text>
+        <Button hoverClass='none' onClick={onCreate}>发起组局</Button>
       </View>}
-      <View className='groups-v4-list'>{visible.map(group => <GroupCard
-        group={group}
-        onOpen={() => onOpen(group)}
-        onJoin={() => onJoin(group)}
-        key={group.id}
-      />)}</View>
+      <View className='groups-final-list'>{visible.map(group => <GroupCard group={group} onOpen={() => onOpen(group)} onJoin={() => onJoin(group)} key={group.id} />)}</View>
     </>}
   </View>
 }

@@ -170,14 +170,19 @@ export function getPageTopInset() {
   if (cachedPageTopInset !== null) return cachedPageTopInset
   try {
     const rect = Taro.getMenuButtonBoundingClientRect()
-    if (rect?.bottom) {
-      cachedPageTopInset = rect.bottom + 10
+    const statusBarHeight = Taro.getSystemInfoSync().statusBarHeight || 24
+    if (rect?.top) {
+      // 一级页面标题应与微信胶囊位于同一视觉导航行，而不是从胶囊底部再开始。
+      // 右侧胶囊区域由各页面主动留空，左侧标题因此可以显著减少无意义顶部留白。
+      cachedPageTopInset = Math.max(statusBarHeight + 2, rect.top - 2)
       return cachedPageTopInset
     }
+    cachedPageTopInset = statusBarHeight + 6
+    return cachedPageTopInset
   } catch (error) {
     console.warn('Unable to read menu button position:', error)
   }
-  cachedPageTopInset = 108
+  cachedPageTopInset = 30
   return cachedPageTopInset
 }
 

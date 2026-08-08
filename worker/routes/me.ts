@@ -198,6 +198,58 @@ export function registerMeRoutes(app: Hono<Env>) {
       ORDER BY shared.last_played_at DESC
       LIMIT 100
     `).bind(user.id, user.id, playerName, user.id, user.id).all<Record<string, unknown>>()
+
+    // 与详情页保持同一口径：列表中的关系净分是“我在与此牌友共同牌局中的累计净分”。
+    // 两类身份分别做 DISTINCT shared-match 聚合，避免历史绑定产生重复 player 行时重复累计 hand_scores。
+    const [manualNetResult, wechatNetResult] = await c.env.DB.batch([
+      c.env.DB.prepare(`
+        WITH shared_matches AS (
+          SELECT DISTINCT f.id friend_id, m.id match_id, selfp.id self_player_id
+          FROM friends f
+          JOIN players targetp ON (
+            targetp.friend_id = f.id OR (f.linked_user_id IS NOT NULL AND targetp.user_id = f.linked_user_id)
+          )
+          JOIN matches m ON m.id = targetp.match_id
+          JOIN players selfp ON selfp.match_id = m.id AND (
+            selfp.user_id = ? OR (
+              m.owner_user_id = ? AND selfp.user_id IS NULL AND selfp.friend_id IS NULL AND selfp.name = ? COLLATE NOCASE
+            )
+          )
+          WHERE f.user_id = ?
+        )
+        SELECT sm.friend_id, COALESCE(SUM(hs.score_change), 0) net_score
+        FROM shared_matches sm
+        LEFT JOIN hand_scores hs ON hs.player_id = sm.self_player_id
+        GROUP BY sm.friend_id
+      `).bind(user.id, user.id, playerName, user.id),
+      c.env.DB.prepare(`
+        WITH shared_matches AS (
+          SELECT DISTINCT targetp.user_id target_user_id, m.id match_id, selfp.id self_player_id
+          FROM matches m
+          JOIN players selfp ON selfp.match_id = m.id AND (
+            selfp.user_id = ? OR (
+              m.owner_user_id = ? AND selfp.user_id IS NULL AND selfp.friend_id IS NULL AND selfp.name = ? COLLATE NOCASE
+            )
+          )
+          JOIN players targetp ON targetp.match_id = m.id
+            AND targetp.user_id IS NOT NULL AND targetp.user_id <> ?
+          WHERE NOT EXISTS (
+            SELECT 1 FROM friends linked
+            WHERE linked.user_id = ? AND linked.linked_user_id = targetp.user_id
+          )
+        )
+        SELECT sm.target_user_id, COALESCE(SUM(hs.score_change), 0) net_score
+        FROM shared_matches sm
+        LEFT JOIN hand_scores hs ON hs.player_id = sm.self_player_id
+        GROUP BY sm.target_user_id
+      `).bind(user.id, user.id, playerName, user.id, user.id),
+    ])
+    const manualNetByFriend = new Map(
+      (manualNetResult.results as Record<string, unknown>[]).map(row => [String(row.friend_id), Number(row.net_score ?? 0)]),
+    )
+    const wechatNetByUser = new Map(
+      (wechatNetResult.results as Record<string, unknown>[]).map(row => [String(row.target_user_id), Number(row.net_score ?? 0)]),
+    )
     const queriedAt = performance.now()
     const manualFriends: Friend[] = result.results.map(row => ({
       id: String(row.id),
@@ -209,6 +261,7 @@ export function registerMeRoutes(app: Hono<Env>) {
       wechatAvatarUrl: row.wechat_avatar_url ? String(row.wechat_avatar_url) : null,
       wechatGender: row.wechat_gender === 'male' || row.wechat_gender === 'female' ? row.wechat_gender : null,
       jointMatches: Number(row.joint_matches ?? 0),
+      netScore: manualNetByFriend.get(String(row.id)) ?? 0,
       gangKaiWins: Number(row.gang_kai_wins ?? 0),
       gangKaiAgainst: Number(row.gang_kai_against ?? 0),
       lastPlayedAt: row.last_played_at ? String(row.last_played_at) : null,
@@ -223,6 +276,7 @@ export function registerMeRoutes(app: Hono<Env>) {
       wechatAvatarUrl: row.avatar_url ? String(row.avatar_url) : null,
       wechatGender: row.gender === 'male' || row.gender === 'female' ? row.gender : null,
       jointMatches: Number(row.joint_matches ?? 0),
+      netScore: wechatNetByUser.get(String(row.user_id)) ?? 0,
       gangKaiWins: 0,
       gangKaiAgainst: 0,
       lastPlayedAt: row.last_played_at ? String(row.last_played_at) : null,
@@ -413,6 +467,7 @@ export function registerMeRoutes(app: Hono<Env>) {
         wechatAvatarUrl: friend.wechat_avatar_url ? String(friend.wechat_avatar_url) : null,
         wechatGender: friend.wechat_gender === 'male' || friend.wechat_gender === 'female' ? friend.wechat_gender : null,
         jointMatches: matchIds.size,
+        netScore,
         gangKaiWins,
         gangKaiAgainst,
         lastPlayedAt: friend.last_played_at ? String(friend.last_played_at) : null,

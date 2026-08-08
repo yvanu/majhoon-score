@@ -134,6 +134,7 @@ export async function relationshipStatisticsForUser(
       wechatAvatarUrl: target.avatar_url ? String(target.avatar_url) : null,
       wechatGender: gender,
       jointMatches: trend.length,
+      netScore,
       gangKaiWins: winPatterns.get('杠开') || 0,
       gangKaiAgainst: dealInPatterns.get('杠开') || 0,
       lastPlayedAt,

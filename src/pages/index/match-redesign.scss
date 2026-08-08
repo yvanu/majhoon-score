@@ -2,24 +2,24 @@
   position: fixed;
   z-index: 70;
   inset: 0;
-  padding: calc(24rpx + env(safe-area-inset-top)) 24rpx calc(24rpx + env(safe-area-inset-bottom));
+  padding: calc(34rpx + env(safe-area-inset-top)) 52rpx calc(34rpx + env(safe-area-inset-bottom));
   display: flex;
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  background: rgba(24,22,19,.38);
-  backdrop-filter: blur(5rpx);
+  background: rgba(31,29,25,.34);
+  backdrop-filter: blur(3rpx);
 }
 
 .score-v4-shell {
   width: 100%;
-  max-width: 686rpx;
-  height: min(88vh,1080rpx);
+  max-width: 620rpx;
+  height: min(82vh,960rpx);
   overflow: hidden;
-  border: 1rpx solid #e2ddd5;
-  border-radius: 30rpx;
+  border: 1rpx solid #e8e4dc;
+  border-radius: 23rpx;
   background: #fff;
-  box-shadow: 0 28rpx 76rpx rgba(34,28,21,.2);
+  box-shadow: 0 22rpx 58rpx rgba(34,28,21,.16);
 }
 
 .score-v4-shell .score-dialog {
@@ -40,19 +40,19 @@
 }
 .score-v4-shell .score-page {
   min-height: 100%;
-  padding: 22rpx 20rpx 20rpx !important;
+  padding: 18rpx 18rpx 18rpx !important;
   box-sizing: border-box;
   background: #fff;
   color: #1c1c1e;
 }
 
 .score-v4-shell .score-modal-header {
-  min-height: 66rpx;
-  margin: 0 0 14rpx;
+  min-height: 54rpx;
+  margin: 0 0 10rpx;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12rpx;
+  gap: 10rpx;
 }
 .score-v4-shell .score-modal-title-wrap { min-width: 0; }
 .score-v4-shell .score-modal-title-wrap text { display: block; }
@@ -63,26 +63,26 @@
   letter-spacing: .5rpx;
 }
 .score-v4-shell .score-modal-title {
-  margin-top: 4rpx;
+  margin-top: 3rpx;
   color: #1c1c1e;
-  font-size: 29rpx;
+  font-size: 24rpx;
   font-weight: 850;
   line-height: 1.15;
 }
 .score-v4-shell .score-modal-close,
 .score-v4-shell .tile-editor-back {
-  width: 54rpx;
-  min-width: 54rpx;
-  height: 54rpx;
-  min-height: 54rpx;
+  width: 44rpx;
+  min-width: 44rpx;
+  height: 44rpx;
+  min-height: 44rpx;
   margin: 0;
   padding: 0;
   border: 0;
-  border-radius: 17rpx;
+  border-radius: 13rpx;
   background: #f3f0ea;
   color: #655e55;
-  font-size: 28rpx;
-  line-height: 52rpx;
+  font-size: 24rpx;
+  line-height: 42rpx;
   box-shadow: none;
 }
 .score-v4-shell .score-modal-close::after,
@@ -147,8 +147,8 @@
 .score-v4-shell .pick {
   position: relative;
   min-width: 0;
-  min-height: 106rpx;
-  padding: 10rpx 4rpx 8rpx;
+  min-height: 92rpx;
+  padding: 8rpx 3rpx 7rpx;
   display: flex;
   align-items: center;
   flex-direction: column;
@@ -167,8 +167,8 @@
 .score-v4-shell .pick .avatar,
 .score-v4-shell .pick .avatar-identity-wrap,
 .score-v4-shell .pick .identity-avatar {
-  width: 58rpx;
-  height: 58rpx;
+  width: 50rpx;
+  height: 50rpx;
   margin: 0 auto;
   border-radius: 50%;
 }
@@ -522,9 +522,9 @@
 .score-v4-shell .score-bottom-spacer { height: 8rpx; }
 .score-v4-shell .score-save-bar {
   flex: 0 0 auto;
-  padding: 9rpx 18rpx calc(14rpx + env(safe-area-inset-bottom));
-  border-top: 1rpx solid #e6e1d8;
-  background: rgba(255,255,255,.98);
+  padding: 7rpx 16rpx 14rpx;
+  border-top: 1rpx solid #e8e4dc;
+  background: #fff;
 }
 .score-v4-shell .score-save-summary {
   display: block;
@@ -540,17 +540,17 @@
 }
 .score-v4-shell .score-save-bar > .primary {
   width: 100%;
-  height: 70rpx;
-  min-height: 70rpx;
+  height: 58rpx;
+  min-height: 58rpx;
   margin: 0;
   padding: 0;
   border: 0;
-  border-radius: 18rpx;
+  border-radius: 15rpx;
   background: #f3b43f;
   color: #3b2a09;
-  font-size: 21rpx;
-  font-weight: 800;
-  line-height: 70rpx;
+  font-size: 17rpx;
+  font-weight: 850;
+  line-height: 58rpx;
   box-shadow: none;
 }
 .score-v4-shell .score-save-bar > .primary::after { border: 0; }
