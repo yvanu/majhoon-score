@@ -36,17 +36,34 @@ export async function ensureFriendSchema(db: D1Database) {
     ON friends(user_id, last_played_at DESC, updated_at DESC)
   `).run()
   const friendColumns = await db.prepare('PRAGMA table_info(friends)').all<{ name: string }>()
-  if (!friendColumns.results.some(column => column.name === 'linked_user_id')) {
+  const friendColumnNames = new Set(friendColumns.results.map(column => column.name))
+  const friendColumnMigrations = [
+    !friendColumnNames.has('linked_user_id') ? 'ALTER TABLE friends ADD COLUMN linked_user_id TEXT REFERENCES users(id) ON DELETE SET NULL' : '',
+    !friendColumnNames.has('note') ? 'ALTER TABLE friends ADD COLUMN note TEXT' : '',
+    !friendColumnNames.has('avatar_url') ? 'ALTER TABLE friends ADD COLUMN avatar_url TEXT' : '',
+  ].filter(Boolean)
+  for (const statement of friendColumnMigrations) {
     try {
-      await db.prepare('ALTER TABLE friends ADD COLUMN linked_user_id TEXT REFERENCES users(id) ON DELETE SET NULL').run()
+      await db.prepare(statement).run()
     } catch (error) {
       const refreshed = await db.prepare('PRAGMA table_info(friends)').all<{ name: string }>()
-      if (!refreshed.results.some(column => column.name === 'linked_user_id')) throw error
+      const columnName = statement.includes('linked_user_id') ? 'linked_user_id' : statement.includes('avatar_url') ? 'avatar_url' : 'note'
+      if (!refreshed.results.some(column => column.name === columnName)) throw error
     }
   }
   await db.prepare(`
     CREATE UNIQUE INDEX IF NOT EXISTS idx_friends_owner_linked_user
     ON friends(user_id, linked_user_id) WHERE linked_user_id IS NOT NULL
+  `).run()
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS friend_avatars (
+      friend_id TEXT PRIMARY KEY,
+      content_type TEXT NOT NULL,
+      content BLOB NOT NULL,
+      etag TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (friend_id) REFERENCES friends(id) ON DELETE CASCADE
+    )
   `).run()
 
   const columns = await db.prepare('PRAGMA table_info(players)').all<{ name: string }>()

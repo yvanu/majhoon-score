@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import Taro from '@tarojs/taro'
 import { Button, Text, View } from '@tarojs/components'
 import type { UserGender } from '@shared/types'
 import { IdentityAvatar } from './identity-avatar'
@@ -12,81 +13,82 @@ export type SeatParticipant = {
   badge?: string
 }
 
-const seats = [
-  { label: '东', note: '庄', spot: 'bottom' },
-  { label: '南', note: '', spot: 'right' },
-  { label: '西', note: '', spot: 'top' },
-  { label: '北', note: '', spot: 'left' },
+const seats = ['东', '南', '西', '北'] as const
+const visualSeats = [
+  { seatIndex: 3, spot: 'top' },
+  { seatIndex: 0, spot: 'right' },
+  { seatIndex: 1, spot: 'bottom' },
+  { seatIndex: 2, spot: 'left' },
 ] as const
 
-export function SeatAssignmentScreen({ participants, loading, sourceLabel, onBack, onConfirm }: {
+export function SeatAssignmentScreen({ participants, loading, onBack, onConfirm }: {
   participants: SeatParticipant[]
   loading: boolean
   sourceLabel: string
   onBack: () => void
   onConfirm: (memberIds: string[]) => Promise<void>
 }) {
-  const [activeSeat, setActiveSeat] = useState(0)
-  const [assignment, setAssignment] = useState<Array<string | null>>([null, null, null, null])
+  const [assignment, setAssignment] = useState<string[]>(() => participants.slice(0, 4).map(participant => participant.id))
   const participantById = useMemo(() => new Map(participants.map(participant => [participant.id, participant])), [participants])
-  const complete = assignment.every(Boolean) && new Set(assignment).size === 4
+  const complete = assignment.length === 4 && new Set(assignment).size === 4
 
-  function assign(participantId: string) {
-    setAssignment(current => {
-      const next = current.map(id => id === participantId ? null : id)
-      next[activeSeat] = participantId
-      const nextEmpty = next.findIndex((id, index) => !id && index > activeSeat)
-      const anyEmpty = next.findIndex(id => !id)
-      setActiveSeat(nextEmpty >= 0 ? nextEmpty : anyEmpty >= 0 ? anyEmpty : activeSeat)
-      return next
-    })
+  async function adjustSeats() {
+    try {
+      const seatResult = await Taro.showActionSheet({ itemList: seats.map(seat => `${seat}家${seat === '东' ? ' · 庄' : ''}`) })
+      const seatIndex = seatResult.tapIndex
+      const currentId = assignment[seatIndex]
+      const ordered = [...participants].sort((first, second) => first.id === currentId ? -1 : second.id === currentId ? 1 : 0)
+      const playerResult = await Taro.showActionSheet({ itemList: ordered.map(participant => participant.badge === '我' ? `我（${participant.name}）` : participant.name) })
+      const nextPlayer = ordered[playerResult.tapIndex]
+      if (!nextPlayer) return
+      setAssignment(current => {
+        const next = [...current]
+        const otherIndex = next.indexOf(nextPlayer.id)
+        if (otherIndex >= 0) next[otherIndex] = next[seatIndex]
+        next[seatIndex] = nextPlayer.id
+        return next
+      })
+    } catch {
+      // 原生选择器取消时保持现有座位。
+    }
   }
 
-  function clearSeat(index: number) {
-    setAssignment(current => current.map((id, seatIndex) => seatIndex === index ? null : id))
-    setActiveSeat(index)
-  }
-
-  return <View className='seat-v4-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
-    <View className='seat-v4-nav'>
-      <Button className='seat-v4-back' hoverClass='none' onClick={onBack}>‹</Button>
-      <View><Text>确定座位</Text><Text>{sourceLabel}</Text></View>
-      <View className='seat-v4-nav-spacer' />
+  return <View className='master-start-screen master-seat-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+    <View className='master-start-nav'>
+      <Button className='master-start-back' hoverClass='none' onClick={onBack}>‹</Button>
+      <View><Text>开始新牌局</Text><Text>确认本场玩家、座位与庄家</Text></View>
     </View>
 
-    <View className='seat-v4-guide'><View /><Text>依次选择东、南、西、北，再点击下方玩家；东家自动成为初始庄家。</Text></View>
-
-    <View className='seat-v4-table'>
-      <View className='seat-v4-center'><Text>南京麻将</Text><Text>{assignment.filter(Boolean).length} / 4</Text><Text>已安排</Text></View>
-      {seats.map((seat, index) => {
-        const participantId = assignment[index]
-        const participant = participantId ? participantById.get(participantId) : null
-        return <View className={`seat-v4-slot ${seat.spot}${activeSeat === index ? ' active' : ''}${participant ? ' filled' : ''}`} key={seat.label} onClick={() => setActiveSeat(index)}>
-          <View className='seat-v4-seat-label'><Text>{seat.label}</Text>{seat.note && <Text>{seat.note}</Text>}</View>
-          {participant ? <View className='seat-v4-player'>
-            <View className='seat-v4-player-avatar'><IdentityAvatar name={participant.name} gender={participant.gender} avatarUrl={participant.avatarUrl} size='large' badge={participant.badge} /></View>
-            <Text>{participant.name}</Text>
-            <Button hoverClass='none' onClick={event => { event.stopPropagation(); clearSeat(index) }}>×</Button>
-          </View> : <View className='seat-v4-empty'><View><Text>＋</Text></View><Text>安排{seat.label}家</Text></View>}
+    <View className='master-start-table-card'>
+      <View className='master-start-card-head'><Text>本场玩家</Text><Text>4 / 4</Text></View>
+      <View className='master-start-table-center' />
+      {visualSeats.map(({ seatIndex, spot }) => {
+        const participant = participantById.get(assignment[seatIndex])
+        const seat = seats[seatIndex]
+        const isSelf = participant?.badge === '我'
+        return <View className={`master-start-seat ${spot}`} key={spot}>
+          <Text className='master-start-seat-chip'>{seat}</Text>
+          {participant && <View className='master-start-player' onClick={() => { void adjustSeats() }}>
+            <View className={`master-start-avatar${isSelf ? ' self' : ''}`}><IdentityAvatar name={participant.name} gender={participant.gender} avatarUrl={participant.avatarUrl} /></View>
+            {seatIndex === 0 && <Text className='master-start-dealer'>庄</Text>}
+            <Text className='master-start-player-name'>{isSelf ? '我' : participant.name}</Text>
+          </View>}
         </View>
       })}
     </View>
 
-    <View className='seat-v4-candidates'>
-      <View className='seat-v4-candidate-head'><View><Text>四位玩家</Text><Text>点击玩家安排到当前座位</Text></View><Text>{seats[activeSeat].label}家{activeSeat === 0 ? ' · 庄' : ''}</Text></View>
-      <View className='seat-v4-candidate-grid'>{participants.map(participant => {
-        const seatIndex = assignment.indexOf(participant.id)
-        const assigned = seatIndex >= 0
-        return <View className={`seat-v4-candidate${assigned ? ' assigned' : ''}`} key={participant.id} onClick={() => assign(participant.id)}>
-          <View className='seat-v4-candidate-avatar'><IdentityAvatar name={participant.name} gender={participant.gender} avatarUrl={participant.avatarUrl} badge={participant.badge} /></View>
-          <Text className='seat-v4-candidate-name'>{participant.name}</Text>
-          <Text className='seat-v4-candidate-state'>{assigned ? `${seats[seatIndex].label}家${seatIndex === 0 ? ' · 庄' : ''}` : '未安排'}</Text>
-        </View>
-      })}</View>
+    <View className='master-start-secondary-actions'>
+      <Button hoverClass='none' onClick={() => { void adjustSeats() }}>调整座位</Button>
+      <Button hoverClass='none' onClick={onBack}>更换玩家</Button>
     </View>
 
-    <Button className='seat-v4-confirm' hoverClass='none' disabled={!complete || loading} onClick={() => { if (complete) void onConfirm(assignment as string[]) }}>
-      {loading ? '创建牌局中…' : complete ? '确认座位并开始记分' : `还需安排 ${4 - assignment.filter(Boolean).length} 位`}
+    <View className='master-start-rule-card'>
+      <View><Text>南京麻将 · 标准规则</Text><Text>从组局进入时仅确认座位与庄家</Text></View>
+      <Text>查看规则 ›</Text>
+    </View>
+
+    <Button className='master-start-primary' hoverClass='none' disabled={!complete || loading} onClick={() => { if (complete) void onConfirm(assignment) }}>
+      {loading ? '创建牌局中…' : '开始记分'}
     </Button>
   </View>
 }

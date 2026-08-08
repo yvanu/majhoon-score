@@ -39,11 +39,14 @@ export interface Friend {
   source?: 'manual' | 'wechat'
   name: string
   avatar_seed: number
+  avatarUrl?: string | null
+  note?: string | null
   linkedUserId: string | null
   wechatName: string | null
   wechatAvatarUrl: string | null
   wechatGender: UserGender | null
   jointMatches: number
+  winRate?: number
   netScore: number
   gangKaiWins: number
   gangKaiAgainst: number
@@ -67,6 +70,7 @@ export interface ScoreTrendPoint {
   matchId: string
   createdAt: string
   score: number
+  location?: string | null
 }
 
 export interface FriendStatistics {
@@ -268,6 +272,16 @@ export interface FeaturedBigHand {
   tileRecord: HandTileRecord
 }
 
+export interface BigHandRecord {
+  handId: string
+  matchId: string
+  resultType: 'ron' | 'tsumo'
+  note: string
+  score: number
+  createdAt: string
+  tileRecord: HandTileRecord | null
+}
+
 export interface PersonalStatistics {
   dimension: StatisticsDimension
   value: string
@@ -281,11 +295,16 @@ export interface PersonalStatistics {
   trend: ScoreTrendPoint[]
   patterns: PersonalPatternStat[]
   featuredBigHand: FeaturedBigHand | null
+  bigHandRecords: BigHandRecord[]
 }
 
 export interface UserPreferences {
   hapticFeedback: boolean
   quickScores: [number, number]
+  quickAdjustStep: number
+  defaultMultiRon: boolean
+  clearScoreStateAfterSave: boolean
+  showSettlementPreview: boolean
   autoSortTileRecord: boolean
   highlightMatchingTiles: boolean
   eventDefaults: Record<InHandEventType, number>

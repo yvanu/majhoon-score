@@ -69,6 +69,28 @@ async function uploadProfileAvatar(filePath: string) {
   return payload.user
 }
 
+async function uploadFriendAvatar(friendId: string, filePath: string) {
+  const auth = Taro.getStorageSync<string>(AUTH_KEY)
+  if (!auth) throw new Error('请先登录')
+  const response = await Taro.uploadFile({
+    url: `${API_BASE_URL}/api/me/friends/${encodeURIComponent(friendId)}/avatar`,
+    filePath,
+    name: 'file',
+    header: { authorization: `Bearer ${auth}` },
+    timeout: 15_000,
+  })
+  let payload: { avatarUrl?: string; error?: string } = {}
+  try {
+    payload = JSON.parse(response.data || '{}')
+  } catch {
+    throw new Error('牌友头像上传响应异常')
+  }
+  if (response.statusCode < 200 || response.statusCode >= 300 || !payload.avatarUrl) {
+    throw new Error(payload.error || `牌友头像上传失败（${response.statusCode}）`)
+  }
+  return payload.avatarUrl
+}
+
 export const api = {
   me: () => request<{ user: AuthUser }>('/api/auth/me'),
   wechatLogin: (code: string) => request<AuthResult>('/api/auth/wechat', 'POST', { code }),
@@ -81,6 +103,8 @@ export const api = {
   personalStatistics: (dimension: StatisticsDimension, value: string, timezoneOffset: number) =>
     request<PersonalStatistics>(`/api/me/statistics?dimension=${dimension}&value=${encodeURIComponent(value)}&timezoneOffset=${timezoneOffset}`),
   friends: (summary = false) => request<{ friends: Friend[] }>(`/api/me/friends${summary ? '?summary=1' : ''}`),
+  createFriend: (name: string, note: string) => request<{ friend: Friend }>('/api/me/friends', 'POST', { name, note }),
+  uploadFriendAvatar,
   friendStatistics: (friendId: string) => request<FriendStatistics>(`/api/me/friends/${encodeURIComponent(friendId)}/statistics`),
   userStatistics: (userId: string) => request<FriendStatistics>(`/api/me/users/${encodeURIComponent(userId)}/statistics`),
   knownUsers: () => request<{ users: KnownUser[] }>('/api/me/known-users'),

@@ -51,7 +51,7 @@ async function loadLobby(db: D1Database, idOrCode: string, viewerUserId: string)
 }
 
 async function findLobby(c: Context<Env>, viewerUserId: string) {
-  return loadLobby(c.env.DB, c.req.param('id'), viewerUserId)
+  return loadLobby(c.env.DB, c.req.param('id') || '', viewerUserId)
 }
 
 async function ensureLobbyCode(db: D1Database) {

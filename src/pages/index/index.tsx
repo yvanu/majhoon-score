@@ -37,18 +37,24 @@ import {
   Auth,
   BottomNav,
   DailyStatsScreen,
-  FriendStatisticsScreen,
-  FriendsScreen,
   HistoryScreen,
-  PersonalStatisticsScreen,
-  ProfileScreen,
 } from './screens'
-import { SettingsScreen } from './settings-screen-v4'
-import { GroupCreateScreen, GroupDetailScreen, GroupSessionsScreen } from './group-screens'
+import { AddFriendScreen, FriendStatisticsScreen, FriendsScreen } from './master-friend-screens'
+import {
+  BigHandsScreen,
+  MyStyleScreen,
+  PersonalStatisticsScreen,
+  PreferencesScreen,
+  ProfileScreen,
+  ScoringSettingsScreen,
+  SettingsScreen,
+} from './master-profile-screens'
+import { GroupCreateScreen, GroupDetailScreen, GroupSessionsScreen } from './master-group-screens'
 import { GroupChatScreen } from './chat-screen'
 import { Home } from './home-screen'
 import { LobbyScreen } from './lobby-screen'
-import { MatchScreen, ScoreScreen } from './match-screens'
+import { ScoreScreen } from './match-screens'
+import { MasterMatchScreen as MatchScreen } from './master-match-screen'
 import { ProfileSetupScreen } from './profile-setup'
 import { SeatAssignmentScreen } from './seat-assignment'
 import type { SeatParticipant } from './seat-assignment'
@@ -81,6 +87,13 @@ import './friend-detail-v4.scss'
 import './daily-stats-v4.scss'
 import './auth-v4.scss'
 import './modal-polish-v4.scss'
+import './master-match-screen.scss'
+import './master-score-modal.scss'
+import './master-start-game.scss'
+import './master-groups.scss'
+import './master-chat.scss'
+import './master-friends.scss'
+import './master-profile.scss'
 
 const TAB_CACHE_TTL = 60_000
 const FRIEND_STATS_CACHE_TTL = 5 * 60_000
@@ -966,7 +979,7 @@ export default function Index() {
         name: member.name,
         avatarUrl: member.avatar_url,
         gender: member.gender,
-        badge: member.user_id ? '微信' : '牌友',
+        badge: member.user_id === user?.id ? '我' : member.user_id ? '微信' : '牌友',
       })),
     })
     setScreen('seating')
@@ -1067,6 +1080,18 @@ export default function Index() {
     })
   }
 
+  async function startLobbyDirect() {
+    if (!matchLobby?.isOwner || matchLobby.status !== 'preparing' || matchLobby.members.length !== 4) return
+    await run(async () => {
+      const result = await api.startMatchLobby(matchLobby.id, matchLobby.members.map(member => member.id))
+      setMatchLobby(result.lobby)
+      activateCreatedMatch(result, 'home')
+      friendsLoadedAt.current = 0
+      await Taro.showToast({ title: '牌局已创建', icon: 'success' })
+      void refreshDashboard().catch(error => console.error('Refresh dashboard after lobby start failed:', error))
+    })
+  }
+
   function beginLobbySeating() {
     if (!matchLobby?.isOwner || matchLobby.status !== 'preparing' || matchLobby.members.length !== 4) return
     setSeatAssignment({
@@ -1079,7 +1104,7 @@ export default function Index() {
         name: member.name,
         avatarUrl: member.avatarUrl,
         gender: member.gender,
-        badge: member.userId ? '微信' : '牌友',
+        badge: member.userId === user?.id ? '我' : member.userId ? '微信' : '牌友',
       })),
     })
     setScreen('seating')
@@ -1158,6 +1183,34 @@ export default function Index() {
     void loadFriends().catch(error => {
       console.error('Refresh friends failed:', error)
       if (!friends.length) void Taro.showToast({ title: '牌友加载失败，请稍后重试', icon: 'none' })
+    })
+  }
+
+  function showAddFriend() {
+    if (!user) {
+      showAuth('friend-add')
+      return
+    }
+    setScreen('friend-add')
+  }
+
+  async function createFriend(input: { name: string; note: string; avatarPath: string | null }) {
+    await run(async () => {
+      const created = await api.createFriend(input.name, input.note)
+      if (input.avatarPath) {
+        let uploadPath = input.avatarPath
+        try {
+          const compressed = await Taro.compressImage({ src: input.avatarPath, quality: 78 })
+          if (compressed.tempFilePath) uploadPath = compressed.tempFilePath
+        } catch (error) {
+          console.warn('Compress friend avatar failed, upload original image:', error)
+        }
+        await api.uploadFriendAvatar(created.friend.id, uploadPath)
+      }
+      friendsLoadedAt.current = 0
+      await loadFriends(true)
+      await Taro.showToast({ title: '牌友已保存', icon: 'success' })
+      navigateBack(true)
     })
   }
 
@@ -1268,6 +1321,43 @@ export default function Index() {
       return
     }
     setScreen('settings')
+  }
+
+  function showPreferences() {
+    if (!user) {
+      showAuth('preferences')
+      return
+    }
+    setScreen('preferences')
+  }
+
+  function showScoringSettings() {
+    if (!user) {
+      showAuth('scoring-settings')
+      return
+    }
+    setScreen('scoring-settings')
+  }
+
+  function showMonthStatisticsScreen(target: 'style' | 'big-hands') {
+    if (!user) {
+      showAuth(target)
+      return
+    }
+    const dimension: StatisticsDimension = 'month'
+    const value = statisticsValue(dimension)
+    const key = personalStatisticsKey(dimension, value)
+    const generation = personalStatsGeneration.current
+    activePersonalStatsKey.current = key
+    const cached = personalStatsCache.current.get(key)?.value ?? null
+    setPersonalStats(cached)
+    setScreen(target)
+    void loadPersonalStatistics(dimension, value).then(result => {
+      if (personalStatsGeneration.current === generation && screenRef.current === target) setPersonalStats(result)
+    }).catch(error => {
+      console.error(`Load statistics for ${target} failed:`, error)
+      if (!cached) void Taro.showToast({ title: '战绩加载失败，请稍后重试', icon: 'none' })
+    })
   }
 
   function showProfile() {
@@ -1626,8 +1716,10 @@ export default function Index() {
       onAddSelf={addLobbySelf}
       onAddFriend={addLobbyFriend}
       onAddGuest={addLobbyGuest}
+      onAddNewFriend={showAddFriend}
       onRemoveMember={member => removeLobbyMember(member.id)}
       onStartSeating={beginLobbySeating}
+      onStartDirect={startLobbyDirect}
       onCancel={cancelMatchLobby}
       onEnsureFriends={() => loadFriends()}
       onFriendsChanged={async () => { friendsLoadedAt.current = 0; await loadFriends(true) }}
@@ -1723,6 +1815,7 @@ export default function Index() {
       onQueryChange={setFriendQuery}
       onOpen={openFriend}
     />}
+    {screen === 'friend-add' && user && <AddFriendScreen loading={loading} onBack={goBack} onSave={createFriend} />}
     {screen === 'friend' && (friendStats
       ? <FriendStatisticsScreen
           statistics={friendStats}
@@ -1744,7 +1837,19 @@ export default function Index() {
       autoSortTileRecord={preferences.autoSortTileRecord}
       onBack={goBack}
       onChange={showPersonalStatistics}
+      onBigHands={() => showMonthStatisticsScreen('big-hands')}
     /> : <LoadingScreen title='我的战绩' message='正在汇总牌局与大胡记录…' onBack={goBack} />)}
+    {screen === 'big-hands' && (personalStats
+      ? <BigHandsScreen statistics={personalStats} onBack={goBack} />
+      : <LoadingScreen title='我的大胡' message='正在加载大胡记录…' onBack={goBack} />)}
+    {screen === 'style' && (personalStats
+      ? <MyStyleScreen statistics={personalStats} onBack={goBack} />
+      : <LoadingScreen title='我的牌风' message='正在生成牌风分析…' onBack={goBack} />)}
+    {screen === 'preferences' && user && <PreferencesScreen
+      preferences={preferences}
+      onChange={updatePreferences}
+      onBack={goBack}
+    />}
     {screen === 'profile' && <ProfileScreen
       user={user}
       statistics={personalStats}
@@ -1752,17 +1857,26 @@ export default function Index() {
       syncStatus={syncStatus}
       onSettings={showSettings}
       onPersonalStatistics={() => showPersonalStatistics()}
+      onPlayStyle={() => showMonthStatisticsScreen('style')}
+      onPreferences={showPreferences}
       onLogin={() => showAuth('profile')}
     />}
-    {screen === 'settings' && <SettingsScreen
+    {screen === 'settings' && user && <SettingsScreen
       user={user}
       preferences={preferences}
+      loading={loading}
       syncStatus={syncStatus}
-      onChange={updatePreferences}
       onBack={goBack}
       onEditProfile={() => { setNicknameReturn('settings'); setScreen('nickname') }}
+      onPreferencesChange={updatePreferences}
       onLogout={logout}
-      showDialog={showDialog}
+      onScoringSettings={showScoringSettings}
+      onInfo={title => { void showDialog({ title, content: '当前版本按系统默认设置运行。', showCancel: false, variant: 'info' }) }}
+    />}
+    {screen === 'scoring-settings' && user && <ScoringSettingsScreen
+      preferences={preferences}
+      onBack={goBack}
+      onPreferences={showPreferences}
     />}
     {screen === 'match' && (match ? <MatchScreen
       match={match}

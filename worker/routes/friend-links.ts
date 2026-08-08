@@ -121,7 +121,7 @@ export function registerFriendLinkRoutes(app: Hono<Env>) {
     const friendId = c.req.param('id')
     const result = await c.env.DB.prepare('UPDATE friends SET linked_user_id = NULL, updated_at = ? WHERE id = ? AND user_id = ?')
       .bind(now(), friendId, user.id).run()
-    if (!result.meta.changes) return jsonError(c, '牌友不存在', 404)
+    if (!result.meta?.changes) return jsonError(c, '牌友不存在', 404)
     return c.json({ ok: true })
   })
 }

@@ -61,7 +61,7 @@ export function shiftStatisticsValue(dimension: StatisticsDimension, value: stri
   return String(Number(value) + amount)
 }
 
-export type Screen = 'home' | 'lobby' | 'seating' | 'auth' | 'nickname' | 'history' | 'daily' | 'groups' | 'group-create' | 'group-detail' | 'group-chat' | 'friends' | 'friend' | 'personal' | 'profile' | 'settings' | 'match' | 'review'
+export type Screen = 'home' | 'lobby' | 'seating' | 'auth' | 'nickname' | 'history' | 'daily' | 'groups' | 'group-create' | 'group-detail' | 'group-chat' | 'friends' | 'friend-add' | 'friend' | 'personal' | 'big-hands' | 'style' | 'preferences' | 'profile' | 'settings' | 'scoring-settings' | 'match' | 'review'
 export type TileRecordSection = 'pongs' | 'exposedKongs' | 'concealedKongs' | 'hand' | 'winningTile'
 export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'offline'
 export type DialogVariant = 'default' | 'danger' | 'info' | 'error'
@@ -121,6 +121,9 @@ export function FriendAvatar({ friend, large = false }: { friend: Friend; large?
       size={large ? 'large' : 'normal'}
       badge='微信'
     />
+  }
+  if (friend.avatarUrl) {
+    return <IdentityAvatar name={friend.name} avatarUrl={friend.avatarUrl} size={large ? 'large' : 'normal'} />
   }
   return <AvatarFace name={friend.name} palette={Number(friend.avatar_seed || 0)} large={large} />
 }

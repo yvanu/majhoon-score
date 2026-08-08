@@ -523,6 +523,7 @@ function TileRecordEditor({ record, autoSort, highlightMatchingTiles, onChange }
   onChange: (record: HandTileRecord) => void
 }) {
   const [active, setActive] = useState<TileRecordSection>('hand')
+  const [paletteGroup, setPaletteGroup] = useState('万')
   const sections: Array<{ key: TileRecordSection; label: string; hint: string }> = [
     { key: 'pongs', label: '碰', hint: `${record.pongs.length} 组` },
     { key: 'exposedKongs', label: '明杠', hint: `${record.exposedKongs.length} 组` },
@@ -600,22 +601,30 @@ function TileRecordEditor({ record, autoSort, highlightMatchingTiles, onChange }
   }
 
   const currentSection = sections.find(section => section.key === active) || sections[3]
+  const activePalette = tileGroups.find(group => group.name === paletteGroup) || tileGroups[0]
+  const meldSections = sections.slice(0, 3)
 
-  return <View className='tile-record-editor'>
-    <View className='tile-record-section-tabs'>{sections.map(section => <View key={section.key} className={active === section.key ? 'tile-record-section-tab active' : 'tile-record-section-tab'} onClick={() => setActive(section.key)}>
-      <Text>{section.label}</Text><Text>{section.hint}</Text>
+  return <View className='master-tile-editor'>
+    <View className='master-tile-meld-list'>{meldSections.map(section => <View className={`master-tile-meld-row${active === section.key ? ' active' : ''}`} key={section.key} onClick={() => setActive(section.key)}>
+      <View className='master-tile-row-label'><Text>{section.label}</Text><Text>{section.hint}</Text></View>
+      <View className='master-tile-row-content'>{sectionContent(section.key)}</View>
+      <View className='master-tile-add'><Text>＋</Text></View>
     </View>)}</View>
-    <View className='tile-record-current'>
-      <View className='tile-record-region-title'><Text>{currentSection.label}</Text><Text>{currentSection.hint}</Text></View>
-      {sectionContent(active)}
+
+    <View className='master-tile-divider' />
+    <View className={`master-tile-hand-block${active === 'hand' ? ' active' : ''}`} onClick={() => setActive('hand')}>
+      <View className='master-tile-block-head'><Text>手牌</Text><Text>{record.hand.length}/13</Text></View>
+      <View className='master-tile-hand-content'>{sectionContent('hand')}</View>
     </View>
-    <View className='tile-palette'>
-      <View className='tile-palette-heading'><Text>点击麻将牌录入“{currentSection.label}”</Text><Text>每种牌最多 4 张</Text></View>
-      {tileGroups.map(group => <View className='tile-palette-group' key={group.name}>
-        <Text className='tile-palette-group-name'>{group.name}</Text>
-        <View className='tile-palette-grid'>{group.tiles.map(tile => <View className={highlightMatchingTiles && tileCopyCount(record, tile) ? 'tile-palette-item selected' : 'tile-palette-item'} key={tile} onClick={() => addTile(tile)}><MahjongTileFace tile={tile} compact /></View>)}</View>
-      </View>)}
+    <View className={`master-tile-winning-block${active === 'winningTile' ? ' active' : ''}`} onClick={() => setActive('winningTile')}>
+      <View className='master-tile-block-head'><Text>胡牌</Text><Text>{record.winningTile ? '固定最后' : '未录入'}</Text></View>
+      <View className='master-tile-winning-content'>{sectionContent('winningTile')}</View>
     </View>
+
+    <View className='master-tile-divider second' />
+    <View className='master-tile-palette-head'><View><Text>选择牌</Text><Text>当前录入：{currentSection.label}</Text></View><Text>每种最多 4 张</Text></View>
+    <View className='master-tile-suit-tabs'>{tileGroups.map(group => <View className={paletteGroup === group.name ? 'active' : ''} key={group.name} onClick={() => setPaletteGroup(group.name)}><Text>{group.name}</Text></View>)}</View>
+    <View className='master-tile-palette-grid'>{activePalette.tiles.map(tile => <View className={highlightMatchingTiles && tileCopyCount(record, tile) ? 'selected' : ''} key={tile} onClick={() => addTile(tile)}><MahjongTileFace tile={tile} /></View>)}</View>
   </View>
 }
 
@@ -708,7 +717,9 @@ export function ScoreScreen({ players, currentUserId, currentWind, currentHand, 
   const [winner, setWinner] = useState(initialWinner)
   const [loser, setLoser] = useState(initialLoser)
   const [ronWinnerIds, setRonWinnerIds] = useState(initialRonWinnerIds)
-  const [multiRonEnabled, setMultiRonEnabled] = useState(initialRonWinnerIds.length > 1)
+  const [multiRonEnabled, setMultiRonEnabled] = useState(initialHand?.result_type === 'ron'
+    ? initialRonWinnerIds.length > 1
+    : preferences.defaultMultiRon)
   const [ronSelectionRole, setRonSelectionRole] = useState<'loser' | 'winner' | null>(initialLoser
     ? initialRonWinnerIds.length ? null : 'winner'
     : 'loser')
@@ -920,6 +931,60 @@ export function ScoreScreen({ players, currentUserId, currentWind, currentHand, 
     if (!next.some(note => bigHandOptions.has(note))) setTileRecord(emptyTileRecord())
   }
 
+  function masterChooseRonLoser(playerId: string) {
+    feedback()
+    setLoser(current => current === playerId ? '' : playerId)
+    setRonWinnerIds(current => current.filter(id => id !== playerId))
+    if (activeRonWinnerId === playerId) setActiveRonWinnerId('')
+    setRonSelectionRole('winner')
+  }
+
+  function masterChooseRonWinner(playerId: string) {
+    feedback()
+    if (!loser) {
+      void Taro.showToast({ title: '请先选择点炮者', icon: 'none' })
+      return
+    }
+    if (playerId === loser) return
+    setRonWinnerIds(current => {
+      if (current.includes(playerId)) {
+        const next = current.filter(id => id !== playerId)
+        if (activeRonWinnerId === playerId) setActiveRonWinnerId(next[0] || '')
+        return next
+      }
+      if (!multiRonEnabled) {
+        setActiveRonWinnerId(playerId)
+        return [playerId]
+      }
+      if (current.length >= 3) {
+        void Taro.showToast({ title: '一炮多响最多选择三位胡牌者', icon: 'none' })
+        return current
+      }
+      setActiveRonWinnerId(playerId)
+      return [...current, playerId]
+    })
+    setRonSelectionRole(null)
+  }
+
+  async function chooseRonPrimaryNote(playerId: string) {
+    const firstPage = ['无大胡', '对对胡', '七对', '清一色', '混一色', '更多']
+    try {
+      const first = await Taro.showActionSheet({ itemList: firstPage })
+      const chosen = firstPage[first.tapIndex]
+      if (!chosen) return
+      if (chosen !== '更多') {
+        updateRonDraft(playerId, draft => ({ ...draft, notes: chosen === '无大胡' ? [] : [chosen] }))
+        return
+      }
+      const secondPage = ['全球独钓', '龙七', '花开', '杠开', '抢杠', '压绝']
+      const second = await Taro.showActionSheet({ itemList: secondPage })
+      const secondChosen = secondPage[second.tapIndex]
+      if (secondChosen) updateRonDraft(playerId, draft => ({ ...draft, notes: [secondChosen] }))
+    } catch {
+      // 用户取消选择时保持当前牌型。
+    }
+  }
+
   function adjustScore(current: string, delta: number, onChange: (value: string) => void) {
     const value = Math.max(5, Math.round(Number(current) || 0) + delta)
     onChange(String(value))
@@ -1094,6 +1159,167 @@ export function ScoreScreen({ players, currentUserId, currentWind, currentHand, 
             ? '记录流局'
             : '记一局'
   const saveLabel = type === 'event' ? '确认记录' : type === 'draw' ? '确认流局' : '确认保存'
+  const masterPlayerLabel = (player: Player) => player.user_id === currentUserId ? '我' : player.name
+  const masterTsumoNotes = ['无花果', '混一色', '对对胡', '清一色']
+  const masterRonNotes = ['无大胡', '对对胡', '七对']
+  const displayedRonPrimaryNote = displayedRonDraft?.notes[0] || '无大胡'
+  const masterEventScores = eventScores.filter(score => score.change !== 0)
+  const masterViewType: string = type
+
+  if (tileEditorTarget) {
+    return <View className='master-score-dialog master-score-tile-dialog'>
+      <View className='master-score-header tile'>
+        <View><Text>录入牌谱</Text><Text>{windName[currentWind]}风 · 第{currentHand}局 · {type === 'tsumo' ? '自摸' : '点炮'}</Text></View>
+        <Button hoverClass='none' onClick={() => setTileEditorTarget(null)}>×</Button>
+      </View>
+      <ScrollView scrollY className='master-score-tile-scroll' showScrollbar={false}>
+        <TileRecordEditor
+          record={tileEditorDraft}
+          autoSort={preferences.autoSortTileRecord}
+          highlightMatchingTiles={preferences.highlightMatchingTiles}
+          onChange={setTileEditorDraft}
+        />
+      </ScrollView>
+      <Button className='master-score-submit' hoverClass='none' onClick={completeTileEditor}>保存牌谱</Button>
+    </View>
+  }
+
+  if (masterViewType === 'tsumo') {
+    return <View className='master-score-dialog master-score-dialog-tsumo'>
+      <View className='master-score-header no-close'>
+        <View><Text>{isEditing ? '修改自摸' : '录入自摸'}</Text><Text>一次选人、选分、保存，不再进入子页面</Text></View>
+      </View>
+      <Text className='master-score-field-label'>赢家</Text>
+      <View className='master-score-player-grid'>{players.map(player => {
+        const selected = winner === player.id
+        return <View className={`master-score-player-card${selected ? ' selected' : ''}`} key={player.id} onClick={() => { feedback(); setWinner(player.id) }}>
+          <View className='master-score-avatar'><Avatar player={player} selected={selected} isSelf={false} /></View>
+          <Text>{masterPlayerLabel(player)}</Text>
+        </View>
+      })}</View>
+      <View className='master-score-field-head'><Text>分数</Text><View><Text>推荐</Text>{preferences.quickScores.map(value => <Text key={value} className={tsumoPayment === String(value) ? 'active' : ''} onClick={() => setTsumoPayment(String(value))}>{value}</Text>)}</View></View>
+      <View className='master-score-control'>
+        <Text onClick={() => adjustScore(tsumoPayment, -preferences.quickAdjustStep, setTsumoPayment)}>−{preferences.quickAdjustStep}</Text>
+        <Text>{tsumoPaymentValue}</Text>
+        <Text onClick={() => adjustScore(tsumoPayment, preferences.quickAdjustStep, setTsumoPayment)}>+{preferences.quickAdjustStep}</Text>
+      </View>
+      <View className='master-score-field-head notes'><Text>大胡备注</Text>{canRecordTsumoTiles && <Text className='master-score-tile-link' onClick={() => openTileEditor('tsumo')}>{hasTileRecordContent(tileRecord) ? '修改牌谱' : '录入牌谱'}</Text>}</View>
+      <View className='master-score-note-grid'>{masterTsumoNotes.map(option => <View className={notes.includes(option) ? 'selected' : ''} key={option} onClick={() => toggleNote(option)}><Text>{option}</Text></View>)}</View>
+      <Button className='master-score-submit' hoverClass='none' disabled={loading || !canSaveTsumo} onClick={save}>{loading ? '保存中…' : '确认保存'}</Button>
+    </View>
+  }
+
+  if (masterViewType === 'ron' && !multiRonEnabled) {
+    return <View className='master-score-dialog master-score-dialog-ron'>
+      <View className='master-score-header no-close ron'>
+        <View><Text>{isEditing ? '修改点炮' : '录入点炮'}</Text><Text>胡牌者与点炮者都在一个弹窗完成</Text></View>
+        <View className='master-score-multi-toggle' onClick={toggleMultiRonMode}><Text>一炮多响</Text><Text>关</Text></View>
+      </View>
+      <Text className='master-score-field-label'>点炮者</Text>
+      <View className='master-score-player-grid'>{players.map(player => {
+        const selected = loser === player.id
+        return <View className={`master-score-player-card${selected ? ' selected' : ''}`} key={player.id} onClick={() => masterChooseRonLoser(player.id)}>
+          <View className='master-score-avatar'><Avatar player={player} selected={selected} isSelf={false} /></View>
+          <Text>{masterPlayerLabel(player)}</Text>
+        </View>
+      })}</View>
+      <Text className='master-score-field-label second'>胡牌者</Text>
+      <View className='master-score-player-grid'>{players.map(player => {
+        const selected = ronWinnerIds.includes(player.id)
+        const disabled = player.id === loser
+        return <View className={`master-score-player-card${selected ? ' selected' : ''}${disabled ? ' disabled' : ''}`} key={player.id} onClick={() => { if (!disabled) masterChooseRonWinner(player.id) }}>
+          <View className='master-score-avatar'><Avatar player={player} selected={selected} isSelf={false} /></View>
+          <Text>{masterPlayerLabel(player)}</Text>
+        </View>
+      })}</View>
+      <View className='master-score-field-head'><Text>分数</Text><View><Text>推荐</Text>{preferences.quickScores.map(value => <Text key={value} className={displayedRonDraft?.amount === String(value) ? 'active' : ''} onClick={() => { if (displayedRonWinnerId) updateRonDraft(displayedRonWinnerId, draft => ({ ...draft, amount: String(value) })) }}>{value}</Text>)}</View></View>
+      <View className='master-score-control'>
+        <Text onClick={() => { if (displayedRonWinnerId && displayedRonDraft) adjustScore(displayedRonDraft.amount, -preferences.quickAdjustStep, value => updateRonDraft(displayedRonWinnerId, draft => ({ ...draft, amount: value }))) }}>−{preferences.quickAdjustStep}</Text>
+        <Text>{displayedRonDraft ? Math.max(1, Math.round(Number(displayedRonDraft.amount) || 0)) : defaultQuickScore}</Text>
+        <Text onClick={() => { if (displayedRonWinnerId && displayedRonDraft) adjustScore(displayedRonDraft.amount, preferences.quickAdjustStep, value => updateRonDraft(displayedRonWinnerId, draft => ({ ...draft, amount: value }))) }}>+{preferences.quickAdjustStep}</Text>
+      </View>
+      <View className='master-score-field-head notes'><Text>大胡</Text>{canRecordDisplayedRonTiles && <Text className='master-score-tile-link' onClick={() => openTileEditor(displayedRonWinnerId)}>{hasTileRecordContent(displayedRonDraft?.tileRecord || emptyTileRecord()) ? '修改牌谱' : '录入牌谱'}</Text>}</View>
+      <View className='master-score-note-row'>{masterRonNotes.map(option => {
+        const selected = option === '无大胡' ? !displayedRonDraft?.notes.length : displayedRonDraft?.notes.includes(option)
+        return <View className={selected ? 'selected' : ''} key={option} onClick={() => {
+          if (!displayedRonWinnerId) return
+          updateRonDraft(displayedRonWinnerId, draft => ({ ...draft, notes: option === '无大胡' ? [] : draft.notes.includes(option) ? draft.notes.filter(item => item !== option) : [...draft.notes, option] }))
+        }}><Text>{option}</Text></View>
+      })}<View className={displayedRonDraft?.notes.some(note => !masterRonNotes.includes(note)) ? 'selected' : ''} onClick={() => { if (displayedRonWinnerId) void chooseRonPrimaryNote(displayedRonWinnerId) }}><Text>更多</Text></View></View>
+      <Button className='master-score-submit' hoverClass='none' disabled={loading || !canSaveRon} onClick={save}>{loading ? '保存中…' : '确认保存'}</Button>
+    </View>
+  }
+
+  if (masterViewType === 'ron' && multiRonEnabled) {
+    return <View className='master-score-dialog master-score-dialog-multi'>
+      <View className='master-score-header'>
+        <View><Text>点炮</Text><Text>一炮多响已开启</Text></View>
+        <Button hoverClass='none' onClick={onBack}>×</Button>
+      </View>
+      <Text className='master-score-compact-label'>点炮者</Text>
+      <View className='master-score-compact-picks'>{players.map(player => {
+        const selected = loser === player.id
+        return <View className={selected ? 'selected' : ''} key={player.id} onClick={() => masterChooseRonLoser(player.id)}><View className='master-score-compact-avatar'><Avatar player={player} selected={selected} isSelf={false} /></View><Text>{masterPlayerLabel(player)}</Text></View>
+      })}</View>
+      <View className='master-score-compact-head'><Text>胡牌者（多选）</Text><Text onClick={toggleMultiRonMode}>一炮多响</Text></View>
+      <View className='master-score-compact-picks winners'>{players.map(player => {
+        const selected = ronWinnerIds.includes(player.id)
+        const disabled = player.id === loser
+        return <View className={`${selected ? 'selected' : ''}${disabled ? ' disabled' : ''}`} key={player.id} onClick={() => { if (!disabled) masterChooseRonWinner(player.id) }}><View className='master-score-compact-avatar'><Avatar player={player} selected={selected} isSelf={false} /></View><Text>{masterPlayerLabel(player)}</Text></View>
+      })}</View>
+      <ScrollView scrollY className='master-multi-winner-scroll' showScrollbar={false}>
+        <View className='master-multi-winner-list'>{ronWinnerIds.map(playerId => {
+          const draft = ronDrafts[playerId]
+          const player = players.find(item => item.id === playerId)
+          const amount = Math.max(1, Math.round(Number(draft?.amount) || 0))
+          const note = draft?.notes[0] || '无大胡'
+          const canTiles = playerId === loggedPlayerId && Boolean(draft?.notes.some(item => bigHandOptions.has(item)))
+          return <View className='master-multi-winner-card' key={playerId}>
+            <View className='master-multi-winner-main'><Text>{player ? masterPlayerLabel(player) : '胡牌者'}</Text><View><Text onClick={() => adjustScore(String(amount), -preferences.quickAdjustStep, value => updateRonDraft(playerId, current => ({ ...current, amount: value })))}>−{preferences.quickAdjustStep}</Text><Text>{amount}</Text><Text onClick={() => adjustScore(String(amount), preferences.quickAdjustStep, value => updateRonDraft(playerId, current => ({ ...current, amount: value })))}>+{preferences.quickAdjustStep}</Text><Text onClick={() => { void chooseRonPrimaryNote(playerId) }}>{note}</Text></View></View>
+            <View className='master-multi-winner-foot'><Text>推荐 {preferences.quickScores.join(' / ')}</Text>{canTiles && <Text onClick={() => openTileEditor(playerId)}>{hasTileRecordContent(draft?.tileRecord || emptyTileRecord()) ? '修改牌谱' : '录入牌谱'}</Text>}</View>
+          </View>
+        })}</View>
+      </ScrollView>
+      {preferences.showSettlementPreview && canSaveRon && <View className='master-score-settlement'><Text>结算预览</Text><Text>{ronScores.filter(score => score.change !== 0).map(score => `${masterPlayerLabel(players.find(player => player.id === score.playerId)!)} ${score.change > 0 ? '+' : ''}${score.change}`).join(' · ')}</Text></View>}
+      <Button className='master-score-submit' hoverClass='none' disabled={loading || !canSaveRon} onClick={save}>{loading ? '保存中…' : '确认保存'}</Button>
+    </View>
+  }
+
+  if (masterViewType === 'event') {
+    const payerLabel = eventType === '明杠' ? '放杠者' : ''
+    const playerLabel = eventType === '明杠' ? '明杠者' : eventOption.playerLabel
+    return <View className='master-score-dialog master-score-dialog-event'>
+      <View className='master-score-header'>
+        <View><Text>局内事件</Text><Text>事件不同，选人方式会自动变化</Text></View>
+        <Button hoverClass='none' onClick={onBack}>×</Button>
+      </View>
+      <Text className='master-score-compact-label event-label'>事件类型</Text>
+      <View className='master-event-type-row'>{inHandEventOptions.map(option => <View className={eventType === option.type ? 'selected' : ''} key={option.type} onClick={() => selectEventType(option.type)}><Text>{option.type === '四风归一' ? '四风归一' : option.type}</Text></View>)}</View>
+      {eventType === '明杠' && <>
+        <Text className='master-score-compact-label role'>{payerLabel}</Text>
+        <View className='master-score-compact-picks'>{players.map(player => {
+          const selected = eventPayer === player.id
+          return <View className={selected ? 'selected' : ''} key={player.id} onClick={() => { feedback(); setEventPayer(player.id); if (player.id === eventPlayer) setEventPlayer('') }}><View className='master-score-compact-avatar'><Avatar player={player} selected={selected} isSelf={false} /></View><Text>{masterPlayerLabel(player)}</Text></View>
+        })}</View>
+      </>}
+      <Text className='master-score-compact-label role'>{playerLabel}</Text>
+      <View className='master-score-compact-picks'>{players.map(player => {
+        const selected = eventPlayer === player.id
+        const disabled = eventType === '明杠' && eventPayer === player.id
+        return <View className={`${selected ? 'selected' : ''}${disabled ? ' disabled' : ''}`} key={player.id} onClick={() => { if (!disabled) { feedback(); selectEventPlayer(player.id) } }}><View className='master-score-compact-avatar'><Avatar player={player} selected={selected} isSelf={false} /></View><Text>{masterPlayerLabel(player)}</Text></View>
+      })}</View>
+      {preferences.showSettlementPreview && canSaveEvent && <View className='master-score-event-settlement'><Text>本次结算</Text><View>{masterEventScores.map(score => <View key={score.playerId}><Text>{masterPlayerLabel(players.find(player => player.id === score.playerId)!)}</Text><Text className={score.change > 0 ? 'positive' : 'negative'}>{score.change > 0 ? '+' : ''}{score.change}</Text></View>)}</View><Text>总和 0</Text></View>}
+      <Button className='master-score-submit' hoverClass='none' disabled={loading || !canSaveEvent} onClick={save}>{loading ? '保存中…' : '确认记录'}</Button>
+    </View>
+  }
+
+  if (masterViewType === 'draw') {
+    return <View className='master-score-dialog master-score-dialog-draw'>
+      <View className='master-score-header'><View><Text>流局</Text><Text>本局无人胡牌</Text></View><Button hoverClass='none' onClick={onBack}>×</Button></View>
+      <View className='master-draw-card'><Text>确认本局流局</Text><Text>{drawDealer?.name || '当前庄家'}继续坐庄，四位玩家分数不变</Text></View>
+      <Button className='master-score-submit' hoverClass='none' disabled={loading} onClick={save}>{loading ? '保存中…' : '确认流局'}</Button>
+    </View>
+  }
 
   if (tileEditorTarget) {
     return <View className='score-dialog tile-editor-mode'>

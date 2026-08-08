@@ -1,69 +1,71 @@
 .tabbar-v4 {
   position: fixed;
   z-index: 30;
-  left: 28rpx;
-  right: 28rpx;
-  bottom: calc(30rpx + env(safe-area-inset-bottom));
-  height: 122rpx;
-  padding: 8rpx 14rpx;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  left: 26.923rpx;
+  bottom: 26.923rpx;
+  width: 696.154rpx;
+  height: 123.077rpx;
   box-sizing: border-box;
-  border: 1rpx solid rgba(226, 221, 213, .55);
-  border-radius: 61rpx;
-  background: #fcfcfb;
-  box-shadow: 0 10rpx 32rpx rgba(61, 53, 44, .08);
+  border: 0;
+  border-radius: 53.846rpx;
+  background: #FCFCFB;
+  box-shadow: 0 7.692rpx 23.077rpx rgba(0, 0, 0, .08);
 }
 
 .tabbar-v4-item {
-  position: relative;
+  position: absolute;
+  top: 15.385rpx;
   width: 150rpx;
-  height: 90rpx;
-  min-width: 0;
-  margin: 0 auto;
+  height: 92.308rpx;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
+  border-radius: 38.462rpx;
+  color: #85827A;
   flex-direction: column;
-  gap: 0;
-  border-radius: 45rpx;
-  color: #9a948c;
 }
+.tabbar-v4-item:nth-child(1) { left: 38.462rpx; }
+.tabbar-v4-item:nth-child(2) { left: 207.692rpx; }
+.tabbar-v4-item:nth-child(3) { left: 376.923rpx; }
+.tabbar-v4-item:nth-child(4) { left: 546.154rpx; }
 
 .tabbar-v4-item.active {
-  background: #fff2d5;
-  color: #25221f;
+  background: #FFF2D5;
+  color: #171714;
 }
 
 .tabbar-v4-icon-wrap {
   position: relative;
-  width: 48rpx;
-  height: 52rpx;
-  flex: 0 0 52rpx;
+  width: 36rpx;
+  height: 36rpx;
+  flex: 0 0 36rpx;
 }
-
 .tabbar-v4-icon-image {
   display: block;
-  width: 48rpx;
-  height: 52rpx;
+  width: 36rpx;
+  height: 36rpx;
+}
+.tabbar-v4-item:first-child .tabbar-v4-icon-wrap,
+.tabbar-v4-item:first-child .tabbar-v4-icon-image {
+  width: 28rpx;
+  height: 33rpx;
 }
 
 .tabbar-v4-label {
+  margin-top: 4rpx;
   color: currentColor;
-  font-size: 18rpx;
-  font-weight: 600;
-  line-height: 18rpx;
+  font-size: 19rpx;
+  font-weight: 500;
+  line-height: 20rpx;
 }
-
-.tabbar-v4-item.active .tabbar-v4-label {
-  font-weight: 800;
-}
+.tabbar-v4-item.active .tabbar-v4-label { font-weight: 700; }
 
 .tabbar-v4-unread {
   position: absolute;
   z-index: 2;
-  top: -3rpx;
-  right: -7rpx;
+  top: -5rpx;
+  right: -8rpx;
   min-width: 24rpx;
   height: 24rpx;
   padding: 0 5rpx;
@@ -71,9 +73,9 @@
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  border: 3rpx solid #fcfcfb;
+  border: 3rpx solid #FCFCFB;
   border-radius: 999rpx;
-  background: #e4544d;
+  background: #E4544D;
   color: #fff;
   font-size: 11rpx;
   font-weight: 800;

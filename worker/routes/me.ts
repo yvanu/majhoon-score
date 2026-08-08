@@ -10,7 +10,7 @@ import type {
 } from '../../src/shared/types'
 import { currentUser } from '../auth-service'
 import { relationshipStatisticsForUser } from '../relationship-statistics'
-import { jsonError, now } from '../core'
+import { avatarSeed, jsonError, now, uid } from '../core'
 import type { Env } from '../env'
 import {
   bigHandPatterns,
@@ -18,6 +18,9 @@ import {
   recordedPatterns,
   resolveStatisticsPeriod,
 } from '../validation'
+
+const FRIEND_AVATAR_CONTENT_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
+const MAX_FRIEND_AVATAR_BYTES = 512 * 1024
 
 export function registerMeRoutes(app: Hono<Env>) {
   app.get('/api/me/users/:id/statistics', async c => {
@@ -134,7 +137,7 @@ export function registerMeRoutes(app: Hono<Env>) {
               SELECT 1 FROM players selfp WHERE selfp.match_id = m.id AND selfp.user_id = ?
             )
           )
-          SELECT f.id, f.name, f.avatar_seed, f.linked_user_id,
+          SELECT f.id, f.name, f.avatar_seed, f.note, f.avatar_url, f.linked_user_id,
             COALESCE(NULLIF(TRIM(lu.display_name), ''), lu.username) wechat_name,
             lu.avatar_url wechat_avatar_url, lu.gender wechat_gender,
             COALESCE(MAX(CASE WHEN p.id IS NOT NULL THEN m.created_at END), f.last_played_at) last_played_at,
@@ -160,7 +163,7 @@ export function registerMeRoutes(app: Hono<Env>) {
               SELECT 1 FROM players selfp WHERE selfp.match_id = m.id AND selfp.user_id = ?
             )
           )
-          SELECT f.id, f.name, f.avatar_seed, f.linked_user_id,
+          SELECT f.id, f.name, f.avatar_seed, f.note, f.avatar_url, f.linked_user_id,
             COALESCE(NULLIF(TRIM(lu.display_name), ''), lu.username) wechat_name,
             lu.avatar_url wechat_avatar_url, lu.gender wechat_gender,
             COALESCE(MAX(CASE WHEN p.id IS NOT NULL THEN m.created_at END), f.last_played_at) last_played_at,
@@ -215,7 +218,7 @@ export function registerMeRoutes(app: Hono<Env>) {
 
     // 与详情页保持同一口径：列表中的关系净分是“我在与此牌友共同牌局中的累计净分”。
     // 两类身份分别做 DISTINCT shared-match 聚合，避免历史绑定产生重复 player 行时重复累计 hand_scores。
-    const [manualNetResult, wechatNetResult] = await c.env.DB.batch([
+    const [manualNetResult, wechatNetResult, manualWinResult, wechatWinResult] = await c.env.DB.batch([
       c.env.DB.prepare(`
         WITH shared_matches AS (
           SELECT DISTINCT f.id friend_id, m.id match_id, selfp.id self_player_id
@@ -257,6 +260,55 @@ export function registerMeRoutes(app: Hono<Env>) {
         LEFT JOIN hand_scores hs ON hs.player_id = sm.self_player_id
         GROUP BY sm.target_user_id
       `).bind(user.id, user.id, playerName, user.id, user.id),
+      c.env.DB.prepare(`
+        WITH shared_players AS (
+          SELECT DISTINCT f.id friend_id, m.id match_id, targetp.id target_player_id
+          FROM friends f
+          JOIN players targetp ON (
+            targetp.friend_id = f.id OR (f.linked_user_id IS NOT NULL AND targetp.user_id = f.linked_user_id)
+          )
+          JOIN matches m ON m.id = targetp.match_id
+          WHERE f.user_id = ? AND EXISTS (
+            SELECT 1 FROM players selfp WHERE selfp.match_id = m.id AND (
+              selfp.user_id = ? OR (
+                m.owner_user_id = ? AND selfp.user_id IS NULL AND selfp.friend_id IS NULL AND selfp.name = ? COLLATE NOCASE
+              )
+            )
+          )
+        )
+        SELECT sp.friend_id,
+          COUNT(DISTINCT h.id) total_hands,
+          COUNT(DISTINCT CASE WHEN ho.winner_player_id = sp.target_player_id THEN h.id END) wins
+        FROM shared_players sp
+        JOIN hands h ON h.match_id = sp.match_id AND h.result_type <> 'event'
+        LEFT JOIN hand_outcomes ho ON ho.hand_id = h.id
+        GROUP BY sp.friend_id
+      `).bind(user.id, user.id, user.id, playerName),
+      c.env.DB.prepare(`
+        WITH shared_players AS (
+          SELECT DISTINCT targetp.user_id target_user_id, m.id match_id, targetp.id target_player_id
+          FROM matches m
+          JOIN players targetp ON targetp.match_id = m.id
+            AND targetp.user_id IS NOT NULL AND targetp.user_id <> ?
+          WHERE EXISTS (
+            SELECT 1 FROM players selfp WHERE selfp.match_id = m.id AND (
+              selfp.user_id = ? OR (
+                m.owner_user_id = ? AND selfp.user_id IS NULL AND selfp.friend_id IS NULL AND selfp.name = ? COLLATE NOCASE
+              )
+            )
+          ) AND NOT EXISTS (
+            SELECT 1 FROM friends linked
+            WHERE linked.user_id = ? AND linked.linked_user_id = targetp.user_id
+          )
+        )
+        SELECT sp.target_user_id,
+          COUNT(DISTINCT h.id) total_hands,
+          COUNT(DISTINCT CASE WHEN ho.winner_player_id = sp.target_player_id THEN h.id END) wins
+        FROM shared_players sp
+        JOIN hands h ON h.match_id = sp.match_id AND h.result_type <> 'event'
+        LEFT JOIN hand_outcomes ho ON ho.hand_id = h.id
+        GROUP BY sp.target_user_id
+      `).bind(user.id, user.id, user.id, playerName, user.id),
     ])
     const manualNetByFriend = new Map(
       (manualNetResult.results as Record<string, unknown>[]).map(row => [String(row.friend_id), Number(row.net_score ?? 0)]),
@@ -264,17 +316,32 @@ export function registerMeRoutes(app: Hono<Env>) {
     const wechatNetByUser = new Map(
       (wechatNetResult.results as Record<string, unknown>[]).map(row => [String(row.target_user_id), Number(row.net_score ?? 0)]),
     )
+    const manualWinRateByFriend = new Map(
+      (manualWinResult.results as Record<string, unknown>[]).map(row => {
+        const totalHands = Number(row.total_hands ?? 0)
+        return [String(row.friend_id), totalHands ? Number(row.wins ?? 0) / totalHands : 0]
+      }),
+    )
+    const wechatWinRateByUser = new Map(
+      (wechatWinResult.results as Record<string, unknown>[]).map(row => {
+        const totalHands = Number(row.total_hands ?? 0)
+        return [String(row.target_user_id), totalHands ? Number(row.wins ?? 0) / totalHands : 0]
+      }),
+    )
     const queriedAt = performance.now()
     const manualFriends: Friend[] = result.results.map(row => ({
       id: String(row.id),
       source: 'manual',
       name: String(row.name),
       avatar_seed: Number(row.avatar_seed),
+      avatarUrl: row.avatar_url ? String(row.avatar_url) : null,
+      note: row.note ? String(row.note) : null,
       linkedUserId: row.linked_user_id ? String(row.linked_user_id) : null,
       wechatName: row.wechat_name ? String(row.wechat_name) : null,
       wechatAvatarUrl: row.wechat_avatar_url ? String(row.wechat_avatar_url) : null,
       wechatGender: row.wechat_gender === 'male' || row.wechat_gender === 'female' ? row.wechat_gender : null,
       jointMatches: Number(row.joint_matches ?? 0),
+      winRate: manualWinRateByFriend.get(String(row.id)) ?? 0,
       netScore: manualNetByFriend.get(String(row.id)) ?? 0,
       gangKaiWins: Number(row.gang_kai_wins ?? 0),
       gangKaiAgainst: Number(row.gang_kai_against ?? 0),
@@ -290,6 +357,7 @@ export function registerMeRoutes(app: Hono<Env>) {
       wechatAvatarUrl: row.avatar_url ? String(row.avatar_url) : null,
       wechatGender: row.gender === 'male' || row.gender === 'female' ? row.gender : null,
       jointMatches: Number(row.joint_matches ?? 0),
+      winRate: wechatWinRateByUser.get(String(row.user_id)) ?? 0,
       netScore: wechatNetByUser.get(String(row.user_id)) ?? 0,
       gangKaiWins: 0,
       gangKaiAgainst: 0,
@@ -307,6 +375,92 @@ export function registerMeRoutes(app: Hono<Env>) {
     return c.json({ friends })
   })
 
+  app.post('/api/me/friends', async c => {
+    const user = await currentUser(c)
+    if (!user) return jsonError(c, '请先登录', 401)
+    const body = await c.req.json().catch(() => null) as { name?: unknown; note?: unknown } | null
+    const name = typeof body?.name === 'string' ? body.name.trim() : ''
+    const note = typeof body?.note === 'string' ? body.note.trim() : ''
+    if (!name || name.length > 12 || /[\u0000-\u001f\u007f]/.test(name)) return jsonError(c, '牌友昵称需为 1–12 个字符')
+    if (note.length > 30 || /[\u0000-\u001f\u007f]/.test(note)) return jsonError(c, '备注最多 30 个字符')
+    const duplicate = await c.env.DB.prepare('SELECT id FROM friends WHERE user_id = ? AND name = ? COLLATE NOCASE')
+      .bind(user.id, name).first<{ id: string }>()
+    if (duplicate) return jsonError(c, '这个牌友已经存在')
+    const id = uid()
+    const createdAt = now()
+    await c.env.DB.prepare(`
+      INSERT INTO friends(id, user_id, name, avatar_seed, note, avatar_url, created_at, updated_at, last_played_at)
+      VALUES(?, ?, ?, ?, ?, NULL, ?, ?, NULL)
+    `).bind(id, user.id, name, avatarSeed(name), note || null, createdAt, createdAt).run()
+    const friend: Friend = {
+      id,
+      source: 'manual',
+      name,
+      avatar_seed: avatarSeed(name),
+      avatarUrl: null,
+      note: note || null,
+      linkedUserId: null,
+      wechatName: null,
+      wechatAvatarUrl: null,
+      wechatGender: null,
+      jointMatches: 0,
+      winRate: 0,
+      netScore: 0,
+      gangKaiWins: 0,
+      gangKaiAgainst: 0,
+      lastPlayedAt: null,
+    }
+    return c.json({ friend }, 201)
+  })
+
+  app.post('/api/me/friends/:id/avatar', async c => {
+    const user = await currentUser(c)
+    if (!user) return jsonError(c, '请先登录', 401)
+    const friendId = c.req.param('id')
+    const owned = await c.env.DB.prepare('SELECT id FROM friends WHERE id = ? AND user_id = ?')
+      .bind(friendId, user.id).first<{ id: string }>()
+    if (!owned) return jsonError(c, '牌友不存在', 404)
+    const form = await c.req.formData().catch(() => null)
+    const file = form?.get('file')
+    if (!(file instanceof File)) return jsonError(c, '请选择头像图片')
+    if (!FRIEND_AVATAR_CONTENT_TYPES.has(file.type)) return jsonError(c, '头像仅支持 JPG、PNG 或 WebP')
+    if (!file.size || file.size > MAX_FRIEND_AVATAR_BYTES) return jsonError(c, '头像压缩后需小于 512KB')
+    const content = await file.arrayBuffer()
+    const updatedAt = now()
+    const etag = crypto.randomUUID().replace(/-/g, '')
+    await c.env.DB.prepare(`
+      INSERT INTO friend_avatars(friend_id, content_type, content, etag, updated_at)
+      VALUES(?, ?, ?, ?, ?)
+      ON CONFLICT(friend_id) DO UPDATE SET
+        content_type = excluded.content_type,
+        content = excluded.content,
+        etag = excluded.etag,
+        updated_at = excluded.updated_at
+    `).bind(friendId, file.type, content, etag, updatedAt).run()
+    const avatarUrl = `/assets/friend-avatar/${encodeURIComponent(friendId)}?v=${Date.now().toString(36)}`
+    await c.env.DB.prepare('UPDATE friends SET avatar_url = ?, updated_at = ? WHERE id = ? AND user_id = ?')
+      .bind(avatarUrl, updatedAt, friendId, user.id).run()
+    return c.json({ avatarUrl })
+  })
+
+  app.get('/assets/friend-avatar/:friendId', async c => {
+    const friendId = c.req.param('friendId')
+    if (!friendId || friendId.length > 100 || friendId.includes('/') || friendId.includes('..')) return jsonError(c, '头像不存在', 404)
+    const avatar = await c.env.DB.prepare('SELECT content_type, content, etag FROM friend_avatars WHERE friend_id = ?')
+      .bind(friendId).first<{ content_type: string; content: number[]; etag: string }>()
+    if (!avatar) return jsonError(c, '头像不存在', 404)
+    const quotedEtag = `\"${avatar.etag}\"`
+    if (c.req.header('if-none-match') === quotedEtag) return new Response(null, { status: 304, headers: { etag: quotedEtag } })
+    return new Response(new Uint8Array(avatar.content), {
+      headers: {
+        'content-type': avatar.content_type,
+        'cache-control': 'public, max-age=31536000, immutable',
+        'etag': quotedEtag,
+        'x-content-type-options': 'nosniff',
+      },
+    })
+  })
+
   app.get('/api/me/friends/:id/statistics', async c => {
     const startedAt = performance.now()
     const user = await currentUser(c)
@@ -317,7 +471,7 @@ export function registerMeRoutes(app: Hono<Env>) {
     const playerName = user.display_name?.trim() || user.username
     const [friendResult, rowsResult, relationResult, trendResult] = await c.env.DB.batch([
       c.env.DB.prepare(`
-        SELECT f.id, f.name, f.avatar_seed, f.linked_user_id, f.last_played_at,
+        SELECT f.id, f.name, f.avatar_seed, f.note, f.avatar_url, f.linked_user_id, f.last_played_at,
           COALESCE(NULLIF(TRIM(u.display_name), ''), u.username) wechat_name,
           u.avatar_url wechat_avatar_url, u.gender wechat_gender
         FROM friends f
@@ -365,7 +519,8 @@ export function registerMeRoutes(app: Hono<Env>) {
       `).bind(user.id, user.id, playerName, friendId, friendId, user.id),
       c.env.DB.prepare(`
         SELECT m.id match_id, m.created_at,
-          COALESCE(SUM(hs.score_change), 0) score
+          COALESCE(SUM(hs.score_change), 0) score,
+          MAX(gs.location) location
         FROM matches m
         JOIN players selfp ON selfp.match_id = m.id AND (
           selfp.user_id = ? OR (
@@ -373,6 +528,7 @@ export function registerMeRoutes(app: Hono<Env>) {
           )
         )
         LEFT JOIN hand_scores hs ON hs.player_id = selfp.id
+        LEFT JOIN group_sessions gs ON gs.match_id = m.id
         WHERE EXISTS (
           SELECT 1 FROM players friendp
           WHERE friendp.match_id = m.id AND (
@@ -462,6 +618,7 @@ export function registerMeRoutes(app: Hono<Env>) {
       matchId: String(row.match_id),
       createdAt: String(row.created_at),
       score: Number(row.score ?? 0),
+      location: row.location ? String(row.location) : null,
     }))
     const netScore = trend.reduce((total, point) => total + point.score, 0)
 
@@ -476,11 +633,14 @@ export function registerMeRoutes(app: Hono<Env>) {
         source: 'manual',
         name: String(friend.name),
         avatar_seed: Number(friend.avatar_seed),
+        avatarUrl: friend.avatar_url ? String(friend.avatar_url) : null,
+        note: friend.note ? String(friend.note) : null,
         linkedUserId: friend.linked_user_id ? String(friend.linked_user_id) : null,
         wechatName: friend.wechat_name ? String(friend.wechat_name) : null,
         wechatAvatarUrl: friend.wechat_avatar_url ? String(friend.wechat_avatar_url) : null,
         wechatGender: friend.wechat_gender === 'male' || friend.wechat_gender === 'female' ? friend.wechat_gender : null,
         jointMatches: matchIds.size,
+        winRate: handIds.size ? wins / handIds.size : 0,
         netScore,
         gangKaiWins,
         gangKaiAgainst,
@@ -627,7 +787,7 @@ export function registerMeRoutes(app: Hono<Env>) {
     if (!period) return jsonError(c, '统计时间范围无效')
 
     const playerName = user.display_name?.trim() || user.username
-    const [rowsResult, featuredResult, trendResult] = await c.env.DB.batch([
+    const [rowsResult, featuredResult, trendResult, recentBigResult] = await c.env.DB.batch([
       c.env.DB.prepare(`
         SELECT h.id hand_id, h.result_type, h.loser_player_id,
           p.id player_id,
@@ -679,11 +839,31 @@ export function registerMeRoutes(app: Hono<Env>) {
         GROUP BY m.id
         ORDER BY MIN(h.created_at) ASC
       `).bind(user.id, user.id, playerName, period.startAt, period.endAt),
+      c.env.DB.prepare(`
+        SELECT h.id hand_id, h.match_id, h.result_type, h.created_at,
+          COALESCE(hs.score_change, 0) score_change,
+          ho.note outcome_note, ho.tile_record outcome_tile_record
+        FROM hands h
+        JOIN matches m ON m.id = h.match_id
+        JOIN players p ON p.match_id = m.id AND (
+          p.user_id = ? OR (
+            m.owner_user_id = ? AND p.user_id IS NULL AND p.friend_id IS NULL AND
+            p.name = ? COLLATE NOCASE
+          )
+        )
+        JOIN hand_outcomes ho ON ho.hand_id = h.id AND ho.winner_player_id = p.id
+        LEFT JOIN hand_scores hs ON hs.hand_id = h.id AND hs.player_id = p.id
+        WHERE h.created_at >= ? AND h.created_at < ?
+          AND COALESCE(TRIM(ho.note), '') <> ''
+        ORDER BY h.created_at DESC
+        LIMIT 100
+      `).bind(user.id, user.id, playerName, period.startAt, period.endAt),
     ])
     const queriedAt = performance.now()
     const rows = rowsResult as D1Result<Record<string, unknown>>
     const featuredRow = (featuredResult as D1Result<Record<string, unknown>>).results[0]
     const trendRows = trendResult as D1Result<Record<string, unknown>>
+    const recentBigRows = recentBigResult as D1Result<Record<string, unknown>>
 
     let wins = 0
     let dealIns = 0
@@ -731,6 +911,18 @@ export function registerMeRoutes(app: Hono<Env>) {
       score: Number(row.score ?? 0),
     }))
     const netScore = trend.reduce((total, point) => total + point.score, 0)
+    const bigHandRecords: PersonalStatistics['bigHandRecords'] = recentBigRows.results
+      .filter(row => bigHandPatterns(row.outcome_note).length > 0 && (row.result_type === 'ron' || row.result_type === 'tsumo'))
+      .slice(0, 30)
+      .map(row => ({
+        handId: String(row.hand_id),
+        matchId: String(row.match_id),
+        resultType: row.result_type as 'ron' | 'tsumo',
+        note: typeof row.outcome_note === 'string' ? row.outcome_note : '',
+        score: Number(row.score_change ?? 0),
+        createdAt: String(row.created_at),
+        tileRecord: parseStoredTileRecord(row.outcome_tile_record),
+      }))
 
     const response: PersonalStatistics = {
       dimension: period.dimension,
@@ -747,6 +939,7 @@ export function registerMeRoutes(app: Hono<Env>) {
         .map(([name, count]) => ({ name, count }))
         .sort((first, second) => second.count - first.count || first.name.localeCompare(second.name, 'zh-CN')),
       featuredBigHand,
+      bigHandRecords,
     }
     const aggregatedAt = performance.now()
     c.header('Server-Timing', [

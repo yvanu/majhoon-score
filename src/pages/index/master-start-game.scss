@@ -1,0 +1,264 @@
+.master-start-screen {
+  min-height: 100vh;
+  padding-right: 38.462rpx;
+  padding-bottom: calc(46.154rpx + env(safe-area-inset-bottom));
+  padding-left: 38.462rpx;
+  box-sizing: border-box;
+  background: #F6F5F2;
+  color: #171714;
+}
+
+.master-start-nav {
+  height: 192.308rpx;
+  display: flex;
+  align-items: flex-start;
+}
+.master-start-back {
+  width: 69.231rpx;
+  min-width: 69.231rpx;
+  height: 69.231rpx;
+  min-height: 69.231rpx;
+  margin: 0;
+  padding: 0 0 4rpx;
+  border: 0;
+  border-radius: 50%;
+  background: #FFFFFF;
+  color: #171714;
+  box-shadow: none;
+  font-size: 46rpx;
+  font-weight: 300;
+  line-height: 65rpx;
+}
+.master-start-back::after { border: 0; }
+.master-start-nav > view {
+  margin: 4rpx 0 0 32.692rpx;
+}
+.master-start-nav > view text { display: block; }
+.master-start-nav > view text:first-child {
+  color: #171714;
+  font-size: 42.308rpx;
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: -.7rpx;
+}
+.master-start-nav > view text:last-child {
+  margin-top: 11.538rpx;
+  color: #969088;
+  font-size: 20.192rpx;
+  font-weight: 400;
+  line-height: 1.2;
+}
+
+.master-start-table-card {
+  position: relative;
+  height: 634.615rpx;
+  padding: 32.692rpx 34.615rpx;
+  box-sizing: border-box;
+  border-radius: 46.154rpx;
+  background: #FFFFFF;
+}
+.master-start-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.master-start-card-head text:first-child {
+  color: #171714;
+  font-size: 23.077rpx;
+  font-weight: 800;
+}
+.master-start-card-head text:last-child {
+  color: #2B8C63;
+  font-size: 21.154rpx;
+  font-weight: 800;
+}
+.master-start-table-center {
+  position: absolute;
+  left: 177.885rpx;
+  top: 198.077rpx;
+  width: 316.346rpx;
+  height: 265.385rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border: 1.923rpx solid #DED9CF;
+  border-radius: 50%;
+  background: #F9F8F4;
+  color: #A09A91;
+  font-size: 19.231rpx;
+}
+.master-start-seat {
+  position: absolute;
+  width: 126.923rpx;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+}
+.master-start-seat.top { left: 273.077rpx; top: 36.538rpx; }
+.master-start-seat.right { right: 23.077rpx; top: 221.154rpx; }
+.master-start-seat.bottom { left: 273.077rpx; bottom: 31.731rpx; }
+.master-start-seat.left { left: 23.077rpx; top: 221.154rpx; }
+.master-start-seat-chip {
+  min-width: 76.923rpx;
+  height: 46.154rpx;
+  padding: 0 13.462rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border-radius: 23.077rpx;
+  background: #EDE8DB;
+  color: #8F8A81;
+  font-size: 17.308rpx;
+  font-weight: 700;
+}
+.master-start-player {
+  position: relative;
+  margin-top: 7.692rpx;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+}
+.master-start-avatar,
+.master-start-empty-avatar {
+  width: 84.615rpx;
+  height: 84.615rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.923rpx solid transparent;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+.master-start-avatar .identity-avatar,
+.master-start-avatar .avatar,
+.master-start-avatar .avatar-identity-wrap {
+  width: 80.769rpx !important;
+  height: 80.769rpx !important;
+  margin: 0 !important;
+  border-radius: 50% !important;
+}
+.master-start-avatar .identity-avatar-badge { display: none !important; }
+.master-start-avatar.self {
+  border: 3.846rpx solid #F3B43F;
+  background: #FFF6DD;
+}
+.master-start-empty-avatar {
+  border: 1.923rpx dashed #CFC8BC;
+  background: #F7F5EF;
+  color: #A39D93;
+  font-size: 32rpx;
+}
+.master-start-player-name {
+  max-width: 119.231rpx;
+  margin-top: 7.692rpx;
+  overflow: hidden;
+  color: #3F3B36;
+  font-size: 19.231rpx;
+  font-weight: 500;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.master-start-avatar.self + .master-start-dealer + .master-start-player-name,
+.master-start-avatar.self + .master-start-player-name {
+  color: #171714;
+  font-weight: 800;
+}
+.master-start-dealer {
+  position: absolute;
+  right: -3.846rpx;
+  top: -1.923rpx;
+  width: 30.769rpx;
+  height: 30.769rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2rpx solid #FFFFFF;
+  border-radius: 50%;
+  background: #F3B43F;
+  color: #171714;
+  font-size: 13.462rpx;
+  font-weight: 800;
+}
+
+.master-start-secondary-actions {
+  margin-top: 40.385rpx;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 50rpx;
+  padding: 0 34.615rpx;
+}
+.master-start-secondary-actions button {
+  height: 80.769rpx;
+  min-height: 80.769rpx;
+  margin: 0;
+  padding: 0;
+  border: 1.923rpx solid #DED9D0;
+  border-radius: 40.385rpx;
+  background: #FFFFFF;
+  color: #171714;
+  box-shadow: none;
+  font-size: 21.154rpx;
+  font-weight: 800;
+  line-height: 78.846rpx;
+}
+.master-start-secondary-actions button::after { border: 0; }
+.master-start-secondary-actions button[disabled] { opacity: .38; }
+
+.master-start-rule-card {
+  height: 134.615rpx;
+  margin-top: 53.846rpx;
+  padding: 26.923rpx 32.692rpx;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  box-sizing: border-box;
+  border-radius: 34.615rpx;
+  background: #FFF2D5;
+}
+.master-start-rule-card > view text { display: block; }
+.master-start-rule-card > view text:first-child {
+  color: #171714;
+  font-size: 21.154rpx;
+  font-weight: 800;
+}
+.master-start-rule-card > view text:last-child {
+  margin-top: 11.538rpx;
+  color: #9D9180;
+  font-size: 17.308rpx;
+}
+.master-start-rule-card > text {
+  margin-top: 4rpx;
+  color: #A49A8D;
+  font-size: 17.308rpx;
+}
+
+.master-start-primary,
+.master-start-join {
+  width: 100%;
+  height: 100rpx;
+  min-height: 100rpx;
+  margin: 130.769rpx 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 32.692rpx;
+  background: #F3B43F;
+  color: #171714;
+  box-shadow: none;
+  font-size: 30.769rpx;
+  font-weight: 800;
+  line-height: 100rpx;
+}
+.master-start-primary::after,
+.master-start-join::after { border: 0; }
+.master-start-primary[disabled],
+.master-start-primary.muted,
+.master-start-join[disabled] {
+  background: #E7E2D7;
+  color: #9D978E;
+  opacity: 1;
+}
+.master-start-join { margin-top: 70rpx; }
+

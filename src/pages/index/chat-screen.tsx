@@ -305,6 +305,52 @@ export function GroupChatScreen({ group, user, loading: actionLoading, onBack, o
       : group.confirmed_count >= group.capacity
         ? { label: '已满员', tone: 'full' }
         : { label: '招募中', tone: 'open' }
+  const masterChatTitle = `${formatGroupTime(group.start_at).split(' ')[0]}${group.location}麻将`
+
+  return <View className='master-chat-screen'>
+    <View className='master-chat-main' style={{ paddingTop: `${getPageTopInset()}px` }}>
+      <View className='master-chat-nav'>
+        <Button hoverClass='none' onClick={onBack}>‹</Button>
+        <View><Text>{masterChatTitle}</Text><Text>{group.confirmed_count}人 · {formatGroupTime(group.start_at).replace(' ', '')}</Text></View>
+      </View>
+
+      {canStart && <View className='master-chat-ready'><Text>人已到齐，可以开局</Text><Button hoverClass='none' disabled={actionLoading} onClick={onStart}>{actionLoading ? '处理中…' : '开始记分'}</Button></View>}
+      {group.match_id && <View className='master-chat-ready'><Text>牌局已经开始</Text><Button hoverClass='none' onClick={() => onOpenMatch(group.match_id!)}>进入牌局</Button></View>}
+
+      <ScrollView scrollY className='master-chat-message-list' showScrollbar={false} scrollIntoView={lastMessageId} scrollWithAnimation>
+        {loading && <View className='master-chat-loading'><Text>正在加载消息…</Text></View>}
+        {!loading && <Text className='master-chat-day-label'>今天 {messages.length ? formatChatTime(messages[0].created_at) : ''}</Text>}
+        {messages.map(message => {
+          const mine = message.sender_user_id === user.id
+          const member = group.members.find(item => item.user_id === message.sender_user_id)
+          const startedMatchId = message.event_type === 'match_started' && typeof message.payload?.matchId === 'string' ? message.payload.matchId : ''
+          if (message.message_type === 'system') {
+            const fullReady = message.event_type === 'group_full'
+            return <View id={`chat-message-${message.id}`} className={`master-chat-system${fullReady ? ' ready' : ''}`} key={message.id} onClick={() => { if (startedMatchId) onOpenMatch(startedMatchId); else if (fullReady && canStart) onStart() }}>
+              <Text>{message.content}</Text>
+            </View>
+          }
+          return <View id={`chat-message-${message.id}`} className={`master-chat-message${mine ? ' mine' : ''}`} key={message.id}>
+            {!mine && <View className='master-chat-message-avatar'><IdentityAvatar name={message.sender_name || '牌友'} gender={member?.gender || null} avatarUrl={member?.avatar_url || null} size='small' /></View>}
+            <View className='master-chat-message-body'>
+              <View className='master-chat-bubble'><Text>{message.content}</Text></View>
+              <Text className='master-chat-time'>{formatChatTime(message.created_at)}</Text>
+            </View>
+            {mine && <View className='master-chat-self-dot' />}
+          </View>
+        })}
+        <View className='master-chat-list-space' />
+      </ScrollView>
+    </View>
+
+    <View className='master-chat-composer'>
+      {roomStatus === 'readonly' ? <Text className='master-chat-readonly'>群聊已关闭</Text> : <>
+        <View className='master-chat-plus'><Text>＋</Text></View>
+        <Input value={input} maxlength={500} cursorSpacing={22} confirmType='send' placeholder='说点什么…' onInput={event => setInput(event.detail.value)} onConfirm={() => { void sendMessage() }} />
+        <Button hoverClass='none' disabled={!input.trim() || sending} onClick={() => { void sendMessage() }}>{sending ? '发送中' : '发送'}</Button>
+      </>}
+    </View>
+  </View>
 
   return <View className='chat-v3-screen'>
     <View className='chat-v3-main' style={{ paddingTop: `${getPageTopInset()}px` }}>

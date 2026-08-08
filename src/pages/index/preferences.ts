@@ -6,6 +6,10 @@ export const USER_PREFERENCES_KEY = 'mahjong-user-preferences-v1'
 export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   hapticFeedback: true,
   quickScores: [50, 70],
+  quickAdjustStep: 5,
+  defaultMultiRon: false,
+  clearScoreStateAfterSave: true,
+  showSettlementPreview: true,
   autoSortTileRecord: true,
   highlightMatchingTiles: true,
   eventDefaults: {
@@ -47,6 +51,10 @@ export function normalizeUserPreferences(value: unknown): UserPreferences {
       normalizeScore(quickScores[0], DEFAULT_USER_PREFERENCES.quickScores[0]),
       normalizeScore(quickScores[1], DEFAULT_USER_PREFERENCES.quickScores[1]),
     ],
+    quickAdjustStep: normalizeScore(source.quickAdjustStep, DEFAULT_USER_PREFERENCES.quickAdjustStep),
+    defaultMultiRon: source.defaultMultiRon === true,
+    clearScoreStateAfterSave: source.clearScoreStateAfterSave !== false,
+    showSettlementPreview: source.showSettlementPreview !== false,
     autoSortTileRecord: source.autoSortTileRecord !== false,
     highlightMatchingTiles: source.highlightMatchingTiles !== false,
     eventDefaults: normalizedEvents,
