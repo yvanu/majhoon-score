@@ -1,7 +1,7 @@
 {
   "name": "mahjong-score-taro",
   "private": true,
-  "version": "1.7.90",
+  "version": "1.7.92",
   "scripts": {
     "dev:weapp": "taro build --type weapp --watch",
     "build:weapp": "taro build --type weapp",
@@ -16,7 +16,8 @@
     "db:migrate:remote": "wrangler d1 migrations apply mahjong-score-wechat-db --remote",
     "deploy:worker": "npm run typecheck:worker && wrangler deploy",
     "deploy": "npm run db:migrate:remote && npm run deploy:worker",
-    "upload:weapp": "node scripts/upload-weapp.cjs"
+    "upload:weapp": "bash scripts/upload-weapp-safe.sh",
+    "upload:weapp:raw": "node scripts/upload-weapp.cjs"
   },
   "dependencies": {
     "@tarojs/components": "4.1.5",
