@@ -150,36 +150,42 @@ export function FriendsScreen({ friends, loading, query, onQueryChange, onOpen }
     .sort((left, right) => (right.lastPlayedAt ? Date.parse(right.lastPlayedAt) : 0) - (left.lastPlayedAt ? Date.parse(left.lastPlayedAt) : 0) || right.jointMatches - left.jointMatches)
     .filter(friend => !normalizedQuery || friend.name.toLocaleLowerCase().includes(normalizedQuery))
 
-  return <View className='page tab-page friends-page' style={{ paddingTop: `${getPageTopInset()}px` }}>
-    <View className='page-title-row compact-title-row'>
-      <View><Text className='eyebrow'>常用牌友</Text><Text className='title-small'>我的牌友</Text></View>
-      <Text className='count-badge'>{friends.length}</Text>
+  return <View className='friends-v4-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+    <View className='friends-v4-header'>
+      <View><Text className='friends-v4-title'>牌友</Text><Text className='friends-v4-subtitle'>一起打过牌的人</Text></View>
+      <Text className='friends-v4-count'>{friends.length}</Text>
     </View>
-    {!!friends.length && <View className='friend-search'>
-      <View className='friend-search-icon'><View /></View>
+
+    {!!friends.length && <View className='friends-v4-search'>
+      <View className='friends-v4-search-icon'><View /></View>
       <Input value={query} maxlength={12} placeholder='搜索牌友昵称' onInput={event => onQueryChange(event.detail.value)} />
-      {query && <Text className='friend-search-clear' onClick={() => onQueryChange('')}>×</Text>}
+      {query && <Text className='friends-v4-search-clear' onClick={() => onQueryChange('')}>×</Text>}
     </View>}
-    {loading && !friends.length && <View className='empty'><Text className='empty-icon'>友</Text><Text className='card-title'>正在加载牌友</Text></View>}
-    {!loading && !friends.length && <View className='empty'>
-      <Text className='empty-icon'>友</Text>
-      <Text className='card-title'>还没有牌友</Text>
+
+    {loading && !friends.length && <View className='friends-v4-empty'><Text>正在加载牌友</Text><Text>同步共同牌局和微信身份</Text></View>}
+    {!loading && !friends.length && <View className='friends-v4-empty'>
+      <Text>还没有牌友</Text>
       <Text>手工记录的牌友，以及共同打过牌的微信用户，会自动出现在这里</Text>
     </View>}
-    {!loading && !!friends.length && !visibleFriends.length && <View className='empty compact-empty'><Text className='card-title'>没有找到“{query.trim()}”</Text><Text>换一个昵称试试</Text></View>}
-    <View className='friend-directory-list'>
-      {visibleFriends.map(friend => <View className='friend-directory-card compact' key={friend.id} onClick={() => onOpen(friend)}>
-        <FriendAvatar friend={friend} />
-        <View className='grow'>
-          <Text className='card-title'>{friend.name}</Text>
-          {friend.source === 'wechat'
-            ? <Text className='friend-directory-wechat'>微信用户</Text>
-            : friend.linkedUserId && friend.wechatName ? <Text className='friend-directory-wechat'>微信昵称：{friend.wechatName}</Text> : null}
-          <Text className='friend-directory-meta'>共同 {friend.jointMatches} 将 · {friend.lastPlayedAt ? `最近 ${formatMatchTime(friend.lastPlayedAt)}` : '尚无共同牌局'}</Text>
+    {!loading && !!friends.length && !visibleFriends.length && <View className='friends-v4-empty'><Text>没有找到“{query.trim()}”</Text><Text>换一个昵称试试</Text></View>}
+
+    {!!visibleFriends.length && <View className='friends-v4-list'>
+      {visibleFriends.map(friend => {
+        const wechatLinked = friend.source === 'wechat' || Boolean(friend.linkedUserId)
+        return <View className='friends-v4-row' key={friend.id} onClick={() => onOpen(friend)}>
+          <View className='friends-v4-avatar'><FriendAvatar friend={friend} /></View>
+          <View className='friends-v4-main'>
+            <View className='friends-v4-name-row'>
+              <Text>{friend.name}</Text>
+              {wechatLinked && <Text className='friends-v4-wechat-badge'>微信</Text>}
+            </View>
+            {friend.source !== 'wechat' && friend.linkedUserId && friend.wechatName && <Text className='friends-v4-wechat-name'>微信昵称：{friend.wechatName}</Text>}
+            <Text className='friends-v4-meta'>共同 {friend.jointMatches} 将 · {friend.lastPlayedAt ? `最近 ${formatMatchTime(friend.lastPlayedAt)}` : '尚无共同牌局'}</Text>
+          </View>
+          <Text className='friends-v4-arrow'>›</Text>
         </View>
-        <Text className='card-arrow'>›</Text>
-      </View>)}
-    </View>
+      })}
+    </View>}
   </View>
 }
 

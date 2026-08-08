@@ -1,0 +1,191 @@
+.friends-v4-screen {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding-right: 30rpx;
+  padding-bottom: calc(130rpx + env(safe-area-inset-bottom));
+  padding-left: 30rpx;
+  background: linear-gradient(180deg, #fbfaf7 0%, #f6f4ef 100%);
+  color: #1c1c1e;
+}
+
+.friends-v4-header {
+  min-height: 76rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+.friends-v4-header > view text { display: block; }
+.friends-v4-title {
+  color: #1c1c1e;
+  font-size: 40rpx;
+  font-weight: 850;
+  line-height: 1.08;
+}
+.friends-v4-subtitle {
+  margin-top: 5rpx;
+  color: #9a9388;
+  font-size: 17rpx;
+  letter-spacing: .5rpx;
+}
+.friends-v4-count {
+  min-width: 42rpx;
+  height: 42rpx;
+  padding: 0 10rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border-radius: 999rpx;
+  background: #f1eee8;
+  color: #777067;
+  font-size: 17rpx;
+  font-weight: 750;
+}
+
+.friends-v4-search {
+  height: 68rpx;
+  margin-top: 18rpx;
+  padding: 0 14rpx;
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  box-sizing: border-box;
+  border: 1rpx solid #e5e0d7;
+  border-radius: 18rpx;
+  background: rgba(255,255,255,.96);
+}
+.friends-v4-search-icon {
+  position: relative;
+  width: 27rpx;
+  height: 27rpx;
+  flex: 0 0 27rpx;
+  box-sizing: border-box;
+  border: 2rpx solid #aaa297;
+  border-radius: 50%;
+}
+.friends-v4-search-icon > view {
+  position: absolute;
+  right: -7rpx;
+  bottom: -4rpx;
+  width: 10rpx;
+  height: 2rpx;
+  border-radius: 999rpx;
+  background: #aaa297;
+  transform: rotate(45deg);
+  transform-origin: left center;
+}
+.friends-v4-search input {
+  min-width: 0;
+  height: 64rpx;
+  flex: 1;
+  color: #1c1c1e;
+  font-size: 20rpx;
+  line-height: 64rpx;
+}
+.friends-v4-search-clear {
+  color: #aaa297;
+  font-size: 27rpx;
+  line-height: 1;
+}
+
+.friends-v4-list {
+  margin-top: 14rpx;
+  overflow: hidden;
+  border: 1rpx solid #e5e0d7;
+  border-radius: 22rpx;
+  background: #fff;
+}
+.friends-v4-row {
+  min-height: 94rpx;
+  padding: 13rpx 14rpx;
+  display: flex;
+  align-items: center;
+  gap: 13rpx;
+  box-sizing: border-box;
+  border-bottom: 1rpx solid #ece8e1;
+}
+.friends-v4-row:last-child { border-bottom: 0; }
+.friends-v4-avatar {
+  width: 62rpx;
+  height: 62rpx;
+  flex: 0 0 62rpx;
+}
+.friends-v4-avatar .identity-avatar,
+.friends-v4-avatar .avatar {
+  width: 62rpx;
+  height: 62rpx;
+  margin: 0;
+  border-radius: 50%;
+}
+.friends-v4-avatar .avatar-initial { font-size: 24rpx !important; }
+.friends-v4-avatar .avatar-seat-badge,
+.friends-v4-avatar .avatar-self-badge { display: none; }
+.friends-v4-main {
+  min-width: 0;
+  flex: 1;
+}
+.friends-v4-name-row {
+  display: flex;
+  align-items: center;
+  gap: 7rpx;
+}
+.friends-v4-name-row > text:first-child {
+  min-width: 0;
+  overflow: hidden;
+  color: #1c1c1e;
+  font-size: 21rpx;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.friends-v4-wechat-badge {
+  flex: 0 0 auto;
+  padding: 3rpx 7rpx;
+  border-radius: 999rpx;
+  background: #edf7f1;
+  color: #2c8c63;
+  font-size: 12rpx;
+  font-weight: 700;
+}
+.friends-v4-wechat-name,
+.friends-v4-meta {
+  display: block;
+  margin-top: 4rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.friends-v4-wechat-name {
+  color: #8b8379;
+  font-size: 14rpx;
+}
+.friends-v4-meta {
+  color: #a0988e;
+  font-size: 14rpx;
+}
+.friends-v4-arrow {
+  flex: 0 0 auto;
+  color: #b4aca2;
+  font-size: 28rpx;
+}
+
+.friends-v4-empty {
+  margin-top: 18rpx;
+  padding: 34rpx 24rpx;
+  border: 1rpx dashed #ddd6cc;
+  border-radius: 22rpx;
+  text-align: center;
+}
+.friends-v4-empty > text { display: block; }
+.friends-v4-empty > text:first-child {
+  color: #716a62;
+  font-size: 20rpx;
+  font-weight: 750;
+}
+.friends-v4-empty > text:last-child {
+  margin-top: 6rpx;
+  color: #a29a90;
+  font-size: 15rpx;
+  line-height: 1.5;
+}
