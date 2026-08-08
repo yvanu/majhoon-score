@@ -1,14 +1,13 @@
-import { Button, Text, View } from '@tarojs/components'
+import { Button, Image, Text, View } from '@tarojs/components'
 import type { AuthUser, DailyStats, Match, MatchSummary } from '@shared/types'
 import { displayUserName, getPageTopInset } from './shared'
 import type { SyncStatus } from './shared'
 
+const QUICK_ICON_START = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAA2klEQVR42mP8////f4YBBEwMAwzIcsDLuycYds2MYLi4ewLFDmAhR9OX908YXtw9wcAtKDNCo2DUAaMOGFYOwCgH3j+/xvDr+ye8mt49v8bAwMDA8OvHJ4aX904QtERQUouBjZMPqxwjel2wrt2G4cv7J1T1pVvGCgYJJQviQkBQSotgCffr+yeG98+vMbBy8DEISWkRdAAbBx9uyf9kgDunV/9fWCr//8jK4v+UgtFcMOqAUQeMOoCRnGb5l3dPGF7cO8HAIyjDIKFsQX8HjKaBUQeMOmBYOQAAdOS4yW/AqQgAAAAASUVORK5CYII='
+const QUICK_ICON_CONTINUE = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjIyMiAzODkgMjUgMjQiPjxwYXRoIGQ9Ik0yNDEuNDY0IDM5MS41NDJDMjQzLjkwOCAzOTMuMTAyIDI0Ni4zNTIgMzk2LjQzIDI0Ni4zNTIgNDAwLjc3MkMyNDYuMzUyIDQwNi45NiAyNDEuMzYgNDExLjk1MiAyMzUuMTcyIDQxMS45NTJDMjI4Ljk4NCA0MTEuOTUyIDIyMy45OTIgNDA2Ljk2IDIyMy45OTIgNDAwLjc3MkMyMjMuOTkyIDM5Ny42NTIgMjI1LjI0IDM5NC44MTggMjI3LjI5NCAzOTIuODQyQzIyNi4wNzIgMzkyLjg2OCAyMjQuNDYgMzkyLjYzNCAyMjIuNTEgMzkyLjA4OEwyMjMuNDcyIDM5MC45MThDMjI2LjI4IDM5MC45MTggMjI4LjY5OCAzOTAuNDUgMjMwLjcyNiAzODkuNTkyTDIzMS4yOTggMzkwLjA2QzIzMC43NzggMzkyLjIxOCAyMzAuNzUyIDM5NC42ODggMjMxLjI0NiAzOTcuNDQ0TDIzMC4yODQgMzk4LjU4OEMyMjkuNCAzOTYuNzY4IDIyOC44OCAzOTUuMjM0IDIyOC42OTggMzk0LjAxMkMyMjcuMjQyIDM5NS40NDIgMjI1LjgzOCAzOTcuNzMgMjI1LjgzOCA0MDAuNzcyQzIyNS44MzggNDA1Ljk0NiAyMjkuOTk4IDQxMC4xMDYgMjM1LjE3MiA0MTAuMTA2QzI0MC4zMiA0MTAuMTA2IDI0NC41MDYgNDA1Ljk0NiAyNDQuNTA2IDQwMC43NzJDMjQ0LjUwNiAzOTYuMjIyIDI0MS4zMDggMzkzLjU5NiAyNDAuNDI0IDM5My4wNUwyNDEuNDY0IDM5MS41NDJaIiBmaWxsPSIjMkI4QzYzIi8+PC9zdmc+'
+
 function QuickIcon({ type }: { type: 'start' | 'continue' }) {
-  return <View className={`home-hf-quick-icon ${type}`}>
-    <View className='one' />
-    <View className='two' />
-    <View className='three' />
-  </View>
+  return <Image className={`home-hf-quick-icon ${type}`} src={type === 'start' ? QUICK_ICON_START : QUICK_ICON_CONTINUE} mode='aspectFit' />
 }
 
 function recentMatchTitle(value: string) {

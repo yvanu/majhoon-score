@@ -119,52 +119,16 @@
 }
 .home-hf-quick-card.disabled { opacity: .48; }
 .home-hf-quick-icon {
-  position: relative;
   width: 48rpx;
   height: 48rpx;
   flex: 0 0 48rpx;
-  color: #bc8613;
+  display: block;
 }
-.home-hf-quick-icon > view {
-  position: absolute;
-  box-sizing: border-box;
+.home-hf-quick-icon.continue {
+  width: 51rpx;
+  height: 48rpx;
+  flex-basis: 51rpx;
 }
-.home-hf-quick-icon.start .one {
-  left: 22rpx;
-  top: 2rpx;
-  width: 4rpx;
-  height: 44rpx;
-  border-radius: 999rpx;
-  background: #bc8613;
-}
-.home-hf-quick-icon.start .two {
-  left: 2rpx;
-  top: 22rpx;
-  width: 44rpx;
-  height: 4rpx;
-  border-radius: 999rpx;
-  background: #bc8613;
-}
-.home-hf-quick-icon.start .three { display: none; }
-.home-hf-quick-icon.continue .one {
-  left: 6rpx;
-  top: 8rpx;
-  width: 34rpx;
-  height: 34rpx;
-  border: 4rpx solid #28986e;
-  border-top-color: transparent;
-  border-radius: 50%;
-}
-.home-hf-quick-icon.continue .two {
-  left: 4rpx;
-  top: 5rpx;
-  width: 14rpx;
-  height: 14rpx;
-  border-top: 4rpx solid #28986e;
-  border-left: 4rpx solid #28986e;
-  transform: rotate(-18deg);
-}
-.home-hf-quick-icon.continue .three { display: none; }
 .home-hf-quick-title {
   margin-top: 24rpx;
   color: #1b1b1b;
