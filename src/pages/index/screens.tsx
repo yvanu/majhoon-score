@@ -521,12 +521,27 @@ export function ProfileScreen({ user, statistics, statisticsLoading, syncStatus,
 
 type BottomNavKey = 'home' | 'groups' | 'friends' | 'profile'
 
-function BottomNavIcon({ type }: { type: BottomNavKey }) {
-  return <View className={`tabbar-v4-icon ${type}`}>
-    <View className='one' />
-    <View className='two' />
-    <View className='three' />
-  </View>
+const bottomNavIconSources: Record<BottomNavKey, { active: string; inactive: string }> = {
+  home: {
+    active: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAaCAYAAACtv5zzAAAAy0lEQVR4nO3VIW4CQRhA4Q9SXVG3VKyt4g4Niio4QUU1i0DjkKQJwaI4QCUJhgugcL1AK2u4AGY2WbHsBpYVJfuSSf7MJO9lkkmmFcexOmnXam8C/zYQ1Rn4wjc+bh2IgnyIR6wwuVUgwi7Ij1iH/TkWVQPdIH/BLwZ4xzKcJ2WRhxL5Bs9B/oZDRgyjzDzOkxTdYHVGnpJglplfLw2kfObIU6bYh/np2kAlmkApRc80pY+ib69TNdAL6yqKAlv8XOD6y9tsNZ/+/QdOGiAcn2S+/4sAAAAASUVORK5CYII=',
+    inactive: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAaCAYAAACtv5zzAAAAy0lEQVR4nO2SIQoCQRRAn2I22EaD1eQdxKRJT2AwuwbzNqMKomDZ5AGMgsULmGxeQKPFC1j+wIbdWWZnNwzsg4HPDLzHwK+djlvKpF6qvQp4G1BlBi7AC5gXHVAinwJNIAJWRQUUcBf5DzjL/QbYuwb6Iu8BH2ACzICDvAdZkUaG/Ap0RD4GnjExwCI2L5Mkph9EKXJNAKxj88A2oNklyDUh8JC5lTfgRBXIxLSmmhHQNby3XQNDObkwBW7A28L1tQ2EFvJU/N8i/wN/qBIeHR/WSsgAAAAASUVORK5CYII=',
+  },
+  groups: {
+    active: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAaCAYAAACtv5zzAAABwElEQVR4nNXVP48NYRQG8N8VH8BWFJNcRCsRkXslmygkQqNx4wNQiA8gFrXC3USnEEKhvaESsaxEQoHIKlARS2g0Zj8BivfM3jHmzy2sZE8yeZ/Meed5zp/3PdPr9/s20rZsKPv/ENg6474MRzCPuXh3H4/xre3DrgwyTPA8yD/gQTzz8X4FgyaCtgyO4w7O4WSN/1asC1jCUbyqbuo1nKIBXuJgrHDKtEQ5bpQIh3gR6x8iTRkslcgzPJNKsRj+HRE5jCvB9LoyGOMXLgT5WxwrZVK2IR5ir9TscWR4pk3gM3YGfoJLDeRlkfMYoY+n2FU4q6eoH9GvB9BBLvy7pWy/YC1wrcBhqdakpn7sIC/sEfYF/lTCnfcgn1EAttfhqsB7bCvhAzOS78G7wHP4XjjqmpybjoMV7J9BYNW0sWVcW6I3OB34GpY7yCe4HHggNXnd6gQu4mrg23gdItV5k+Gu1NRibFzH2fKmplFxU+pFMYOG8fEPqXy9IF40PcaTCHg0i4CI7qf6QVe1WnLaj+koosxxpcafSXdlVar7X+R0/3AWcA8ngiSXSrcmlWkZh/C1iaCtRP/ENv9Pf/ML/Abci1ysPqVc6AAAAABJRU5ErkJggg==',
+    inactive: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAaCAYAAACtv5zzAAABz0lEQVR4nNXVP2sUYRAG8N8FP4BXaXHgH2wFDXIKAQtBtLExBGsFxQ8gnPYW5sBCCGoEBW1PBUWE0xSCNhtEC7VSDKKNjZdvoMU7m1vP3dttImRg2WffmX2emXn/tW4tXbeZNrOp7P9DYFvDuA6OYw7tGHuGl/gx7ce6CjoY4E2Qf8bzeOZi/B26VQTTKjiFB7iEhRL/3Xj3MMQJrDYV6OIpjiCLsbPGLRrhThAu4lXEHZ4UqRIYFsg7eC21oh/+nZG5EMgK8a06gUUsF8g/4GShktyeRMZD7A9/Pyq7ME3gDHYHvl9BnlsW/huYx02pXRs2uYp24XfhuzWFvCiyV6r2G9YDlwock3pNmtQvNeS5vcCBwF8LuHYfjBoKwI4yPCnwCdsL+FBD8n34GLiNn1UCq5gt4LZmNms8V3ukY6RUAN7jXOAlrNSQD3A1cFea5A0rE7iC/JK4h7chMnnedPBImtT82LiNi8Wgsn2Q4WFktoDL0oZaxi+pba0g7hu3ZoA1E8u66qg4H9nlIhkOVsTm5DPSZvvLpi3T+chyhGsl/o60V9akvv9DTv2F08NjnA6SkbSM16U2reAovlcRNLnRsnh6dYFltvUv/a0v8AeOQWQIkPHvGgAAAABJRU5ErkJggg==',
+  },
+  friends: {
+    active: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAaCAYAAACtv5zzAAABeUlEQVR4nNXVv0scQRjG8c/J1ZbmOIurAtqIZargD7hC0kiEQMpLuoQEop2gYGGlENLYXCC1kHRpJIY0FldIiEVsLCxEiQQs/AO0mD1clt3RXSOYp9lhZnm/M/O+7zO1VqvlLjVwp9HvA6CRfDv4lhp3/gWgiRM8xSHOk/lxPE7BoqrlJHkML/AWL/E1AWU1he0E+KsIkHeCh2gn425BcPiOGi7wydV1RgEL2MFo0Y5y9BeP8OA6QBNLmCkRHI4xgj95i/XMj4Mlg6f1A1t4UwToYRPrFQHPcJqdTF9RDz8rBick+3kMsCpURlW18S4G2MXKLQBrGI4BlrFxC8AXzMcAXbwSOrmKjnCWnUxXURNzQqL3SgbvyJRnX+kT9BtmRwm3FDzpo2CKUUBfT/Begbek1MAH/BY86fNNAV2howewn+ys4So3k5jAkFCauR7UVz2ydiw03wFeYzHZ6aLwNswKVxpV3ntQpGnB/0upzJtcOnhZQCX9/4BLqxs76nWXMC8AAAAASUVORK5CYII=',
+    inactive: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAaCAYAAACtv5zzAAABg0lEQVR4nNXVPUsdQRTG8Z9inTJernUgaYKllRgRi2ATFAKp5IZUEYUknaBgYZVAEMHmBlILyQcQX9IoWIiYQhsLCzEkCBb5AFrMLLtc9+7NrgrxaWY4uzz/mTlzznStLH9yl+q+U/f/AVCLYwPrmXnjNgB1/MI4TvA3xvsxmIEVqicn9hSvMYM32Imgzfh9Oo7D+II9HLQD5O3gEUbjvBnN87SJLlziq/Q4CwEfsI0n7VaUo3MMoLcToI45PC9hDmd4jN95H3tafnxQ0jyrH1iT5ugaYBerqFraL/GnNZg9ol3sVzQnJPtVEWBRehWraBTvigB7WLgB4CP6igDzWLkB4DveFwGaeCtUchWd4qI1mL1FdUwIif5Z0ryh5Xomyu4gKZhtJbqltCeNdwIkGsNnbXpLRjUs4VDoSd/+FdAUKrobR3FlNWlunmEID4WrmduDEuW160RnQvEdYwqzcaWzwtvwQjjSQhUBYDKOB9iK85FOplmVeZM3yhhXAVTS/QdcARQuP4AEro7WAAAAAElFTkSuQmCC',
+  },
+  profile: {
+    active: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAaCAYAAACtv5zzAAABsklEQVR4nO3VvWtUURAF8N+KpYjlIuJCsLAxioWIYBHRxkYSwVYQLbRYUlhYCIqIJKAgCjaxsVRJtLPyAwsDFpFYiLVgEuxM/gGLmSeXl30vqxILcZp7du7cc2bnzZ3b6fV6NtO2bCr73xDYOkRMFycxgu1YxQLm/lSgiyvYh3l8KPYO5t47TLYJdBo+8hge4CpmW85fxhmcx8dhBcYwjVNYTt9EZl2V6ElBuB8zTSJ1gVE8xAUs5u8ZHBqQ3DNcwkqK3MHxelC9i87hcUH+ooEcxvE68SI+4fRGAkcyE7iOnQ3kle3FvcRTuNgmcCyzILIf34C8srO5LqHTJrADXxLvGZKc+PCjib8XeJ3AiOiQCv+OrdYdpcACdhf4V+xbrrsKvE7gMw4nfiVqOow9F61KlGul3CwFKsJurteGIF8T3UZcxq/1gHqbTosRQVy4+xuQ3xB3AG4VYo0Cs8VB6OOAKMNa+pbwCEdxO3138bQQ+2lNw25OtOxkyz8gyjkluqc/KKDpwZnIvfdifAwivok3eNtETvt70BdD7AReYlv6O6Jc82LyLg88XQX/f/T/fYEfHRxTH1vA8AUAAAAASUVORK5CYII=',
+    inactive: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAaCAYAAACtv5zzAAABwklEQVR4nNXVv49NQRQH8M8TpWyUN4hio1DwiEJEotgNje6tP4AIBcVGoZAgRERsgghCQUGJLDqF+BGFTbZYeQpRS+yKzu4/oJhzY3Lfu+/dXVnJfpv55syc73fuuWdmWg/u3bSaWLeq6v/DYH2DNQUOYxQjWMQcXvyrQYFz2IkZfM7m9sTcJ5xZicEY7uNCjcB0zJ3FLE7gS1ODMUxhHAsRm4hdlyV6FoI38AaP6kyqBu0QPxnibTzE3sq683iJ0+jG+ls4WDWodtFxPI2kNl73ES/RwfvgXXzFkWEG+1GevMvYVCNeYjvuBL+OU4MMxmMXpN13hoiXOBrjPFqDDDbie/BtDcVJP74d/HfGewxGpQ4p+UqwWA3kBnPYmvHl4FeMWzLeY/AN+4K/k2raBK/wM/hIxnsMSsEixksNxJekbiMdxh/VBdU2nZKuCNLpvDtE/Ip0BuBaZlZrMJ0lwiR2S2VYitg8nuCAdFXAbTzPzGoNSH29I5JEUkeqbwubcSziBR6HzsU+WrUPzkTMzUrXRxUFruIDPkpf2heD3oNJ7MIhvMWGiLekcs1IN+9C3+wGBqQydP2t9bKx9h/9tW/wB2piWL0be61DAAAAAElFTkSuQmCC',
+  },
+}
+
+function BottomNavIcon({ type, active }: { type: BottomNavKey; active: boolean }) {
+  return <Image className='tabbar-v4-icon-image' mode='aspectFit' src={bottomNavIconSources[type][active ? 'active' : 'inactive']} />
 }
 
 export function BottomNav({ active, unreadChats, onHome, onGroups, onFriends, onProfile }: {
@@ -545,7 +560,7 @@ export function BottomNav({ active, unreadChats, onHome, onGroups, onFriends, on
   ]
   return <View className='tabbar-v4'>{items.map(item => <View key={item.key} className={`tabbar-v4-item${active === item.key ? ' active' : ''}`} onClick={item.action}>
     <View className='tabbar-v4-icon-wrap'>
-      <BottomNavIcon type={item.key} />
+      <BottomNavIcon type={item.key} active={active === item.key} />
       {item.key === 'groups' && unreadChats > 0 && <Text className='tabbar-v4-unread'>{unreadChats > 99 ? '99+' : unreadChats}</Text>}
     </View>
     <Text className='tabbar-v4-label'>{item.label}</Text>
