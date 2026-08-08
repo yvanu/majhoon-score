@@ -298,20 +298,44 @@ export function GroupChatScreen({ group, user, loading: actionLoading, onBack, o
     }
   }
 
-  return <View className='group-chat-shell'>
-    <View className='page group-chat-page' style={{ paddingTop: `${getPageTopInset()}px` }}>
-      <View className='group-chat-nav compact'>
-        <Button className='group-chat-back' hoverClass='none' onClick={onBack}>‹</Button>
-        <View className='group-chat-nav-copy'>
-          <Text className='group-chat-nav-title'>{group.location}</Text>
-          <Text className='group-chat-nav-meta'>{formatGroupTime(group.start_at)} · {group.confirmed_count}/{group.capacity} 人</Text>
+  const groupState = group.status === 'cancelled'
+    ? { label: '已取消', tone: 'closed' }
+    : group.match_id
+      ? { label: '已开局', tone: 'started' }
+      : group.confirmed_count >= group.capacity
+        ? { label: '已满员', tone: 'full' }
+        : { label: '招募中', tone: 'open' }
+
+  return <View className='chat-v3-screen'>
+    <View className='chat-v3-main' style={{ paddingTop: `${getPageTopInset()}px` }}>
+      <View className='chat-v3-nav'>
+        <Button className='chat-v3-back' hoverClass='none' onClick={onBack}>‹</Button>
+        <View className='chat-v3-nav-center'>
+          <Text className='chat-v3-nav-title'>组局群聊</Text>
+          <Text className='chat-v3-nav-subtitle'>{group.location}</Text>
         </View>
-        <Text className={connectionStatus === 'live' ? 'group-chat-connection live' : 'group-chat-connection'}>{connectionCopy}</Text>
+        <View className={`chat-v3-connection ${connectionStatus === 'live' ? 'live' : ''}`}>
+          <View className='chat-v3-connection-dot' />
+          <Text>{connectionCopy}</Text>
+        </View>
       </View>
 
-      <ScrollView scrollX className='group-chat-quick-scroll' showScrollbar={false} enhanced>
-        <View className='group-chat-quick-row'>{quickMessages.map(message => <Button
+      <View className='chat-v3-context'>
+        <View className='chat-v3-context-copy'>
+          <Text className='chat-v3-context-time'>{formatGroupTime(group.start_at)}</Text>
+          <Text className='chat-v3-context-location'>{group.location}</Text>
+        </View>
+        <View className='chat-v3-context-side'>
+          <Text className={`chat-v3-state ${groupState.tone}`}>{groupState.label}</Text>
+          <Text className='chat-v3-progress'>{group.confirmed_count}/{group.capacity} 人</Text>
+        </View>
+      </View>
+
+      <ScrollView scrollX className='chat-v3-quick-scroll' showScrollbar={false} enhanced>
+        <View className='chat-v3-quick-row'>{quickMessages.map(message => <Button
+          className='chat-v3-quick-chip'
           key={message}
+          hoverClass='none'
           disabled={sending || roomStatus === 'readonly'}
           onClick={() => { void sendMessage(message) }}
         >{message}</Button>)}</View>
@@ -319,72 +343,62 @@ export function GroupChatScreen({ group, user, loading: actionLoading, onBack, o
 
       <ScrollView
         scrollY
-        className='group-chat-message-list'
+        className='chat-v3-message-list'
         showScrollbar={false}
         scrollIntoView={lastMessageId}
         scrollWithAnimation
       >
-        {loading && <View className='group-chat-loading'><Text>正在加载群聊消息…</Text></View>}
+        {loading && <View className='chat-v3-loading'><Text>正在加载群聊消息…</Text></View>}
         {messages.map(message => {
           const mine = message.sender_user_id === user.id
           const member = group.members.find(item => item.user_id === message.sender_user_id)
           const startedMatchId = message.event_type === 'match_started' && typeof message.payload?.matchId === 'string' ? message.payload.matchId : ''
           if (message.message_type === 'system') {
             const actionable = (message.event_type === 'group_full' && canStart) || Boolean(startedMatchId)
-            return <View id={`chat-message-${message.id}`} className={`group-chat-system${actionable ? ' action' : ''}`} key={message.id}>
-              <Text>{message.content}</Text>
-              <Text>{formatChatTime(message.created_at)}</Text>
-              {message.event_type === 'group_full' && canStart && <Button className='primary' disabled={actionLoading} onClick={onStart}>
+            return <View id={`chat-message-${message.id}`} className={`chat-v3-system${actionable ? ' actionable' : ''}`} key={message.id}>
+              <Text className='chat-v3-system-copy'>{message.content}</Text>
+              <Text className='chat-v3-system-time'>{formatChatTime(message.created_at)}</Text>
+              {message.event_type === 'group_full' && canStart && <Button className='chat-v3-system-action' hoverClass='none' disabled={actionLoading} onClick={onStart}>
                 {actionLoading ? '处理中…' : '开始牌局'}
               </Button>}
-              {startedMatchId && <Button className='primary' onClick={() => onOpenMatch(startedMatchId)}>进入牌局</Button>}
+              {startedMatchId && <Button className='chat-v3-system-action' hoverClass='none' onClick={() => onOpenMatch(startedMatchId)}>进入牌局</Button>}
             </View>
           }
           const avatarName = message.sender_name || (mine ? '我' : '牌友')
-          return <View id={`chat-message-${message.id}`} className={`group-chat-message${mine ? ' mine' : ''}`} key={message.id}>
-            {!mine && <IdentityAvatar name={avatarName} gender={member?.gender || null} avatarUrl={member?.avatar_url || null} size='small' />}
-            <View className='group-chat-message-body'>
-              {!mine && <Text className='group-chat-sender'>{message.sender_name || '牌友'}</Text>}
-              <View className='group-chat-bubble'><Text>{message.content}</Text></View>
-              <Text className='group-chat-message-time'>{formatChatTime(message.created_at)}{mine ? '  ✓' : ''}</Text>
+          return <View id={`chat-message-${message.id}`} className={`chat-v3-message${mine ? ' mine' : ''}`} key={message.id}>
+            {!mine && <View className='chat-v3-avatar'><IdentityAvatar name={avatarName} gender={member?.gender || null} avatarUrl={member?.avatar_url || null} size='small' /></View>}
+            <View className='chat-v3-message-body'>
+              {!mine && <Text className='chat-v3-sender'>{message.sender_name || '牌友'}</Text>}
+              <View className='chat-v3-bubble'><Text>{message.content}</Text></View>
+              <Text className='chat-v3-message-time'>{formatChatTime(message.created_at)}{mine ? '  ✓' : ''}</Text>
             </View>
-            {mine && <IdentityAvatar name={avatarName} gender={user.gender} avatarUrl={user.avatar_url} size='small' />}
           </View>
         })}
-        {showConversationGuide && <View className='group-chat-guide-card'>
-          <View className='group-chat-guide-main'>
-            <View className='group-chat-guide-visual'><Text>•••</Text><Text>••</Text></View>
-            <View className='grow'>
-              <Text className='group-chat-guide-title'>还没有太多消息</Text>
-              <Text className='group-chat-guide-copy'>可以先确认时间和位置，也可以使用上方快捷语</Text>
-            </View>
-          </View>
-          <View className='group-chat-guide-divider' />
-          <View className='group-chat-guide-progress'>
-            <Text>当前组局进度</Text>
-            <Text>已确认 <Text>{group.confirmed_count}</Text>/{group.capacity} 人</Text>
-          </View>
+        {showConversationGuide && <View className='chat-v3-guide'>
+          <Text>可以先确认到达时间和位置</Text>
+          <Text>也可以使用上方快捷语</Text>
         </View>}
-        <View className='group-chat-list-spacer' />
+        <View className='chat-v3-list-spacer' />
       </ScrollView>
     </View>
 
-    <View className='group-chat-composer'>
+    <View className='chat-v3-composer'>
       {roomStatus === 'readonly'
-        ? <View className='group-chat-readonly'><Text>本次组局已取消，群聊已关闭</Text></View>
+        ? <View className='chat-v3-readonly'><Text>本次组局已取消，群聊已关闭</Text></View>
         : <>
-          <View className='group-chat-input-shell'>
+          <View className='chat-v3-input-shell'>
             <Input
               value={input}
               maxlength={500}
               cursorSpacing={22}
               confirmType='send'
               placeholder='输入消息…'
+              placeholderClass='chat-v3-input-placeholder'
               onInput={event => setInput(event.detail.value)}
               onConfirm={() => { void sendMessage() }}
             />
           </View>
-          <Button className='primary group-chat-send' disabled={!input.trim() || sending} onClick={() => { void sendMessage() }}>
+          <Button className='chat-v3-send' hoverClass='none' disabled={!input.trim() || sending} onClick={() => { void sendMessage() }}>
             {sending ? '发送中' : '发送'}
           </Button>
         </>}
