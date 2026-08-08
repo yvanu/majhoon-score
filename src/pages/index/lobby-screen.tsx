@@ -94,85 +94,86 @@ export function LobbyScreen({ lobby, user, friends, friendsLoading, loading, clo
     await onAddGuest(name)
   }
 
-  return <View className='page lobby-page' style={{ paddingTop: `${getPageTopInset()}px` }}>
-    <View className='lobby-nav'>
-      <Button className='icon-button' hoverClass='none' onClick={onBack}>‹</Button>
-      <View className='lobby-nav-copy'><Text className='eyebrow'>牌局准备</Text><Text className='title-small'>等待四位玩家</Text></View>
-      {canEdit ? <Button className='lobby-more' onClick={() => { void onCancel() }}>关闭</Button> : <View className='lobby-nav-placeholder' />}
+  return <View className='lobby-v4-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+    <View className='lobby-v4-nav'>
+      <Button className='lobby-v4-back' hoverClass='none' onClick={onBack}>‹</Button>
+      <View><Text>牌局准备</Text><Text>{lobby.members.length}/4 人已就位</Text></View>
+      {canEdit ? <Button className='lobby-v4-close' hoverClass='none' onClick={() => { void onCancel() }}>关闭</Button> : <View className='lobby-v4-nav-spacer' />}
     </View>
 
-    <View className='lobby-table-wrap'>
-      <View className='lobby-center'>
-        <Text className='lobby-center-title'>南京麻将</Text>
-        <Text className='lobby-center-count'>{lobby.members.length} / 4</Text>
-        <Text className='lobby-center-note'>{full ? '人员已齐' : '等待牌友就位'}</Text>
+    <View className='lobby-v4-table'>
+      <View className='lobby-v4-center'>
+        <Text>南京麻将</Text>
+        <Text>{lobby.members.length} / 4</Text>
+        <Text>{full ? '人员已齐' : '等待牌友就位'}</Text>
       </View>
       {spots.map((spot, index) => {
         const member = lobby.members[index]
-        return <View className={`lobby-spot ${spot}`} key={spot}>
-          {member ? <View className='lobby-member' onClick={() => setSelectedMember(member)}>
-            <IdentityAvatar name={member.name} gender={member.gender} avatarUrl={member.avatarUrl} size='large' badge={member.userId ? '微信' : '牌友'} />
-            <Text className='lobby-member-name'>{member.name}</Text>
-            {canEdit && <Button className='lobby-member-remove' disabled={loading} onClick={event => { event.stopPropagation(); void onRemoveMember(member) }}>×</Button>}
-          </View> : <View className={canEdit ? 'lobby-empty-spot' : 'lobby-empty-spot disabled'} onClick={() => { if (canEdit) setAddOpen(true) }}>
-            <Text className='lobby-empty-plus'>＋</Text>
+        return <View className={`lobby-v4-spot ${spot}`} key={spot}>
+          {member ? <View className='lobby-v4-member' onClick={() => setSelectedMember(member)}>
+            <View className='lobby-v4-member-avatar'><IdentityAvatar name={member.name} gender={member.gender} avatarUrl={member.avatarUrl} size='large' badge={member.userId ? '微信' : undefined} /></View>
+            <Text className='lobby-v4-member-name'>{member.name}</Text>
+            {canEdit && <Button className='lobby-v4-remove' hoverClass='none' disabled={loading} onClick={event => { event.stopPropagation(); void onRemoveMember(member) }}>×</Button>}
+          </View> : <View className={`lobby-v4-empty${canEdit ? '' : ' disabled'}`} onClick={() => { if (canEdit) setAddOpen(true) }}>
+            <View><Text>＋</Text></View>
             <Text>{canEdit ? '添加玩家' : '等待加入'}</Text>
           </View>}
         </View>
       })}
     </View>
 
-    <View className='lobby-position-note'><Text>四个位置仅表示参局人员</Text><Text>东南西北将在开始牌局时确定</Text></View>
+    <View className='lobby-v4-note'><View /><Text>四个位置只是参局名额，开始牌局后才确定东南西北</Text></View>
 
-    {!lobby.isMember && lobby.status === 'preparing' && !full && <Button className='primary lobby-join' disabled={loading} onClick={() => { void onJoin() }}>{loading ? '加入中…' : '加入这桌'}</Button>}
-    {!lobby.isOwner && lobby.isMember && lobby.status === 'preparing' && <Button
-      className='secondary lobby-leave'
-      disabled={loading}
-      onClick={() => {
+    <View className='lobby-v4-actions'>
+      {!lobby.isMember && lobby.status === 'preparing' && !full && <Button className='lobby-v4-primary' hoverClass='none' disabled={loading} onClick={() => { void onJoin() }}>{loading ? '加入中…' : '加入这桌'}</Button>}
+      {!lobby.isOwner && lobby.isMember && lobby.status === 'preparing' && <Button className='lobby-v4-secondary' hoverClass='none' disabled={loading} onClick={() => {
         const selfMember = lobby.members.find(member => member.userId === user.id)
         if (selfMember) void onRemoveMember(selfMember)
-      }}
-    >退出这桌</Button>}
-    {lobby.isOwner && lobby.status === 'preparing' && <View className='lobby-owner-actions'>
-      <Button className='secondary' openType='share'>邀请微信好友</Button>
-      <Button className='secondary' onClick={() => setQrOpen(true)}>让好友扫码加入</Button>
-    </View>}
-    {lobby.isOwner && full && lobby.status === 'preparing' && <Button className='primary lobby-start' disabled={loading} onClick={onStartSeating}>开始牌局 · 确定座位</Button>}
-    {lobby.status === 'cancelled' && <View className='lobby-closed'><Text>这张准备桌已关闭</Text></View>}
-    {lobby.status === 'started' && <View className='lobby-closed'><Text>牌局已经开始</Text></View>}
+      }}>退出这桌</Button>}
+      {lobby.isOwner && lobby.status === 'preparing' && <View className='lobby-v4-invite-row'>
+        <Button hoverClass='none' openType='share'>邀请微信好友</Button>
+        <Button hoverClass='none' onClick={() => setQrOpen(true)}>好友扫码加入</Button>
+      </View>}
+      {lobby.isOwner && full && lobby.status === 'preparing' && <Button className='lobby-v4-primary' hoverClass='none' disabled={loading} onClick={onStartSeating}>开始牌局 · 确定座位</Button>}
+      {lobby.status === 'cancelled' && <View className='lobby-v4-closed'><Text>这张准备桌已关闭</Text></View>}
+      {lobby.status === 'started' && <View className='lobby-v4-closed'><Text>牌局已经开始</Text></View>}
+    </View>
 
-    {addOpen && <View className='modal-backdrop' onClick={() => setAddOpen(false)}><View className='detail-modal lobby-add-modal' onClick={event => event.stopPropagation()}>
-      <View className='detail-header'><View><Text className='eyebrow'>添加玩家</Text><Text className='title-small'>谁来参加？</Text></View><Button className='close-button' onClick={() => setAddOpen(false)}>×</Button></View>
-      {!lobby.members.some(member => member.userId === user.id) && <Button className='lobby-add-option' onClick={() => { void addSelf() }}><Text>选择我自己</Text><Text>›</Text></Button>}
-      <Button className='lobby-add-option' onClick={() => { setAddOpen(false); setFriendPickerOpen(true) }}><Text>选择牌友</Text><Text>›</Text></Button>
-      <Button className='lobby-add-option' openType='share'><Text>邀请微信好友</Text><Text>›</Text></Button>
-      <Button className='lobby-add-option' onClick={() => { setAddOpen(false); setQrOpen(true) }}><Text>让好友扫码加入</Text><Text>›</Text></Button>
-      <Text className='lobby-add-tip'>邀请和二维码只用于加入这桌，不会提前确定座位。</Text>
+    {addOpen && <View className='lobby-v4-backdrop' onClick={() => setAddOpen(false)}><View className='lobby-v4-modal add' onClick={event => event.stopPropagation()}>
+      <View className='lobby-v4-modal-head'><View><Text>添加玩家</Text><Text>谁来参加这桌？</Text></View><Button hoverClass='none' onClick={() => setAddOpen(false)}>×</Button></View>
+      <View className='lobby-v4-option-list'>
+        {!lobby.members.some(member => member.userId === user.id) && <Button hoverClass='none' onClick={() => { void addSelf() }}><Text>选择我自己</Text><Text>›</Text></Button>}
+        <Button hoverClass='none' onClick={() => { setAddOpen(false); setFriendPickerOpen(true) }}><Text>选择已有牌友</Text><Text>›</Text></Button>
+        <Button hoverClass='none' openType='share'><Text>邀请微信好友</Text><Text>›</Text></Button>
+        <Button hoverClass='none' onClick={() => { setAddOpen(false); setQrOpen(true) }}><Text>让好友扫码加入</Text><Text>›</Text></Button>
+      </View>
+      <Text className='lobby-v4-modal-tip'>邀请和二维码只用于加入这桌，不会提前确定座位。</Text>
     </View></View>}
 
-    {friendPickerOpen && <View className='modal-backdrop' onClick={() => setFriendPickerOpen(false)}><View className='detail-modal lobby-friend-modal' onClick={event => event.stopPropagation()}>
-      <View className='detail-header'><View><Text className='eyebrow'>本地牌友</Text><Text className='title-small'>选择牌友</Text></View><Button className='close-button' onClick={() => setFriendPickerOpen(false)}>×</Button></View>
-      <View className='lobby-friend-search'><Input value={friendQuery} maxlength={20} placeholder='搜索牌友昵称' onInput={event => setFriendQuery(event.detail.value)} /></View>
-      <ScrollView scrollY className='lobby-friend-list' showScrollbar={false}>
-        {friendsLoading && <Text className='lobby-friend-empty'>正在加载牌友…</Text>}
-        {!friendsLoading && !visibleFriends.length && <Text className='lobby-friend-empty'>没有可选择的牌友</Text>}
-        {visibleFriends.map(friend => <View className='lobby-friend-item' key={friend.id} onClick={() => { void chooseFriend(friend) }}>
-          <IdentityAvatar name={friend.wechatName || friend.name} gender={friend.wechatGender} avatarUrl={friend.wechatAvatarUrl} />
-          <View className='grow'><Text className='card-title'>{friend.name}</Text><Text>{friend.linkedUserId && friend.wechatName ? `微信昵称 ${friend.wechatName} · ` : ''}共同 ${friend.jointMatches} 将</Text></View>
-          <Text className='card-arrow'>›</Text>
+    {friendPickerOpen && <View className='lobby-v4-backdrop' onClick={() => setFriendPickerOpen(false)}><View className='lobby-v4-modal friends' onClick={event => event.stopPropagation()}>
+      <View className='lobby-v4-modal-head'><View><Text>选择牌友</Text><Text>从自己的牌友记录中选择</Text></View><Button hoverClass='none' onClick={() => setFriendPickerOpen(false)}>×</Button></View>
+      <View className='lobby-v4-search'><Input value={friendQuery} maxlength={20} placeholder='搜索牌友昵称' onInput={event => setFriendQuery(event.detail.value)} /></View>
+      <ScrollView scrollY className='lobby-v4-friend-list' showScrollbar={false}>
+        {friendsLoading && <Text className='lobby-v4-friend-empty'>正在加载牌友…</Text>}
+        {!friendsLoading && !visibleFriends.length && <Text className='lobby-v4-friend-empty'>没有可选择的牌友</Text>}
+        {visibleFriends.map(friend => <View className='lobby-v4-friend-row' key={friend.id} onClick={() => { void chooseFriend(friend) }}>
+          <View className='lobby-v4-friend-avatar'><IdentityAvatar name={friend.wechatName || friend.name} gender={friend.wechatGender} avatarUrl={friend.wechatAvatarUrl} /></View>
+          <View><Text>{friend.name}</Text><Text>{friend.linkedUserId && friend.wechatName ? `微信昵称 ${friend.wechatName} · ` : ''}共同 ${friend.jointMatches} 将</Text></View>
+          <Text>›</Text>
         </View>)}
       </ScrollView>
-      <View className='lobby-new-friend'>
-        <Input value={guestName} maxlength={12} placeholder='没有记录？输入新牌友昵称' onInput={event => setGuestName(event.detail.value)} />
-        <Button disabled={!guestName.trim() || loading} onClick={() => { void addGuest() }}>添加</Button>
+      <View className='lobby-v4-new-friend'>
+        <Input value={guestName} maxlength={12} placeholder='输入新牌友昵称' onInput={event => setGuestName(event.detail.value)} />
+        <Button hoverClass='none' disabled={!guestName.trim() || loading} onClick={() => { void addGuest() }}>添加</Button>
       </View>
     </View></View>}
 
-    {qrOpen && <View className='modal-backdrop' onClick={() => setQrOpen(false)}><View className='detail-modal lobby-qr-modal' onClick={event => event.stopPropagation()}>
-      <View className='detail-header'><View><Text className='eyebrow'>扫码加入</Text><Text className='title-small'>让好友用微信扫一扫</Text></View><Button className='close-button' onClick={() => setQrOpen(false)}>×</Button></View>
-      <Image className='lobby-qr-image' src={matchLobbyQrUrl(lobby.shareCode)} mode='aspectFit' />
-      <Text className='lobby-qr-note'>二维码只关联当前准备桌，不关联任何东南西北座位。</Text>
+    {qrOpen && <View className='lobby-v4-backdrop' onClick={() => setQrOpen(false)}><View className='lobby-v4-modal qr' onClick={event => event.stopPropagation()}>
+      <View className='lobby-v4-modal-head'><View><Text>扫码加入</Text><Text>让好友用微信扫一扫</Text></View><Button hoverClass='none' onClick={() => setQrOpen(false)}>×</Button></View>
+      <Image className='lobby-v4-qr' src={matchLobbyQrUrl(lobby.shareCode)} mode='aspectFit' />
+      <Text className='lobby-v4-modal-tip'>二维码只关联当前准备桌，不关联任何东南西北座位。</Text>
     </View></View>}
+
     {selectedMember && <GroupMemberInfoModal
       member={{
         id: selectedMember.id,
