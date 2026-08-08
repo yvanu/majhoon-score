@@ -1,0 +1,193 @@
+.tabbar-v4 {
+  position: fixed;
+  z-index: 30;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(104rpx + env(safe-area-inset-bottom));
+  padding: 10rpx 24rpx calc(8rpx + env(safe-area-inset-bottom));
+  display: grid;
+  grid-template-columns: repeat(4,minmax(0,1fr));
+  box-sizing: border-box;
+  border-top: 1rpx solid rgba(218,212,203,.9);
+  background: rgba(255,255,255,.97);
+  backdrop-filter: blur(18rpx);
+  box-shadow: none;
+}
+
+.tabbar-v4-item {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 3rpx;
+  color: #8e8880;
+}
+.tabbar-v4-item.active { color: #a87500; }
+
+.tabbar-v4-icon-wrap {
+  position: relative;
+  width: 48rpx;
+  height: 46rpx;
+  flex: 0 0 46rpx;
+}
+
+.tabbar-v4-icon {
+  position: relative;
+  width: 48rpx;
+  height: 46rpx;
+  color: currentColor;
+}
+.tabbar-v4-icon > view {
+  position: absolute;
+  box-sizing: border-box;
+  color: currentColor;
+}
+
+/* 首页：克制的线性 house */
+.tabbar-v4-icon.home .one {
+  left: 12rpx;
+  top: 18rpx;
+  width: 24rpx;
+  height: 20rpx;
+  border: 3rpx solid currentColor;
+  border-top: 0;
+  border-radius: 0 0 5rpx 5rpx;
+}
+.tabbar-v4-icon.home .two {
+  left: 14rpx;
+  top: 7rpx;
+  width: 21rpx;
+  height: 21rpx;
+  border-left: 3rpx solid currentColor;
+  border-top: 3rpx solid currentColor;
+  border-radius: 3rpx 0 0;
+  transform: rotate(45deg);
+}
+.tabbar-v4-icon.home .three {
+  left: 22rpx;
+  top: 28rpx;
+  width: 5rpx;
+  height: 10rpx;
+  border-radius: 3rpx 3rpx 0 0;
+  background: currentColor;
+}
+
+/* 组局：四个座位围绕中心桌 */
+.tabbar-v4-icon.groups .one {
+  left: 16rpx;
+  top: 14rpx;
+  width: 17rpx;
+  height: 17rpx;
+  border: 3rpx solid currentColor;
+  border-radius: 5rpx;
+}
+.tabbar-v4-icon.groups .two {
+  left: 21rpx;
+  top: 4rpx;
+  width: 6rpx;
+  height: 6rpx;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 32rpx 0 currentColor, -16rpx 16rpx 0 currentColor, 16rpx 16rpx 0 currentColor;
+}
+.tabbar-v4-icon.groups .three { display: none; }
+
+/* 牌友：前后两个用户轮廓 */
+.tabbar-v4-icon.friends .one {
+  left: 9rpx;
+  top: 7rpx;
+  width: 13rpx;
+  height: 13rpx;
+  border: 3rpx solid currentColor;
+  border-radius: 50%;
+}
+.tabbar-v4-icon.friends .two {
+  left: 4rpx;
+  top: 24rpx;
+  width: 23rpx;
+  height: 16rpx;
+  border: 3rpx solid currentColor;
+  border-radius: 13rpx 13rpx 5rpx 5rpx;
+}
+.tabbar-v4-icon.friends .three {
+  right: 8rpx;
+  top: 11rpx;
+  width: 11rpx;
+  height: 11rpx;
+  border: 3rpx solid currentColor;
+  border-radius: 50%;
+}
+.tabbar-v4-icon.friends .three::after {
+  position: absolute;
+  top: 11rpx;
+  right: -7rpx;
+  width: 17rpx;
+  height: 14rpx;
+  box-sizing: border-box;
+  border: 3rpx solid currentColor;
+  border-left-color: transparent;
+  border-radius: 11rpx 11rpx 5rpx 5rpx;
+  content: '';
+}
+
+/* 我的：单用户轮廓 */
+.tabbar-v4-icon.profile .one {
+  left: 18rpx;
+  top: 5rpx;
+  width: 13rpx;
+  height: 13rpx;
+  border: 3rpx solid currentColor;
+  border-radius: 50%;
+}
+.tabbar-v4-icon.profile .two {
+  left: 11rpx;
+  top: 23rpx;
+  width: 27rpx;
+  height: 17rpx;
+  border: 3rpx solid currentColor;
+  border-radius: 15rpx 15rpx 6rpx 6rpx;
+}
+.tabbar-v4-icon.profile .three { display: none; }
+
+.tabbar-v4-item.active .tabbar-v4-icon::after {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 20rpx;
+  height: 3rpx;
+  border-radius: 999rpx;
+  background: #d69a19;
+  content: '';
+  transform: translateX(-50%);
+}
+
+.tabbar-v4-label {
+  color: currentColor;
+  font-size: 17rpx;
+  font-weight: 650;
+  line-height: 1.1;
+}
+.tabbar-v4-item.active .tabbar-v4-label { font-weight: 800; }
+
+.tabbar-v4-unread {
+  position: absolute;
+  z-index: 2;
+  top: -4rpx;
+  right: -7rpx;
+  min-width: 24rpx;
+  height: 24rpx;
+  padding: 0 5rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border: 3rpx solid #fff;
+  border-radius: 999rpx;
+  background: #e4544d;
+  color: #fff;
+  font-size: 11rpx;
+  font-weight: 800;
+  line-height: 18rpx;
+}

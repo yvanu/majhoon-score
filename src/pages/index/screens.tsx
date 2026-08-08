@@ -617,10 +617,10 @@ export function SettingsScreen({ user, preferences, syncStatus, onChange, onBack
 type BottomNavKey = 'home' | 'groups' | 'friends' | 'profile'
 
 function BottomNavIcon({ type }: { type: BottomNavKey }) {
-  return <View className={`nav-icon nav-icon-${type}`}>
-    <View className='nav-icon-part one' />
-    <View className='nav-icon-part two' />
-    <View className='nav-icon-part three' />
+  return <View className={`tabbar-v4-icon ${type}`}>
+    <View className='one' />
+    <View className='two' />
+    <View className='three' />
   </View>
 }
 
@@ -638,12 +638,11 @@ export function BottomNav({ active, unreadChats, onHome, onGroups, onFriends, on
     { key: 'friends' as const, label: '牌友', action: onFriends },
     { key: 'profile' as const, label: '我的', action: onProfile },
   ]
-  return <View className='bottom-nav'>{items.map(item => <View key={item.key} className={active === item.key ? 'nav-item active' : 'nav-item'} onClick={item.action}>
-    <View className='nav-active-mark' />
-    <View className='nav-icon-wrap'>
+  return <View className='tabbar-v4'>{items.map(item => <View key={item.key} className={`tabbar-v4-item${active === item.key ? ' active' : ''}`} onClick={item.action}>
+    <View className='tabbar-v4-icon-wrap'>
       <BottomNavIcon type={item.key} />
-      {item.key === 'groups' && unreadChats > 0 && <Text className='nav-unread-badge'>{unreadChats > 99 ? '99+' : unreadChats}</Text>}
+      {item.key === 'groups' && unreadChats > 0 && <Text className='tabbar-v4-unread'>{unreadChats > 99 ? '99+' : unreadChats}</Text>}
     </View>
-    <Text className='nav-label'>{item.label}</Text>
+    <Text className='tabbar-v4-label'>{item.label}</Text>
   </View>)}</View>
 }
