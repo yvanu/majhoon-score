@@ -42,8 +42,8 @@ import {
   HistoryScreen,
   PersonalStatisticsScreen,
   ProfileScreen,
-  SettingsScreen,
 } from './screens'
+import { SettingsScreen } from './settings-screen-v4'
 import { GroupCreateScreen, GroupDetailScreen, GroupSessionsScreen } from './group-screens'
 import { GroupChatScreen } from './chat-screen'
 import { Home } from './home-screen'
@@ -73,6 +73,7 @@ import './content-redesign.scss'
 import './friends-main-v4.scss'
 import './profile-main-v4.scss'
 import './tabbar-v4.scss'
+import './settings-v4.scss'
 
 const TAB_CACHE_TTL = 60_000
 const FRIEND_STATS_CACHE_TTL = 5 * 60_000
