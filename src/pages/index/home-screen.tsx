@@ -1,10 +1,21 @@
 import { Button, Text, View } from '@tarojs/components'
-import type { AuthUser, DailyStats, Match, MatchSummary } from '@shared/types'
+import type { AuthUser, DailyStats, Match, MatchSummary, Player } from '@shared/types'
 import { displayUserName, formatMatchTime, getPageTopInset, windName } from './shared'
 import type { SyncStatus } from './shared'
+import { IdentityAvatar } from './identity-avatar'
 
-function MiniPlayerStack({ names }: { names: string[] }) {
-  return <View className='home-player-stack'>{names.slice(0, 4).map((name, index) => <View className={`home-mini-avatar avatar-${index % 6}`} key={`${name}-${index}`}><Text>{[...name.trim()][0] || '雀'}</Text></View>)}</View>
+function fallbackInitial(name: string) {
+  return [...name.trim()][0] || '雀'
+}
+
+function HomePlayerStack({ players, names }: { players?: Player[]; names: string[] }) {
+  const visiblePlayers = players?.slice(0, 4) || []
+  if (visiblePlayers.length) {
+    return <View className='home-v4-player-stack'>{visiblePlayers.map(player => <View className='home-v4-stack-avatar' key={player.id}>
+      <IdentityAvatar name={player.name} gender={player.gender} avatarUrl={player.avatar_url} size='small' />
+    </View>)}</View>
+  }
+  return <View className='home-v4-player-stack'>{names.slice(0, 4).map((name, index) => <View className={`home-v4-fallback-avatar tone-${index % 4}`} key={`${name}-${index}`}><Text>{fallbackInitial(name)}</Text></View>)}</View>
 }
 
 export function Home({ user, currentMatch, recentMatches, dailyStats, syncStatus, onContinue, onStart, onOpen, onHistory, onDaily, onLogin }: {
@@ -37,49 +48,78 @@ export function Home({ user, currentMatch, recentMatches, dailyStats, syncStatus
   const activeNames = displayedCurrentMatch?.players.map(player => player.name) || activeSummary?.player_names || []
   const recent = recentMatches.slice(0, 3)
   const syncText = syncStatus === 'syncing' ? '同步中' : syncStatus === 'offline' ? '网络异常' : '已同步'
+  const todayScore = selfStats?.score || 0
 
-  return <View className='page home-v2' style={{ paddingTop: `${getPageTopInset()}px` }}>
-    <View className='home-v2-header'>
-      <View><Text className='home-v2-brand'>雀记</Text><Text className='home-v2-subtitle'>南京麻将</Text></View>
-      <View className='home-v2-header-actions'>
-        <View className={`home-sync ${syncStatus}`}><View /><Text>{syncText}</Text></View>
-        {user && <Button className='home-new-table' onClick={onStart} ariaLabel='开始新牌局'>＋</Button>}
+  return <View className='home-v4-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+    <View className='home-v4-header'>
+      <View className='home-v4-brand-block'>
+        <Text className='home-v4-brand'>雀记</Text>
+        <Text className='home-v4-brand-note'>南京麻将</Text>
+      </View>
+      <View className='home-v4-header-actions'>
+        <View className={`home-v4-sync ${syncStatus}`}><View /><Text>{syncText}</Text></View>
+        {user && <Button className='home-v4-create' hoverClass='none' onClick={onStart} ariaLabel='开始新牌局'><View /><View /></Button>}
       </View>
     </View>
 
     {user ? <>
-      <View className='home-v2-section-title'><Text>今日战绩</Text><Text onClick={onDaily}>查看详情 ›</Text></View>
-      <View className='home-today-card' onClick={onDaily}>
-        <View className='home-today-main'>
-          <View><Text className='home-today-label'>今日净分</Text><Text className={`home-today-score ${selfStats && selfStats.score > 0 ? 'positive' : selfStats && selfStats.score < 0 ? 'negative' : ''}`}>{selfStats && selfStats.score > 0 ? '+' : ''}{selfStats?.score || 0}</Text></View>
-          <View className='home-today-count'><Text>{dailyStats?.matchCount || 0} 将</Text><Text>{dailyStats?.handCount || 0} 局</Text></View>
+      <View className='home-v4-today-card' onClick={onDaily}>
+        <View className='home-v4-today-head'><Text>今日战绩</Text><Text>详情 ›</Text></View>
+        <View className='home-v4-today-main'>
+          <View className='home-v4-score-block'>
+            <Text className='home-v4-score-label'>今日净分</Text>
+            <Text className={`home-v4-score ${todayScore > 0 ? 'positive' : todayScore < 0 ? 'negative' : ''}`}>{todayScore > 0 ? '+' : ''}{todayScore}</Text>
+          </View>
+          <View className='home-v4-today-metrics'>
+            <View><Text>{dailyStats?.matchCount || 0}</Text><Text>将</Text></View>
+            <View><Text>{dailyStats?.handCount || 0}</Text><Text>局</Text></View>
+            <View><Text>{selfStats?.wins || 0}</Text><Text>胡</Text></View>
+          </View>
         </View>
-        <Text className='home-today-summary'>{selfStats ? `${dailyStats?.handCount || 0}局 · 胡${selfStats.wins} · 自摸${selfStats.tsumo} · 点炮${selfStats.dealIns}` : '今天还没有记分记录'}</Text>
+        <View className='home-v4-today-footer'>
+          <Text>{selfStats ? `自摸 ${selfStats.tsumo} · 点炮 ${selfStats.dealIns} · 大胡 ${selfStats.bigHands}` : '今天还没有记分记录'}</Text>
+        </View>
       </View>
 
-      <View className='home-v2-section-title'><Text>{displayedCurrentMatch || activeSummary ? '进行中的牌局' : '开始记分'}</Text></View>
-      {displayedCurrentMatch || activeSummary ? <View className='home-active-card' onClick={() => {
+      <View className='home-v4-section-head'><Text>{displayedCurrentMatch || activeSummary ? '进行中的牌局' : '开始记分'}</Text></View>
+      {displayedCurrentMatch || activeSummary ? <View className='home-v4-active-card' onClick={() => {
         if (displayedCurrentMatch) onContinue()
         else if (activeSummary) onOpen(activeSummary.id, 'active')
       }}>
-        <View className='home-active-head'><View><Text className='home-active-state'>正在进行</Text><Text className='home-active-title'>{displayedCurrentMatch ? `${windName[displayedCurrentMatch.current_wind]}风 · 第 ${displayedCurrentMatch.current_hand} 局` : `${formatMatchTime(activeSummary!.created_at)} · ${activeSummary!.hand_count} 局`}</Text></View><Text className='home-active-arrow'>›</Text></View>
-        <View className='home-active-bottom'><MiniPlayerStack names={activeNames} /><View className='home-active-meta'>{currentSelf && <Text className={currentSelf.score >= 0 ? 'positive' : 'negative'}>{currentSelf.score > 0 ? '+' : ''}{currentSelf.score}</Text>}<Text>继续牌局</Text></View></View>
-      </View> : <View className='home-start-card' onClick={onStart}>
-        <View className='home-start-mark'><View /><View /></View>
-        <View className='grow'><Text className='home-start-title'>开始新牌局</Text><Text className='home-start-note'>邀请好友或选择牌友，四人到齐后再确定座位</Text></View>
-        <Text className='home-active-arrow'>›</Text>
+        <View className='home-v4-active-top'>
+          <View className='home-v4-active-copy'>
+            <View className='home-v4-active-state'><View /><Text>正在进行</Text></View>
+            <Text className='home-v4-active-title'>{displayedCurrentMatch ? `${windName[displayedCurrentMatch.current_wind]}风 · 第 ${displayedCurrentMatch.current_hand} 局` : `${formatMatchTime(activeSummary!.created_at)} · ${activeSummary!.hand_count} 局`}</Text>
+          </View>
+          <Text className='home-v4-active-arrow'>›</Text>
+        </View>
+        <View className='home-v4-active-bottom'>
+          <HomePlayerStack players={displayedCurrentMatch?.players} names={activeNames} />
+          <View className='home-v4-active-cta'>
+            {currentSelf && <Text className={`home-v4-active-score ${currentSelf.score >= 0 ? 'positive' : 'negative'}`}>{currentSelf.score > 0 ? '+' : ''}{currentSelf.score}</Text>}
+            <Text>继续牌局</Text>
+          </View>
+        </View>
+      </View> : <View className='home-v4-start-card' onClick={onStart}>
+        <View className='home-v4-start-icon'><View /><View /></View>
+        <View className='home-v4-start-copy'><Text>开始新牌局</Text><Text>选择牌友或邀请微信好友，四人到齐后确定座位</Text></View>
+        <Text className='home-v4-active-arrow'>›</Text>
       </View>}
 
-      <View className='home-v2-section-title'><Text>最近牌局</Text><Text onClick={onHistory}>全部 ›</Text></View>
-      <View className='home-recent-list'>{recent.length ? recent.map(match => <View className='home-recent-row' key={match.id} onClick={() => onOpen(match.id, match.status)}>
-        <MiniPlayerStack names={match.player_names} />
-        <View className='grow'><Text className='home-recent-time'>{formatMatchTime(match.created_at)}</Text><Text className='home-recent-meta'>{match.player_names.join(' · ')} · {match.hand_count} 局</Text></View>
-        <Text className={`home-recent-status ${match.status}`}>{match.status === 'active' ? '进行中' : '已结束'}</Text>
-      </View>) : <View className='home-recent-empty'><Text>还没有牌局记录</Text></View>}</View>
-    </> : <View className='home-login-card' onClick={onLogin}>
-      <Text className='home-start-title'>登录后开始记录</Text>
-      <Text className='home-start-note'>使用微信身份同步牌局、牌友和战绩</Text>
-      <Button className='primary'>微信登录</Button>
+      <View className='home-v4-section-head recent'><Text>最近牌局</Text><Text onClick={onHistory}>全部 ›</Text></View>
+      <View className='home-v4-recent-list'>{recent.length ? recent.map(match => <View className='home-v4-recent-card' key={match.id} onClick={() => onOpen(match.id, match.status)}>
+        <HomePlayerStack names={match.player_names} />
+        <View className='home-v4-recent-copy'>
+          <Text className='home-v4-recent-title'>{formatMatchTime(match.created_at)}</Text>
+          <Text className='home-v4-recent-meta'>{match.player_names.join(' · ')} · {match.hand_count} 局</Text>
+        </View>
+        <View className={`home-v4-recent-status ${match.status}`}><View /><Text>{match.status === 'active' ? '进行中' : '已结束'}</Text></View>
+      </View>) : <View className='home-v4-empty'><Text>还没有牌局记录</Text><Text>完成第一场牌局后会显示在这里</Text></View>}</View>
+    </> : <View className='home-v4-login-card'>
+      <View className='home-v4-login-mark'><View /><View /></View>
+      <Text className='home-v4-login-title'>登录后开始记录</Text>
+      <Text className='home-v4-login-note'>使用微信身份同步牌局、牌友和战绩</Text>
+      <Button className='home-v4-login-button' hoverClass='none' onClick={onLogin}>微信登录</Button>
     </View>}
   </View>
 }
