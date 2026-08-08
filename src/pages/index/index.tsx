@@ -1759,6 +1759,7 @@ export default function Index() {
       undoNotice={lastSaveNotice}
       closeDetailRequest={matchDetailCloseRequest}
       onDetailOpenChange={setMatchDetailOpen}
+      onBack={goBack}
       onAdd={openScoreEntry}
       onEdit={editHand}
       onUndo={undo}
@@ -1774,6 +1775,7 @@ export default function Index() {
       undoNotice={null}
       closeDetailRequest={matchDetailCloseRequest}
       onDetailOpenChange={setMatchDetailOpen}
+      onBack={closeMatchReview}
       onAdd={() => {}}
       onEdit={() => {}}
       onUndo={() => {}}

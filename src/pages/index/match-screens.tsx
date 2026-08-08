@@ -162,7 +162,7 @@ function summarizeFinishedMatch(match: Match): FinishedMatchSummary {
   }
 }
 
-export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing, undoNotice, closeDetailRequest, onDetailOpenChange, onAdd, onEdit, onUndo, onUndoNotice, onFinish, onCloseReview, reviewReturnLabel }: {
+export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing, undoNotice, closeDetailRequest, onDetailOpenChange, onBack, onAdd, onEdit, onUndo, onUndoNotice, onFinish, onCloseReview, reviewReturnLabel }: {
   match: Match
   currentUserId: string | null
   canEdit: boolean
@@ -171,6 +171,7 @@ export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing
   undoNotice: string | null
   closeDetailRequest: number
   onDetailOpenChange: (open: boolean) => void
+  onBack: () => void
   onAdd: (type: Exclude<HandType, 'custom'>) => void
   onEdit: (hand: Hand) => void
   onUndo: () => void
@@ -228,9 +229,13 @@ export function MatchScreen({ match, currentUserId, canEdit, loading, refreshing
       className={match.status === 'finished' ? 'finished-review-scroll' : 'match-content-scroll'}
     >
       <View className='match-head compact'>
-    <View className='match-heading'><Text className='eyebrow'>{match.status === 'finished' ? '本将已结束' : `${windName[match.current_wind]}风 · 第 ${match.current_hand} 局`}</Text><View className='match-title-line'><Text className='title-small'>{match.status === 'finished' ? '牌局战况' : '本将计分'}</Text>{refreshing && <Text className='match-refreshing'>同步中</Text>}</View></View>
-    <Button className='code match-share-code' onClick={share}><Text>分享码</Text><Text>{match.share_code}</Text></Button>
-  </View>
+        <Button className='icon-button match-back-button' hoverClass='none' onClick={onBack}>‹</Button>
+        <View className='match-heading'>
+          <Text className='match-nav-kicker'>{match.status === 'finished' ? '本将已结束' : `${windName[match.current_wind]}风 · 第 ${match.current_hand} 局`}</Text>
+          <View className='match-title-line'><Text className='match-nav-title'>{match.status === 'finished' ? '牌局战况' : '本将计分'}</Text>{refreshing && <Text className='match-refreshing'>同步中</Text>}</View>
+        </View>
+        <Button className='code match-share-code' onClick={share}><Text>分享码</Text><Text>{match.share_code}</Text></Button>
+      </View>
     <View className='match-scoreboard'>{playersBySeat.map(player => {
       const rank = rankByPlayerId.get(player.id) || 1
       const isDealer = match.status === 'active' && player.seat === match.current_hand - 1

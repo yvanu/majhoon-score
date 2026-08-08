@@ -61,7 +61,7 @@ export function ProfileSetupScreen({ user, required, loading, onBack, onSave, on
         disabled={avatarUploading || loading}
         onChooseAvatar={event => { void chooseAvatar(event.detail.avatarUrl) }}
       >
-        <IdentityAvatar name={normalizedName || '雀记'} gender={gender} avatarUrl={avatarUrl} size='large' />
+        <IdentityAvatar name={normalizedName || '雀记'} gender={gender} avatarUrl={avatarUrl} size='large' fallback='neutral' />
         <Text className='profile-avatar-action'>{avatarUploading ? '上传中…' : avatarUrl ? '更换头像' : '选择头像'}</Text>
       </Button>
       <Text className='profile-avatar-note'>头像可选；未选择时会根据性别生成默认头像</Text>

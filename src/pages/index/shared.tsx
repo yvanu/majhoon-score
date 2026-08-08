@@ -171,13 +171,13 @@ export function getPageTopInset() {
   try {
     const rect = Taro.getMenuButtonBoundingClientRect()
     if (rect?.bottom) {
-      cachedPageTopInset = rect.bottom + 22
+      cachedPageTopInset = rect.bottom + 10
       return cachedPageTopInset
     }
   } catch (error) {
     console.warn('Unable to read menu button position:', error)
   }
-  cachedPageTopInset = 132
+  cachedPageTopInset = 108
   return cachedPageTopInset
 }
 

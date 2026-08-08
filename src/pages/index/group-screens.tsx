@@ -180,6 +180,9 @@ export function GroupSessionsScreen({ groups, loading, tab, code, showCodeEntry,
   const visible = tab === 'open' ? openGroups : myGroups
 
   return <View className='page tab-page groups-page' style={{ paddingTop: `${getPageTopInset()}px` }}>
+    <View className='group-page-title-row'>
+      <View><Text className='eyebrow'>约牌与消息</Text><Text className='title-small'>组局</Text></View>
+    </View>
     <View className='group-page-hero'>
       <View className='group-action-row'>
         <View className='group-action-tile' onClick={onCreate}>
@@ -225,7 +228,10 @@ export function GroupSessionsScreen({ groups, loading, tab, code, showCodeEntry,
         const status = statusCopy[group.status]
         const preview = group.chat_last_message_preview || (group.status === 'cancelled' ? '组局已取消，群聊已关闭' : '暂无消息，点击进入群聊')
         return <View className='chat-conversation-card' key={group.id} onClick={() => onOpenChat(group)}>
-          <View className={`chat-conversation-avatar ${status.tone}`}><Text>聊</Text></View>
+          <View className='chat-conversation-avatars'>
+            {group.members.slice(0, 3).map(member => <GroupMemberAvatar member={member} key={member.id} />)}
+            {!group.members.length && <View className={`chat-conversation-avatar ${status.tone}`}><Text>聊</Text></View>}
+          </View>
           <View className='chat-conversation-main'>
             <View className='chat-conversation-title-row'>
               <Text className='chat-conversation-title'>{group.location}</Text>

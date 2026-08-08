@@ -1,24 +1,39 @@
-.profile-setup-page { padding-left: var(--space-page); padding-right: var(--space-page); background: var(--bg-page); }
-.profile-setup-nav { display: grid; grid-template-columns: 72rpx 1fr 72rpx; align-items: center; gap: var(--space-2); margin-bottom: var(--space-5); }
+.profile-setup-page {
+  min-height: 100vh;
+  padding-left: var(--space-page);
+  padding-right: var(--space-page);
+  padding-bottom: calc(30rpx + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, #fbfaf7 0%, #f6f4ef 100%);
+}
+.profile-setup-nav { display: grid; grid-template-columns: 64rpx 1fr 64rpx; align-items: center; gap: 12rpx; margin-bottom: 18rpx; }
 .profile-setup-heading { text-align: center; }
 .profile-setup-nav-placeholder { width: 72rpx; height: 72rpx; }
-.profile-setup-card { padding: var(--space-5); border: 1rpx solid var(--line); border-radius: var(--radius-lg); background: var(--bg-card); }
-.profile-avatar-picker { width: 220rpx; margin: 0 auto; padding: 0; border: 0; background: transparent; line-height: 1; }
+.profile-setup-card {
+  padding: 28rpx;
+  border: 1rpx solid rgba(222, 216, 206, .9);
+  border-radius: 28rpx;
+  background: rgba(255,255,255,.96);
+  box-shadow: 0 8rpx 28rpx rgba(68, 56, 38, .055);
+}
+.profile-avatar-picker { width: 220rpx; min-height: 190rpx; margin: 0 auto; padding: 8rpx 0 0; border: 0; background: transparent; line-height: 1; }
 .profile-avatar-picker::after { border: 0; }
 .profile-avatar-picker .identity-avatar { margin: 0 auto; }
-.profile-avatar-action { display: block; margin-top: var(--space-2); color: var(--brand-deep); font-size: var(--font-caption); font-weight: 700; }
-.profile-avatar-note { display: block; margin: var(--space-2) 0 var(--space-5); color: var(--text-tertiary); font-size: var(--font-caption); text-align: center; }
-.profile-setup-field { padding: var(--space-4) 0; border-top: 1rpx solid var(--line); }
+.profile-avatar-action { display: block; margin-top: 14rpx; color: var(--text-primary); font-size: 25rpx; font-weight: 800; }
+.profile-avatar-note { display: block; margin: 10rpx 0 24rpx; color: var(--text-tertiary); font-size: 20rpx; line-height: 1.5; text-align: center; }
+.profile-setup-field { padding: 22rpx 0; border-top: 1rpx solid var(--line); }
 .profile-field-label { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-2); }
 .profile-field-label text:first-child { color: var(--text-primary); font-size: var(--font-body); font-weight: 700; }
 .profile-field-label text:last-child { color: var(--text-tertiary); font-size: var(--font-caption); }
-.profile-setup-field input { height: 76rpx; padding: 0 var(--space-3); box-sizing: border-box; border: 1rpx solid var(--line); border-radius: var(--radius-md); background: var(--bg-muted); color: var(--text-primary); font-size: var(--font-body); }
+.profile-setup-field input { height: 84rpx; padding: 0 18rpx; box-sizing: border-box; border: 1rpx solid #e6e1d8; border-radius: 18rpx; background: #f8f6f2; color: var(--text-primary); font-size: 26rpx; }
 .profile-gender-options { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-3); }
-.profile-gender { min-height: 120rpx; margin: 0; padding: var(--space-3); display: flex; align-items: center; justify-content: center; gap: var(--space-3); border: 2rpx solid var(--line); border-radius: var(--radius-md); background: var(--bg-muted); color: var(--text-secondary); font-size: var(--font-body); }
+.profile-gender { min-height: 104rpx; margin: 0; padding: 14rpx 18rpx; display: flex; align-items: center; justify-content: center; gap: 14rpx; border: 2rpx solid #e6e1d8; border-radius: 20rpx; background: #f8f6f2; color: var(--text-secondary); font-size: 26rpx; }
 .profile-gender.active { border-color: var(--brand); background: var(--brand-soft); color: var(--text-primary); box-shadow: inset 0 0 0 1rpx rgba(243,180,63,.18); }
 .gender-preview { position: relative; width: 54rpx; height: 54rpx; border-radius: 50%; background: #e8f1f8; }
 .gender-preview.female { background: #f8edf1; }
 .gender-preview view:first-child { position: absolute; top: 10rpx; left: 50%; width: 18rpx; height: 18rpx; margin-left: -9rpx; border-radius: 50%; background: rgba(59,67,76,.76); }
 .gender-preview view:last-child { position: absolute; left: 50%; bottom: 6rpx; width: 30rpx; height: 20rpx; margin-left: -15rpx; border-radius: 16rpx 16rpx 8rpx 8rpx; background: rgba(59,67,76,.76); }
 .gender-preview.female view { background: rgba(113,71,84,.72); }
-.profile-setup-submit { margin-top: var(--space-5); }
+.profile-setup-submit { width: 100%; min-height: 88rpx; margin-top: 24rpx; border-radius: 20rpx; }
+.profile-setup-page > .link { margin-top: 16rpx; }

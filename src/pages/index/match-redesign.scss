@@ -1,98 +1,215 @@
-/* 牌局与录分高保真覆盖层：结构与业务样式独立，避免继续膨胀 index.scss。 */
-.match-page { padding-left: var(--space-page); padding-right: var(--space-page); background: var(--bg-page); }
-.match-page .match-head { margin-bottom: 18rpx; }
-.match-page .match-share-code { border: 0; background: var(--bg-muted); box-shadow: none; }
+/* 牌局主页与录分弹层：完全按高保真模块隔离，不依赖 index.scss 的旧尺寸。 */
+.match-page {
+  min-height: 100vh;
+  padding-left: var(--space-page);
+  padding-right: var(--space-page);
+  padding-bottom: 36rpx;
+  background: linear-gradient(180deg, #faf9f6 0%, #f6f4ef 100%);
+}
+.match-content-scroll { width: 100%; overflow: visible; }
 
-/* 四位玩家固定一排，位置稳定，不因分数/状态变成 2×2。 */
-.match-page .match-scoreboard { margin-top: 10rpx; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8rpx; }
-.match-page .match-player-tile { position: relative; min-width: 0; min-height: 176rpx; padding: 12rpx 6rpx; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 4rpx; border: 1rpx solid var(--line); border-radius: var(--radius-md); background: var(--bg-card); box-shadow: none; text-align: center; }
-.match-page .match-player-tile.self { border-color: rgba(243,180,63,.72); background: var(--brand-soft); }
-.match-page .match-player-head { position: relative; display: block; }
-.match-page .match-player-head .avatar, .match-page .match-player-head .identity-avatar { width: 64rpx; height: 64rpx; margin: 0 auto; border-radius: 50%; box-shadow: none; }
-.match-page .match-player-head .avatar-initial { font-size: 26rpx !important; }
-.match-page .match-rank { position: absolute; z-index: 3; left: -12rpx; top: -7rpx; width: auto; padding: 2rpx 7rpx; border-radius: 999rpx; background: #f5f2ec; color: var(--text-tertiary); font-size: 16rpx; font-weight: 700; }
-.match-page .match-player-copy { min-width: 0; width: 100%; text-align: center; }
-.match-page .match-player-name { display: block; max-width: 100%; overflow: hidden; color: var(--text-primary); font-size: 22rpx; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
-.match-page .match-player-labels { min-height: 28rpx; display: flex; align-items: center; justify-content: center; gap: 4rpx; color: var(--text-tertiary); font-size: 17rpx; }
-.match-page .match-dealer-badge { padding: 1rpx 6rpx; border-radius: 999rpx; background: var(--brand-soft); color: var(--brand-deep); font-size: 15rpx; font-weight: 800; }
-.match-page .match-player-score { margin-top: auto; color: var(--text-primary); font-size: 27rpx; font-weight: 850; line-height: 1.1; }
+/* 顶部改为普通导航，不再使用大黄 Banner。 */
+.match-page .match-head,
+.match-page .match-head.compact {
+  min-height: 72rpx;
+  margin: 0 0 14rpx;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 60rpx minmax(0,1fr) 104rpx;
+  align-items: center;
+  gap: 10rpx;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.match-back-button { width: 56rpx; height: 56rpx; line-height: 50rpx; border-radius: 17rpx; }
+.match-heading { min-width: 0; text-align: center; }
+.match-nav-kicker { display: block; color: var(--text-tertiary); font-size: 16rpx; line-height: 1.2; }
+.match-title-line { margin-top: 3rpx; display: flex; align-items: center; justify-content: center; gap: 7rpx; }
+.match-nav-title { color: var(--text-primary); font-size: 26rpx; font-weight: 900; line-height: 1.1; }
+.match-refreshing { padding: 3rpx 7rpx; border-radius: 999rpx; background: #f1eee8; color: var(--text-tertiary); font-size: 13rpx; font-weight: 700; }
+.match-page .match-share-code {
+  width: 104rpx;
+  min-width: 104rpx;
+  height: 54rpx;
+  line-height: normal;
+  margin: 0;
+  padding: 5rpx 8rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1rpx solid #e5dfd5;
+  border-radius: 16rpx;
+  background: rgba(255,255,255,.9);
+  box-shadow: none;
+}
+.match-page .match-share-code::after { border: 0; }
+.match-page .match-share-code text { display: block; }
+.match-page .match-share-code text:first-child { color: var(--text-tertiary); font-size: 12rpx; font-weight: 700; }
+.match-page .match-share-code text:last-child { margin-top: 2rpx; color: #866200; font-family: monospace; font-size: 17rpx; font-weight: 900; letter-spacing: .6rpx; }
+
+/* 四人保持一排，用一张整体比分卡承载，不做四个笨重卡片。 */
+.match-page .match-scoreboard {
+  margin-top: 4rpx;
+  padding: 10rpx 7rpx;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  border: 1rpx solid rgba(224,218,208,.92);
+  border-radius: 24rpx;
+  background: rgba(255,255,255,.97);
+  box-shadow: 0 7rpx 24rpx rgba(68,56,38,.045);
+}
+.match-page .match-player-tile {
+  position: relative;
+  min-width: 0;
+  min-height: 152rpx;
+  padding: 10rpx 4rpx 8rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4rpx;
+  border: 0;
+  border-right: 1rpx solid #eee9e1;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  text-align: center;
+}
+.match-page .match-player-tile:last-child { border-right: 0; }
+.match-page .match-player-tile.self { background: linear-gradient(180deg, #fff8e8 0%, rgba(255,248,232,.3) 100%); border-radius: 17rpx; }
+.match-page .match-player-head { position: relative; display: block; grid-row: auto; }
+.match-page .match-player-head .avatar,
+.match-page .match-player-head .identity-avatar { width: 58rpx; height: 58rpx; margin: 0 auto; border-radius: 50%; box-shadow: none; }
+.match-page .match-player-head .avatar-initial { font-size: 23rpx !important; }
+.match-page .match-rank {
+  position: absolute;
+  z-index: 3;
+  left: -11rpx;
+  top: -6rpx;
+  min-width: 26rpx;
+  height: 23rpx;
+  padding: 0 5rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border: 2rpx solid #fff;
+  border-radius: 999rpx;
+  background: #f0ede8;
+  color: #706a63;
+  font-size: 12rpx;
+  font-weight: 800;
+}
+.match-page .match-player-copy { min-width: 0; width: 100%; align-self: auto; text-align: center; }
+.match-page .match-player-name { display: block; max-width: 100%; overflow: hidden; color: var(--text-primary); font-size: 19rpx; font-weight: 800; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+.match-page .match-player-labels { min-height: 24rpx; margin-top: 1rpx; display: flex; align-items: center; justify-content: center; gap: 4rpx; color: var(--text-tertiary); }
+.match-page .match-player-labels > text:first-child { color: var(--text-tertiary); font-size: 14rpx; font-weight: 650; }
+.match-page .match-dealer-badge { padding: 1rpx 5rpx; border-radius: 999rpx; background: #fff0bf; color: #8a6200; font-size: 12rpx; font-weight: 900; }
+.match-page .match-player-score { margin-top: auto; align-self: center; color: var(--text-primary); font-size: 26rpx; font-weight: 900; line-height: 1; letter-spacing: -.5rpx; }
 .match-page .match-player-score.positive { color: var(--ui-positive); }
 .match-page .match-player-score.negative { color: var(--ui-negative); }
-.match-page .match-player-result-meta { width: 100%; margin-top: 5rpx; display: grid; grid-template-columns: repeat(2,1fr); gap: 2rpx; }
-.match-page .match-player-result-meta text { color: var(--text-tertiary); font-size: 14rpx; }
+.match-page .match-player-result-meta { width: 100%; margin-top: 4rpx; display: grid; grid-template-columns: repeat(2,1fr); gap: 2rpx; }
+.match-page .match-player-result-meta text { color: var(--text-tertiary); font-size: 11rpx; }
 
-/* 2×2 主操作留在页面中部，录分是页面核心但不固定到底部。 */
-.match-page .match-action-dock { margin-top: 26rpx; padding: 0; background: transparent; box-shadow: none; }
-.match-page .match-quick-section { margin: 0 0 26rpx; padding: 0; border: 0; background: transparent; box-shadow: none; }
-.match-page .match-quick-heading { margin-bottom: 12rpx; }
-.match-page .match-quick-heading > text:first-child { color: var(--text-primary); font-size: var(--font-body); font-weight: 800; }
-.match-page .match-quick-heading > text:last-child { color: var(--text-tertiary); font-size: var(--font-caption); }
-.match-page .match-quick-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12rpx; }
-.match-page .match-quick-action { min-height: 112rpx; margin: 0; padding: 20rpx; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; border: 1rpx solid var(--line); border-radius: var(--radius-md); background: var(--bg-card); color: var(--text-primary); box-shadow: none; text-align: left; }
-.match-page .match-quick-action.tsumo, .match-page .match-quick-action.ron { border-color: rgba(243,180,63,.42); background: #fffaf0; }
-.match-page .match-quick-title { color: var(--text-primary); font-size: 28rpx; font-weight: 850; }
-.match-page .match-quick-copy { margin-top: 5rpx; color: var(--text-secondary); font-size: 19rpx; line-height: 1.35; }
+/* 主操作区 */
+.match-page .match-action-dock { margin-top: 23rpx; padding: 0; background: transparent; box-shadow: none; }
+.match-page .match-quick-section { margin: 0 0 22rpx; padding: 0; border: 0; background: transparent; box-shadow: none; }
+.match-page .match-quick-heading { margin: 0 2rpx 10rpx; display: flex; align-items: baseline; justify-content: space-between; }
+.match-page .match-quick-heading > text:first-child { color: var(--text-primary); font-size: 26rpx; font-weight: 900; }
+.match-page .match-quick-heading > text:last-child { color: var(--text-tertiary); font-size: 17rpx; }
+.match-page .match-quick-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10rpx; }
+.match-page .match-quick-action {
+  min-height: 104rpx;
+  height: auto;
+  line-height: 1.2;
+  margin: 0;
+  padding: 17rpx 18rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  box-sizing: border-box;
+  border: 1rpx solid rgba(224,218,208,.95);
+  border-radius: 20rpx;
+  background: #fff;
+  color: var(--text-primary);
+  box-shadow: 0 5rpx 17rpx rgba(68,56,38,.035);
+  text-align: left;
+}
+.match-page .match-quick-action::after { border: 0; }
+.match-page .match-quick-action.tsumo { border-color: #edd596; background: linear-gradient(135deg,#fff8e5,#fffdf8); }
+.match-page .match-quick-action.ron { border-color: #efcfbf; background: linear-gradient(135deg,#fff4ef,#fffdfb); }
+.match-page .match-quick-action.draw { border-color: #dde0e4; background: linear-gradient(135deg,#f6f7f8,#fff); }
+.match-page .match-quick-action.event { border-color: #cfe2d5; background: linear-gradient(135deg,#f1f8f3,#fff); }
+.match-page .match-quick-title { color: var(--text-primary); font-size: 25rpx; font-weight: 900; }
+.match-page .match-quick-copy { display: block; margin-top: 6rpx; color: var(--text-secondary); font-size: 16rpx; font-weight: 600; line-height: 1.35; }
 
-.match-recent-head { display: flex; align-items: flex-end; justify-content: space-between; margin: 6rpx 2rpx 10rpx; }
+.match-recent-head { display: flex; align-items: flex-end; justify-content: space-between; margin: 4rpx 2rpx 9rpx; }
 .match-recent-head > view text { display: block; }
-.match-recent-head > view text:first-child { color: var(--text-primary); font-size: var(--font-body); font-weight: 800; }
-.match-recent-head > view text:last-child { margin-top: 2rpx; color: var(--text-tertiary); font-size: 18rpx; }
-.match-text-action, .match-light-links text { color: var(--brand-deep); font-size: var(--font-caption); font-weight: 700; }
+.match-recent-head > view text:first-child { color: var(--text-primary); font-size: 25rpx; font-weight: 900; }
+.match-recent-head > view text:last-child { margin-top: 2rpx; color: var(--text-tertiary); font-size: 16rpx; }
+.match-text-action, .match-light-links text { color: #8f6800; font-size: 18rpx; font-weight: 750; }
 .match-text-action.disabled, .match-light-links .disabled { color: #c0bbb3; }
-.match-recent-list { border: 1rpx solid var(--line); border-radius: var(--radius-md); overflow: hidden; background: var(--bg-card); }
-.match-recent-row { min-height: 78rpx; padding: 10rpx 14rpx; display: flex; align-items: center; gap: 10rpx; border-bottom: 1rpx solid var(--line); }
+.match-recent-list { overflow: hidden; border: 1rpx solid rgba(224,218,208,.92); border-radius: 20rpx; background: #fff; box-shadow: 0 5rpx 17rpx rgba(68,56,38,.03); }
+.match-recent-row { min-height: 72rpx; padding: 10rpx 13rpx; display: flex; align-items: center; gap: 10rpx; border-bottom: 1rpx solid #eee9e1; }
 .match-recent-row:last-child { border-bottom: 0; }
-.match-recent-type { width: 38rpx; height: 38rpx; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; border-radius: 12rpx; background: var(--bg-muted); color: var(--text-secondary); font-size: 18rpx; font-weight: 800; }
+.match-recent-type { width: 34rpx; height: 34rpx; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; border-radius: 10rpx; background: #f3f1ed; color: var(--text-secondary); font-size: 16rpx; font-weight: 850; }
 .match-recent-type.tsumo, .match-recent-type.ron { background: var(--brand-soft); color: var(--brand-deep); }
 .match-recent-row .grow text { display: block; }
-.match-recent-title { color: var(--text-primary) !important; font-size: 21rpx !important; font-weight: 750; }
-.match-recent-row .grow text:last-child { margin-top: 2rpx; color: var(--text-tertiary); font-size: 17rpx; }
-.match-recent-row .card-arrow { font-size: 30rpx; }
-.match-recent-empty { padding: 26rpx 18rpx; color: var(--text-tertiary); font-size: var(--font-caption); text-align: center; }
-.match-light-links { margin: 14rpx 2rpx; display: flex; align-items: center; justify-content: space-between; }
-.match-light-links.readonly-links { padding: 16rpx 0; }
-.match-page .match-finish-action { width: 100%; margin: 8rpx 0 0; }
+.match-recent-title { color: var(--text-primary) !important; font-size: 19rpx !important; font-weight: 800; }
+.match-recent-row .grow text:last-child { margin-top: 2rpx; color: var(--text-tertiary); font-size: 15rpx; }
+.match-recent-row .card-arrow { color: #aaa39a; font-size: 28rpx; }
+.match-recent-empty { padding: 24rpx 18rpx; color: var(--text-tertiary); font-size: 18rpx; text-align: center; }
+.match-light-links { margin: 13rpx 2rpx; display: flex; align-items: center; justify-content: space-between; }
+.match-light-links.readonly-links { padding: 14rpx 0; }
+.match-page .match-finish-action { width: 100%; min-height: 68rpx; margin: 7rpx 0 0; border-radius: 18rpx; color: #8e493d; background: #fff8f6; border-color: #efd9d3; font-size: 20rpx; }
 
-/* 录分弹窗：统一居中外壳，内容滚动，Header/Footer 固定。 */
-.score-drawer-backdrop { padding: calc(22rpx + env(safe-area-inset-top)) 22rpx calc(22rpx + env(safe-area-inset-bottom)); background: rgba(28,25,20,.34); backdrop-filter: blur(4rpx); }
-.score-drawer-shell { width: 100%; max-width: 680rpx; height: 86vh; max-height: 1040rpx; border: 1rpx solid var(--line); border-radius: var(--radius-lg); background: var(--bg-card); box-shadow: var(--ui-shadow-modal); }
-.score-drawer-shell .score-page { padding: 24rpx 20rpx 18rpx !important; background: var(--bg-card); }
-.score-modal-header { min-height: 70rpx; }
+/* 录分弹窗 */
+.score-drawer-backdrop { padding: calc(20rpx + env(safe-area-inset-top)) 22rpx calc(20rpx + env(safe-area-inset-bottom)); background: rgba(28,25,20,.34); backdrop-filter: blur(4rpx); }
+.score-drawer-shell { width: 100%; max-width: 680rpx; height: 86vh; max-height: 1040rpx; border: 1rpx solid var(--line); border-radius: 28rpx; background: #fff; box-shadow: var(--ui-shadow-modal); }
+.score-drawer-shell .score-page { padding: 22rpx 20rpx 18rpx !important; background: #fff; }
+.score-modal-header { min-height: 68rpx; }
 .score-modal-kicker { color: var(--text-tertiary); }
 .score-modal-title { color: var(--text-primary); }
-.score-modal-close, .tile-editor-back { width: 60rpx; height: 60rpx; line-height: 54rpx; margin: 0; padding: 0; border: 0; border-radius: 18rpx; background: var(--bg-muted); color: var(--text-primary); font-size: 34rpx; }
-.score-drawer-shell .score-save-bar { padding: 10rpx 18rpx calc(14rpx + env(safe-area-inset-bottom)); border-top: 1rpx solid var(--line); background: rgba(255,255,255,.98); box-shadow: none; }
-.score-drawer-shell .score-save-bar .primary { min-height: 78rpx; height: 78rpx; line-height: 78rpx; border-radius: var(--radius-md); background: var(--brand); box-shadow: none; }
-.score-save-summary { color: var(--text-secondary); }
+.score-modal-close, .tile-editor-back { width: 58rpx; height: 58rpx; line-height: 52rpx; margin: 0; padding: 0; border: 0; border-radius: 17rpx; background: #f5f2ed; color: var(--text-primary); font-size: 32rpx; }
+.score-drawer-shell .score-save-bar { position: static; left: auto; right: auto; bottom: auto; padding: 10rpx 18rpx calc(14rpx + env(safe-area-inset-bottom)); border: 0; border-top: 1rpx solid var(--line); border-radius: 0; background: rgba(255,255,255,.98); box-shadow: none; backdrop-filter: none; }
+.score-drawer-shell .score-save-bar .primary { min-height: 76rpx; height: 76rpx; line-height: 1.2; margin: 0; border-radius: 18rpx; background: linear-gradient(135deg,#ffc84f,#f4b528); box-shadow: none; font-size: 25rpx; }
+.score-save-summary { color: var(--text-secondary); font-size: 16rpx; }
 
-/* 稳定四人选择位置，禁用者保持原位。 */
-.score-drawer-shell .picker { grid-template-columns: repeat(4,minmax(0,1fr)); gap: 8rpx; }
-.score-drawer-shell .pick { min-width: 0; border: 2rpx solid transparent; background: var(--bg-muted); }
+.score-drawer-shell .picker { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 8rpx; }
+.score-drawer-shell .pick { min-width: 0; padding: 12rpx 4rpx 10rpx; border: 2rpx solid transparent; border-radius: 18rpx; background: #f7f5f1; }
 .score-drawer-shell .pick.selected { border-color: var(--brand); background: var(--brand-soft); box-shadow: none; transform: none; }
+.score-drawer-shell .pick .avatar, .score-drawer-shell .pick .identity-avatar { width: 58rpx; height: 58rpx; }
+.score-drawer-shell .pick-name { font-size: 18rpx; }
 .ron-role-tab.disabled { opacity: .45; }
 .ron-role-pick.role-conflict { opacity: .34; }
 
-.event-preview-card.score-change-preview, .draw-confirm-card { border: 1rpx solid var(--line); border-radius: var(--radius-md); background: var(--bg-muted); box-shadow: none; }
+.event-preview-card.score-change-preview, .draw-confirm-card { border: 1rpx solid var(--line); border-radius: 18rpx; background: #f7f5f1; box-shadow: none; }
 .event-preview-grid { grid-template-columns: repeat(4,minmax(0,1fr)); }
-.draw-confirm-card { margin-top: 12rpx; padding: 20rpx; }
-.draw-confirm-title { display: block; color: var(--text-primary); font-size: var(--font-card-title); font-weight: 800; }
-.draw-confirm-copy { display: block; margin-top: 8rpx; color: var(--text-secondary); font-size: var(--font-caption); line-height: 1.55; }
-.draw-dealer-result { margin: 18rpx 0 8rpx; padding: 14rpx 16rpx; display: flex; align-items: center; justify-content: space-between; border-radius: var(--radius-md); background: #fff; }
-.draw-dealer-result text:first-child { color: var(--text-tertiary); font-size: var(--font-caption); }
-.draw-dealer-result text:last-child { color: var(--brand-deep); font-size: var(--font-body); font-weight: 800; }
+.draw-confirm-card { margin-top: 12rpx; padding: 18rpx; }
+.draw-confirm-title { display: block; color: var(--text-primary); font-size: 26rpx; font-weight: 850; }
+.draw-confirm-copy { display: block; margin-top: 7rpx; color: var(--text-secondary); font-size: 18rpx; line-height: 1.5; }
+.draw-dealer-result { margin: 16rpx 0 8rpx; padding: 13rpx 15rpx; display: flex; align-items: center; justify-content: space-between; border-radius: 16rpx; background: #fff; }
+.draw-dealer-result text:first-child { color: var(--text-tertiary); font-size: 17rpx; }
+.draw-dealer-result text:last-child { color: var(--brand-deep); font-size: 22rpx; font-weight: 800; }
 
-/* 牌谱与记分共享同一个弹窗外壳，不再生成第二层 backdrop/modal。 */
+/* 牌谱 */
 .tile-editor-mode { height: 100%; }
-.tile-editor-inline-header { flex: 0 0 auto; padding: 18rpx 18rpx 8rpx; display: grid; grid-template-columns: 60rpx 1fr 60rpx; align-items: center; }
+.tile-editor-inline-header { flex: 0 0 auto; padding: 16rpx 18rpx 8rpx; display: grid; grid-template-columns: 58rpx 1fr 58rpx; align-items: center; }
 .tile-editor-inline-header .score-modal-title-wrap { text-align: center; }
-.tile-editor-header-spacer { width: 60rpx; }
-.tile-editor-inline-tip { display: block; flex: 0 0 auto; margin: 0 20rpx 8rpx; color: var(--text-secondary); font-size: 19rpx; line-height: 1.45; text-align: center; }
+.tile-editor-header-spacer { width: 58rpx; }
+.tile-editor-inline-tip { display: block; flex: 0 0 auto; margin: 0 20rpx 8rpx; color: var(--text-secondary); font-size: 18rpx; line-height: 1.45; text-align: center; }
 .tile-editor-inline-scroll { height: 0; min-height: 0; flex: 1 1 auto; padding: 0 18rpx; box-sizing: border-box; }
 .tile-editor-inline-actions { position: static !important; flex: 0 0 auto; }
 .tile-editor-inline-secondary { margin-bottom: 8rpx; display: flex; align-items: center; justify-content: space-between; gap: 10rpx; }
-.tile-editor-inline-secondary button { height: 48rpx; line-height: 48rpx; margin: 0; padding: 0 16rpx; border: 1rpx solid var(--line); border-radius: var(--radius-sm); background: #fff; color: var(--text-secondary); font-size: 19rpx; }
-.tile-editor-inline-secondary text { color: var(--text-tertiary); font-size: 18rpx; }
+.tile-editor-inline-secondary button { height: 46rpx; line-height: 46rpx; margin: 0; padding: 0 15rpx; border: 1rpx solid var(--line); border-radius: 13rpx; background: #fff; color: var(--text-secondary); font-size: 18rpx; }
+.tile-editor-inline-secondary text { color: var(--text-tertiary); font-size: 17rpx; }
 .tile-record-entry button[disabled] { opacity: .38; }
+/* 麻将牌保持真实可读尺寸，不为塞满一屏而缩小。 */
 .tile-editor-mode .record-tile.compact { width: 52px; height: 70px; }
 .tile-editor-mode .record-tile.compact .mahjong-tile-image { width: 91%; height: 91%; }
 .tile-editor-mode .tile-palette-grid { display: grid; grid-template-columns: repeat(5,52px); justify-content: center; gap: 6px; }
@@ -100,10 +217,9 @@
 .tile-editor-mode .tile-editor-meld { gap: 2px; }
 
 @media (max-width: 360px) {
-  .match-page .match-player-tile { min-height: 164rpx; padding-left: 3rpx; padding-right: 3rpx; }
-  .match-page .match-player-head .avatar { width: 58rpx; height: 58rpx; }
-  .match-page .match-player-name { font-size: 20rpx; }
-  .seat-candidate-grid { gap: 5rpx; }
+  .match-page .match-player-tile { min-height: 146rpx; padding-left: 2rpx; padding-right: 2rpx; }
+  .match-page .match-player-head .avatar, .match-page .match-player-head .identity-avatar { width: 54rpx; height: 54rpx; }
+  .match-page .match-player-name { font-size: 18rpx; }
   .tile-editor-mode .record-tile.compact { width: 50px; height: 68px; }
   .tile-editor-mode .tile-palette-grid { grid-template-columns: repeat(5,50px); gap: 5px; }
 }
