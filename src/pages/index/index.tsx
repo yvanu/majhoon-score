@@ -80,6 +80,7 @@ import './personal-stats-v4.scss'
 import './friend-detail-v4.scss'
 import './daily-stats-v4.scss'
 import './auth-v4.scss'
+import './modal-polish-v4.scss'
 
 const TAB_CACHE_TTL = 60_000
 const FRIEND_STATS_CACHE_TTL = 5 * 60_000
