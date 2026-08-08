@@ -1,42 +1,48 @@
 .tabbar-v4 {
   position: fixed;
   z-index: 30;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: calc(104rpx + env(safe-area-inset-bottom));
-  padding: 10rpx 24rpx calc(8rpx + env(safe-area-inset-bottom));
+  left: 28rpx;
+  right: 28rpx;
+  bottom: calc(16rpx + env(safe-area-inset-bottom));
+  height: 92rpx;
+  padding: 8rpx 10rpx;
   display: grid;
   grid-template-columns: repeat(4,minmax(0,1fr));
   box-sizing: border-box;
-  border-top: 1rpx solid rgba(218,212,203,.9);
+  border: 1rpx solid rgba(229,225,217,.88);
+  border-radius: 34rpx;
   background: rgba(255,255,255,.97);
-  backdrop-filter: blur(18rpx);
-  box-shadow: none;
+  box-shadow: 0 14rpx 38rpx rgba(52,45,35,.10);
+  backdrop-filter: blur(20rpx);
 }
 
 .tabbar-v4-item {
   min-width: 0;
+  margin: 0 5rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-direction: column;
-  gap: 3rpx;
-  color: #8e8880;
+  gap: 1rpx;
+  border-radius: 24rpx;
+  color: #aaa49b;
 }
-.tabbar-v4-item.active { color: #a87500; }
+.tabbar-v4-item.active {
+  background: #fff2d5;
+  color: #1c1c1e;
+}
 
 .tabbar-v4-icon-wrap {
   position: relative;
-  width: 48rpx;
-  height: 46rpx;
-  flex: 0 0 46rpx;
+  width: 38rpx;
+  height: 36rpx;
+  flex: 0 0 36rpx;
 }
 
 .tabbar-v4-icon {
   position: relative;
-  width: 48rpx;
-  height: 46rpx;
+  width: 38rpx;
+  height: 36rpx;
   color: currentColor;
 }
 .tabbar-v4-icon > view {
@@ -45,128 +51,111 @@
   color: currentColor;
 }
 
-/* 首页：克制的线性 house */
 .tabbar-v4-icon.home .one {
-  left: 12rpx;
-  top: 18rpx;
-  width: 24rpx;
-  height: 20rpx;
-  border: 3rpx solid currentColor;
+  left: 10rpx;
+  top: 15rpx;
+  width: 18rpx;
+  height: 15rpx;
+  border: 2rpx solid currentColor;
   border-top: 0;
-  border-radius: 0 0 5rpx 5rpx;
+  border-radius: 0 0 4rpx 4rpx;
 }
 .tabbar-v4-icon.home .two {
-  left: 14rpx;
+  left: 11rpx;
   top: 7rpx;
-  width: 21rpx;
-  height: 21rpx;
-  border-left: 3rpx solid currentColor;
-  border-top: 3rpx solid currentColor;
-  border-radius: 3rpx 0 0;
+  width: 17rpx;
+  height: 17rpx;
+  border-left: 2rpx solid currentColor;
+  border-top: 2rpx solid currentColor;
   transform: rotate(45deg);
 }
 .tabbar-v4-icon.home .three {
-  left: 22rpx;
-  top: 28rpx;
-  width: 5rpx;
-  height: 10rpx;
-  border-radius: 3rpx 3rpx 0 0;
+  left: 17rpx;
+  top: 23rpx;
+  width: 4rpx;
+  height: 7rpx;
+  border-radius: 2rpx 2rpx 0 0;
   background: currentColor;
 }
 
-/* 组局：四个座位围绕中心桌 */
 .tabbar-v4-icon.groups .one {
-  left: 16rpx;
-  top: 14rpx;
-  width: 17rpx;
-  height: 17rpx;
-  border: 3rpx solid currentColor;
+  left: 12rpx;
+  top: 10rpx;
+  width: 15rpx;
+  height: 15rpx;
+  border: 2rpx solid currentColor;
   border-radius: 5rpx;
 }
 .tabbar-v4-icon.groups .two {
-  left: 21rpx;
-  top: 4rpx;
-  width: 6rpx;
-  height: 6rpx;
+  left: 17rpx;
+  top: 3rpx;
+  width: 5rpx;
+  height: 5rpx;
   border-radius: 50%;
   background: currentColor;
-  box-shadow: 0 32rpx 0 currentColor, -16rpx 16rpx 0 currentColor, 16rpx 16rpx 0 currentColor;
+  box-shadow: 0 27rpx 0 currentColor, -13rpx 13rpx 0 currentColor, 13rpx 13rpx 0 currentColor;
 }
 .tabbar-v4-icon.groups .three { display: none; }
 
-/* 牌友：前后两个用户轮廓 */
 .tabbar-v4-icon.friends .one {
-  left: 9rpx;
-  top: 7rpx;
-  width: 13rpx;
-  height: 13rpx;
-  border: 3rpx solid currentColor;
+  left: 7rpx;
+  top: 5rpx;
+  width: 11rpx;
+  height: 11rpx;
+  border: 2rpx solid currentColor;
   border-radius: 50%;
 }
 .tabbar-v4-icon.friends .two {
-  left: 4rpx;
-  top: 24rpx;
-  width: 23rpx;
-  height: 16rpx;
-  border: 3rpx solid currentColor;
-  border-radius: 13rpx 13rpx 5rpx 5rpx;
+  left: 3rpx;
+  top: 19rpx;
+  width: 20rpx;
+  height: 14rpx;
+  border: 2rpx solid currentColor;
+  border-radius: 12rpx 12rpx 5rpx 5rpx;
 }
 .tabbar-v4-icon.friends .three {
-  right: 8rpx;
-  top: 11rpx;
-  width: 11rpx;
-  height: 11rpx;
-  border: 3rpx solid currentColor;
+  right: 5rpx;
+  top: 9rpx;
+  width: 9rpx;
+  height: 9rpx;
+  border: 2rpx solid currentColor;
   border-radius: 50%;
 }
 .tabbar-v4-icon.friends .three::after {
   position: absolute;
-  top: 11rpx;
-  right: -7rpx;
-  width: 17rpx;
-  height: 14rpx;
+  top: 9rpx;
+  right: -5rpx;
+  width: 14rpx;
+  height: 12rpx;
   box-sizing: border-box;
-  border: 3rpx solid currentColor;
+  border: 2rpx solid currentColor;
   border-left-color: transparent;
-  border-radius: 11rpx 11rpx 5rpx 5rpx;
+  border-radius: 10rpx 10rpx 4rpx 4rpx;
   content: '';
 }
 
-/* 我的：单用户轮廓 */
 .tabbar-v4-icon.profile .one {
-  left: 18rpx;
-  top: 5rpx;
-  width: 13rpx;
-  height: 13rpx;
-  border: 3rpx solid currentColor;
+  left: 14rpx;
+  top: 4rpx;
+  width: 11rpx;
+  height: 11rpx;
+  border: 2rpx solid currentColor;
   border-radius: 50%;
 }
 .tabbar-v4-icon.profile .two {
-  left: 11rpx;
-  top: 23rpx;
-  width: 27rpx;
-  height: 17rpx;
-  border: 3rpx solid currentColor;
-  border-radius: 15rpx 15rpx 6rpx 6rpx;
+  left: 8rpx;
+  top: 19rpx;
+  width: 23rpx;
+  height: 14rpx;
+  border: 2rpx solid currentColor;
+  border-radius: 13rpx 13rpx 5rpx 5rpx;
 }
 .tabbar-v4-icon.profile .three { display: none; }
 
-.tabbar-v4-item.active .tabbar-v4-icon::after {
-  position: absolute;
-  left: 50%;
-  bottom: 0;
-  width: 20rpx;
-  height: 3rpx;
-  border-radius: 999rpx;
-  background: #d69a19;
-  content: '';
-  transform: translateX(-50%);
-}
-
 .tabbar-v4-label {
   color: currentColor;
-  font-size: 17rpx;
-  font-weight: 650;
+  font-size: 15rpx;
+  font-weight: 600;
   line-height: 1.1;
 }
 .tabbar-v4-item.active .tabbar-v4-label { font-weight: 800; }
@@ -174,10 +163,10 @@
 .tabbar-v4-unread {
   position: absolute;
   z-index: 2;
-  top: -4rpx;
-  right: -7rpx;
-  min-width: 24rpx;
-  height: 24rpx;
+  top: -5rpx;
+  right: -8rpx;
+  min-width: 23rpx;
+  height: 23rpx;
   padding: 0 5rpx;
   display: flex;
   align-items: center;
@@ -185,9 +174,9 @@
   box-sizing: border-box;
   border: 3rpx solid #fff;
   border-radius: 999rpx;
-  background: #e4544d;
+  background: #d85b54;
   color: #fff;
-  font-size: 11rpx;
+  font-size: 10rpx;
   font-weight: 800;
-  line-height: 18rpx;
+  line-height: 17rpx;
 }
