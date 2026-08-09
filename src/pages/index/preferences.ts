@@ -52,7 +52,7 @@ export function normalizeUserPreferences(value: unknown): UserPreferences {
       normalizeScore(quickScores[1], DEFAULT_USER_PREFERENCES.quickScores[1]),
     ],
     quickAdjustStep: normalizeScore(source.quickAdjustStep, DEFAULT_USER_PREFERENCES.quickAdjustStep),
-    defaultMultiRon: source.defaultMultiRon === true,
+    defaultMultiRon: false,
     clearScoreStateAfterSave: source.clearScoreStateAfterSave !== false,
     showSettlementPreview: source.showSettlementPreview !== false,
     autoSortTileRecord: source.autoSortTileRecord !== false,

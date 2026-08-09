@@ -240,6 +240,7 @@ export interface ScoreChange {
 
 export interface HandInput {
   type: HandType
+  clientRequestId?: string
   winnerPlayerId?: string
   loserPlayerId?: string
   outcomes?: HandOutcomeInput[]
@@ -255,6 +256,7 @@ export interface HandMutationResult {
   status?: MatchStatus
   finished_at?: string | null
   retained_dealer?: boolean
+  repositionedHands?: Array<{ id: string; wind: Wind; hand_number: number }>
 }
 
 export interface PersonalPatternStat {

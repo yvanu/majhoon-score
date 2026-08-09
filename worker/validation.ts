@@ -184,6 +184,8 @@ export function validateHand(value: unknown): HandInput | null {
     outcomes = parsed as NonNullable<HandInput['outcomes']>
   }
 
+  const clientRequestId = typeof value.clientRequestId === 'string' ? value.clientRequestId.trim() : undefined
+  if (clientRequestId && !/^[A-Za-z0-9_-]{12,96}$/.test(clientRequestId)) return null
   const winnerPlayerId = typeof value.winnerPlayerId === 'string' ? value.winnerPlayerId : undefined
   const note = typeof value.note === 'string' ? value.note.trim().slice(0, 100) : undefined
   if (!outcomes && (value.type === 'ron' || value.type === 'tsumo') && winnerPlayerId) {
@@ -195,6 +197,7 @@ export function validateHand(value: unknown): HandInput | null {
 
   return {
     type: value.type as HandType,
+    clientRequestId,
     winnerPlayerId,
     loserPlayerId: typeof value.loserPlayerId === 'string' ? value.loserPlayerId : undefined,
     outcomes,

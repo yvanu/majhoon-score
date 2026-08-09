@@ -10,6 +10,7 @@ import { currentUser } from '../auth-service'
 import { avatarSeed, isRecord, jsonError, now, shareCode, uid } from '../core'
 import type { Env } from '../env'
 import { createMatchFromParticipants } from '../match-creation'
+import { getMatch } from '../match-service'
 
 type StoredGroup = {
   id: string
@@ -421,7 +422,11 @@ export function registerGroupRoutes(app: Hono<Env>) {
     const group = await loadGroup(c.env.DB, id, user.id)
     if (!group) return jsonError(c, '组局不存在', 404)
     if (!group.is_owner) return jsonError(c, '只有发起人可以开始记分', 401)
-    if (group.match_id) return jsonError(c, '该组局已经创建牌局', 409)
+    if (group.match_id) {
+      const existingMatch = await getMatch(c.env.DB, group.match_id)
+      if (existingMatch) return c.json({ group, match: existingMatch, adminToken: '' })
+      return jsonError(c, '组局已关联牌局，但牌局数据不存在', 409)
+    }
     if (!['recruiting', 'full'].includes(group.status)) return jsonError(c, '当前组局不能开始', 409)
     const confirmed = group.members.filter(member => member.status === 'confirmed')
     if (confirmed.length !== 4) return jsonError(c, '需要正好四位已确认成员才能开始记分', 409)
@@ -442,9 +447,19 @@ export function registerGroupRoutes(app: Hono<Env>) {
       userId: member.user_id,
     })))
     const createdAt = now()
-    await c.env.DB.prepare(`
-      UPDATE group_sessions SET status = 'active', match_id = ?, updated_at = ? WHERE id = ?
+    const claimed = await c.env.DB.prepare(`
+      UPDATE group_sessions SET status = 'active', match_id = ?, updated_at = ?
+      WHERE id = ? AND match_id IS NULL AND status IN ('recruiting', 'full')
     `).bind(result.match.id, createdAt, id).run()
+    if (Number(claimed.meta?.changes || 0) !== 1) {
+      await c.env.DB.prepare('DELETE FROM matches WHERE id = ? AND owner_user_id = ?').bind(result.match.id, user.id).run()
+      const latest = await loadGroup(c.env.DB, id, user.id)
+      if (latest?.match_id) {
+        const existingMatch = await getMatch(c.env.DB, latest.match_id)
+        if (existingMatch) return c.json({ group: latest, match: existingMatch, adminToken: '' })
+      }
+      return jsonError(c, '牌局已由另一请求创建，请刷新后继续', 409)
+    }
     publishChatSystem(c, id, '牌局已创建，四位牌友可以开始记分了', 'match_started', { matchId: result.match.id })
     return c.json({ group: await loadGroup(c.env.DB, id, user.id), match: result.match, adminToken: result.adminToken }, 201)
   })

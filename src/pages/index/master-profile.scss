@@ -788,6 +788,25 @@
   height: 123.077rpx;
   border-radius: 38.462rpx;
 }
+.master-settings-logout {
+  position: absolute;
+  left: 38.462rpx;
+  top: 742.308rpx;
+  width: 673.077rpx;
+  height: 96.154rpx;
+  min-height: 96.154rpx;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 30.769rpx;
+  background: #FFF0EE;
+  color: #D6504F;
+  font-size: 26.923rpx;
+  font-weight: 800;
+  line-height: 96.154rpx;
+  box-shadow: none;
+}
+.master-settings-logout::after { border: 0; }
 
 /* 16_profile_onboarding */
 .master-profile-setup-nav {

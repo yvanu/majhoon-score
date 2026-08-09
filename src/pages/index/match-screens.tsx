@@ -737,7 +737,7 @@ export function ScoreScreen({ players, currentUserId, currentWind, currentHand, 
   const [ronWinnerIds, setRonWinnerIds] = useState(initialRonWinnerIds)
   const [multiRonEnabled, setMultiRonEnabled] = useState(initialHand?.result_type === 'ron'
     ? initialRonWinnerIds.length > 1
-    : preferences.defaultMultiRon)
+    : false)
   const [ronSelectionRole, setRonSelectionRole] = useState<'loser' | 'winner' | null>(initialLoser
     ? initialRonWinnerIds.length ? null : 'winner'
     : 'loser')

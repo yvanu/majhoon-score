@@ -674,17 +674,18 @@ export function registerMeRoutes(app: Hono<Env>) {
     const user = await currentUser(c)
     const authenticatedAt = performance.now()
     if (!user) return jsonError(c, '请先登录', 401)
-    const date = c.req.query('date') || now().slice(0, 10)
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return jsonError(c, '日期格式无效')
-    const start = `${date}T00:00:00.000Z`
-    const end = `${date}T23:59:59.999Z`
+    const period = resolveStatisticsPeriod('day', c.req.query('date'), c.req.query('timezoneOffset'))
+    if (!period) return jsonError(c, '日期或时区无效')
+    const date = period.value
+    const start = period.startAt
+    const end = period.endAt
     const [summaryResult, playersResult] = await c.env.DB.batch([
       c.env.DB.prepare(`
-        SELECT COUNT(DISTINCT m.id) match_count,
+        SELECT COUNT(DISTINCT h.match_id) match_count,
           COUNT(DISTINCT CASE WHEN h.result_type <> 'event' THEN h.id END) hand_count
-        FROM matches m
-        LEFT JOIN hands h ON h.match_id = m.id
-        WHERE m.created_at BETWEEN ? AND ? AND (
+        FROM hands h
+        JOIN matches m ON m.id = h.match_id
+        WHERE h.created_at >= ? AND h.created_at < ? AND (
           m.owner_user_id = ? OR EXISTS (
             SELECT 1 FROM players visible_player WHERE visible_player.match_id = m.id AND visible_player.user_id = ?
           )
@@ -727,12 +728,10 @@ export function registerMeRoutes(app: Hono<Env>) {
           ) THEN 1 ELSE 0 END) big_hands
         FROM matches m
         JOIN players p ON p.match_id = m.id
-        LEFT JOIN hands h ON h.match_id = m.id
+        JOIN hands h ON h.match_id = m.id AND h.created_at >= ? AND h.created_at < ?
         LEFT JOIN hand_scores hs ON hs.hand_id = h.id AND hs.player_id = p.id
-        WHERE m.created_at BETWEEN ? AND ? AND (
-          m.owner_user_id = ? OR EXISTS (
-            SELECT 1 FROM players visible_player WHERE visible_player.match_id = m.id AND visible_player.user_id = ?
-          )
+        WHERE m.owner_user_id = ? OR EXISTS (
+          SELECT 1 FROM players visible_player WHERE visible_player.match_id = m.id AND visible_player.user_id = ?
         )
         GROUP BY p.name
         ORDER BY score DESC, wins DESC, p.name ASC

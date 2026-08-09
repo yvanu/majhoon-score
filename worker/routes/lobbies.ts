@@ -4,6 +4,7 @@ import { currentUser } from '../auth-service'
 import { avatarSeed, jsonError, now, shareCode, uid } from '../core'
 import type { Env } from '../env'
 import { createMatchFromParticipants } from '../match-creation'
+import { getMatch } from '../match-service'
 
 const LOBBY_CAPACITY = 4
 
@@ -231,6 +232,10 @@ export function registerLobbyRoutes(app: Hono<Env>) {
     const lobby = await findLobby(c, user.id)
     if (!lobby) return jsonError(c, '准备桌不存在', 404)
     if (!lobby.isOwner) return jsonError(c, '只有创建者可以开始牌局', 401)
+    if (lobby.status === 'started' && lobby.matchId) {
+      const existingMatch = await getMatch(c.env.DB, lobby.matchId)
+      if (existingMatch) return c.json({ lobby, match: existingMatch, adminToken: '' })
+    }
     if (lobby.status !== 'preparing') return jsonError(c, '这桌已经开始或已关闭', 409)
     if (lobby.members.length !== LOBBY_CAPACITY) return jsonError(c, '需要正好四位参与者才能开始牌局', 409)
 
@@ -252,8 +257,19 @@ export function registerLobbyRoutes(app: Hono<Env>) {
       userId: member.userId,
     })))
     const at = now()
-    await c.env.DB.prepare("UPDATE match_lobbies SET status = 'started', match_id = ?, updated_at = ? WHERE id = ?")
-      .bind(result.match.id, at, lobby.id).run()
+    const claimed = await c.env.DB.prepare(`
+      UPDATE match_lobbies SET status = 'started', match_id = ?, updated_at = ?
+      WHERE id = ? AND status = 'preparing' AND match_id IS NULL
+    `).bind(result.match.id, at, lobby.id).run()
+    if (Number(claimed.meta?.changes || 0) !== 1) {
+      await c.env.DB.prepare('DELETE FROM matches WHERE id = ? AND owner_user_id = ?').bind(result.match.id, user.id).run()
+      const latest = await loadLobby(c.env.DB, lobby.id, user.id)
+      if (latest?.matchId) {
+        const existingMatch = await getMatch(c.env.DB, latest.matchId)
+        if (existingMatch) return c.json({ lobby: latest, match: existingMatch, adminToken: '' })
+      }
+      return jsonError(c, '牌局已由另一请求创建，请刷新后继续', 409)
+    }
     return c.json({
       lobby: await loadLobby(c.env.DB, lobby.id, user.id),
       match: result.match,

@@ -2,10 +2,10 @@ import { useMemo, useState } from 'react'
 import { Button, ScrollView, Text, View } from '@tarojs/components'
 import type { Hand, HandOutcome, HandType, Match, Player } from '@shared/types'
 import { MasterBackGlyph, MasterRightChevronGlyph, bigHandOptions, getPageTopInset, typeName } from './shared'
+import { IdentityAvatar } from './identity-avatar'
 
 type RecordFilter = 'all' | 'wins' | 'events'
-type ActiveView = 'status' | 'records'
-type FinishedView = 'summary' | ActiveView
+type FinishedView = 'summary' | 'status' | 'records'
 
 function playerName(match: Match, playerId: string | null | undefined) {
   return match.players.find(player => player.id === playerId)?.name || '玩家'
@@ -86,60 +86,66 @@ function MasterBack({ onClick }: { onClick: () => void }) {
   return <Button className='master-match-back' hoverClass='none' onClick={onClick}><MasterBackGlyph /></Button>
 }
 
-function MatchTop({ title, subtitle, view, onBack, onView }: {
-  title: string
-  subtitle: string
-  view: ActiveView
-  onBack: () => void
-  onView: (view: ActiveView) => void
-}) {
-  return <>
-    <View className='master-match-nav'>
-      <MasterBack onClick={onBack} />
-      <View className='master-match-nav-copy'><Text>{title}</Text><Text>{subtitle}</Text></View>
-    </View>
-    <View className='master-match-segment'>
-      <View className={view === 'status' ? 'active' : ''} onClick={() => onView('status')}><Text>战况</Text></View>
-      <View className={view === 'records' ? 'active' : ''} onClick={() => onView('records')}><Text>记录</Text></View>
-    </View>
-  </>
+function MatchHeader({ title, subtitle, onBack }: { title: string; subtitle: string; onBack: () => void }) {
+  return <View className='master-match-nav'>
+    <MasterBack onClick={onBack} />
+    <View className='master-match-nav-copy'><Text>{title}</Text><Text>{subtitle}</Text></View>
+  </View>
 }
 
-function ScoreBoard({ players, title = '当前总分' }: { players: Player[]; title?: string }) {
+function ScoreBoard({ players, currentHand, title = '当前总分' }: { players: Player[]; currentHand: number; title?: string }) {
   const bySeat = [...players].sort((first, second) => first.seat - second.seat)
+  const seatLabels = ['东', '南', '西', '北']
   return <View className='master-match-scoreboard'>
     <Text className='master-match-scoreboard-title'>{title}</Text>
     <View className='master-match-scoreboard-grid'>{bySeat.map(player => <View key={player.id}>
+      <View className='master-match-score-avatar'><IdentityAvatar name={player.name} gender={player.gender} avatarUrl={player.avatar_url} fallback='smile' /></View>
+      <Text className='master-match-score-seat'>{seatLabels[player.seat]}{player.seat === currentHand - 1 ? ' · 庄' : ''}</Text>
       <Text className='master-match-score-name'>{player.name}</Text>
       <Text className={`master-match-score ${player.score > 0 ? 'positive' : player.score < 0 ? 'negative' : ''}`}>{player.score > 0 ? '+' : ''}{player.score}</Text>
     </View>)}</View>
   </View>
 }
 
-function StatusView({ match, editable, loading, onAdd, onFinish }: {
+function MatchAction({ title, subtitle, disabled, onClick }: { title: string; subtitle: string; disabled: boolean; onClick: () => void }) {
+  return <View className={`master-match-action${disabled ? ' disabled' : ''}`} onClick={() => { if (!disabled) onClick() }}>
+    <View><Text>{title}</Text><Text>{subtitle}</Text></View>
+    <View className='master-match-plus'><View className='master-match-plus-horizontal' /><View className='master-match-plus-vertical' /></View>
+  </View>
+}
+
+function ActiveMatchView({ match, loading, refreshing, undoNotice, onAdd, onEdit, onOpenRecords, onUndo, onFinish }: {
   match: Match
-  editable: boolean
   loading: boolean
+  refreshing: boolean
+  undoNotice: string | null
   onAdd: (type: Exclude<HandType, 'custom'>) => void
+  onEdit: (hand: Hand) => void
+  onOpenRecords: () => void
+  onUndo: () => void
   onFinish: () => void
 }) {
+  const numberMap = completedNumberMap(match)
+  const recentHands = [...match.hands].sort((first, second) => second.sequence - first.sequence).slice(0, 3)
   return <>
-    <ScoreBoard players={match.players} />
-    {editable && <>
-      <Text className='master-match-section-title'>本局操作</Text>
-      <View className='master-match-actions'>
-        <View className='master-match-action' onClick={() => { if (!loading) onAdd('tsumo') }}>
-          <View><Text>自摸</Text><Text>赢家一次录入</Text></View><View className='master-match-plus'><View className='master-match-plus-horizontal' /><View className='master-match-plus-vertical' /></View>
-        </View>
-        <View className='master-match-action' onClick={() => { if (!loading) onAdd('ron') }}>
-          <View><Text>点炮</Text><Text>选择点炮者与胡牌者</Text></View><View className='master-match-plus'><View className='master-match-plus-horizontal' /><View className='master-match-plus-vertical' /></View>
-        </View>
-        <View className='master-match-action' onClick={() => { if (!loading) onAdd('event') }}>
-          <View><Text>局内事件</Text><Text>杠 / 跟圈 / 四风归一</Text></View><View className='master-match-plus'><View className='master-match-plus-horizontal' /><View className='master-match-plus-vertical' /></View>
-        </View>
-      </View>
-      <Button className='master-match-finish' hoverClass='none' disabled={loading} onClick={onFinish}>结束牌局</Button>
-    </>}
+    <ScoreBoard players={match.players} currentHand={match.current_hand} />
+    <Text className='master-match-section-title'>本局操作</Text>
+    <View className='master-match-actions'>
+      <MatchAction title='自摸' subtitle='选择胡牌者与分值' disabled={loading} onClick={() => onAdd('tsumo')} />
+      <MatchAction title='点炮' subtitle='先选点炮者，再选胡牌者' disabled={loading} onClick={() => onAdd('ron')} />
+      <MatchAction title='流局' subtitle='四人分数不变，庄家连庄' disabled={loading} onClick={() => onAdd('draw')} />
+      <MatchAction title='局内事件' subtitle='杠 · 跟圈 · 四风归一' disabled={loading} onClick={() => onAdd('event')} />
+    </View>
+    <View className='master-match-recent-head'><Text>最近记录</Text><Text className={recentHands.length ? '' : 'disabled'} onClick={() => { if (recentHands.length) onOpenRecords() }}>全部记录 ›</Text></View>
+    <View className='master-match-recent-list'>{recentHands.length ? recentHands.map(hand => <View className='master-match-recent-card' key={hand.id} onClick={() => { if (!loading) onEdit(hand) }}>
+      <View><Text>{recordTitle(hand, numberMap.get(hand.id))}</Text><Text>{recordDetail(match, hand)}</Text></View>
+      {recordScore(hand) && <Text>{recordScore(hand)}</Text>}
+    </View>) : <View className='master-match-recent-empty'><Text>还没有记录，选择上方操作开始记分</Text></View>}</View>
+    <View className='master-match-footer-actions'>
+      <Button hoverClass='none' disabled={!match.hands.length || loading} onClick={onUndo}>撤销上一条</Button>
+      <Button hoverClass='none' disabled={loading} onClick={onFinish}>结束本将</Button>
+    </View>
+    <Text className='master-match-sync-note'>{refreshing ? '正在同步最新牌局…' : undoNotice || '所有计分已保存'}</Text>
   </>
 }
 
@@ -226,7 +232,7 @@ function FinishedSummary({ match, onBack, onStatus, onRecords }: {
   </View>
 }
 
-export function MasterMatchScreen({ match, canEdit, loading, onBack, onAdd, onEdit, onFinish }: {
+export function MasterMatchScreen({ match, canEdit, loading, refreshing, undoNotice, onBack, onAdd, onEdit, onUndo, onFinish }: {
   match: Match
   currentUserId: string | null
   canEdit: boolean
@@ -244,10 +250,11 @@ export function MasterMatchScreen({ match, canEdit, loading, onBack, onAdd, onEd
   onCloseReview?: () => void
   reviewReturnLabel?: string
 }) {
-  const [activeView, setActiveView] = useState<ActiveView>('status')
+  const [recordsOpen, setRecordsOpen] = useState(false)
   const [finishedView, setFinishedView] = useState<FinishedView>('summary')
   const completed = match.hands.filter(hand => hand.result_type !== 'event').length
   const editable = canEdit && match.status === 'active'
+  const windLabel = ({ east: '东', south: '南', west: '西', north: '北' } as const)[match.current_wind]
 
   if (match.status === 'finished' && finishedView === 'summary') {
     return <FinishedSummary
@@ -258,16 +265,39 @@ export function MasterMatchScreen({ match, canEdit, loading, onBack, onAdd, onEd
     />
   }
 
-  const view = match.status === 'finished' ? finishedView as ActiveView : activeView
-  const setView = (next: ActiveView) => match.status === 'finished' ? setFinishedView(next) : setActiveView(next)
-  const back = match.status === 'finished' ? () => setFinishedView('summary') : onBack
-  const title = view === 'records' ? '牌局记录' : '牌局战况'
-  const subtitle = view === 'records' ? '按时间查看每一局变化' : `${relativeMatchTitle(match.created_at)} · 第 ${completed + 1} 局`
+  if (match.status === 'finished') {
+    const view = finishedView === 'records' ? 'records' : 'status'
+    return <View className='master-match-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+      <MatchHeader
+        title={view === 'records' ? '牌局记录' : '牌局战况'}
+        subtitle={view === 'records' ? '按时间查看每一局变化' : `${relativeMatchTitle(match.created_at)} · 已结束`}
+        onBack={() => setFinishedView('summary')}
+      />
+      {view === 'records'
+        ? <RecordsView match={match} editable={false} onEdit={onEdit} />
+        : <ScoreBoard players={match.players} currentHand={match.current_hand} title='最终总分' />}
+    </View>
+  }
+
+  if (recordsOpen) {
+    return <View className='master-match-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+      <MatchHeader title='全部记录' subtitle='按时间查看并纠正计分' onBack={() => setRecordsOpen(false)} />
+      <RecordsView match={match} editable={editable} onEdit={onEdit} />
+    </View>
+  }
 
   return <View className='master-match-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
-    <MatchTop title={title} subtitle={subtitle} view={view} onBack={back} onView={setView} />
-    {view === 'status'
-      ? <StatusView match={match} editable={editable} loading={loading} onAdd={onAdd} onFinish={onFinish} />
-      : <RecordsView match={match} editable={editable} onEdit={onEdit} />}
+    <MatchHeader title='正在记分' subtitle={`${windLabel}${match.current_hand}局 · 第 ${completed + 1} 局记录`} onBack={onBack} />
+    <ActiveMatchView
+      match={match}
+      loading={loading}
+      refreshing={refreshing}
+      undoNotice={undoNotice}
+      onAdd={onAdd}
+      onEdit={onEdit}
+      onOpenRecords={() => setRecordsOpen(true)}
+      onUndo={onUndo}
+      onFinish={onFinish}
+    />
   </View>
 }

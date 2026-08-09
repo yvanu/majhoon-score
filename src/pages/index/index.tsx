@@ -147,6 +147,11 @@ function applyHandMutation(current: Match, result: HandMutationResult, replacedH
     scoreDelta.set(score.playerId, (scoreDelta.get(score.playerId) || 0) + score.change)
   })
 
+  const repositioned = new Map((result.repositionedHands || []).map(item => [item.id, item]))
+  const nextHands = replacedHandId
+    ? current.hands.map(hand => hand.id === replacedHandId ? result.hand : hand)
+    : [result.hand, ...current.hands]
+
   return {
     ...current,
     current_wind: result.current_wind,
@@ -157,9 +162,10 @@ function applyHandMutation(current: Match, result: HandMutationResult, replacedH
       ...player,
       score: player.score + (scoreDelta.get(player.id) || 0),
     })),
-    hands: replacedHandId
-      ? current.hands.map(hand => hand.id === replacedHandId ? result.hand : hand)
-      : [result.hand, ...current.hands],
+    hands: nextHands.map(hand => {
+      const position = repositioned.get(hand.id)
+      return position ? { ...hand, wind: position.wind, hand_number: position.hand_number } : hand
+    }),
   }
 }
 
@@ -212,6 +218,7 @@ export default function Index() {
   const [scoreEntryType, setScoreEntryType] = useState<HandType>('ron')
   const [scoreDrawerOpen, setScoreDrawerOpen] = useState(false)
   const [scoreDrawerKey, setScoreDrawerKey] = useState(0)
+  const [scoreRequestId, setScoreRequestId] = useState('')
   const [scoreTileEditorOpen, setScoreTileEditorOpen] = useState(false)
   const [scoreTileEditorCloseRequest, setScoreTileEditorCloseRequest] = useState(0)
   const [groupFriendPickerOpen, setGroupFriendPickerOpen] = useState(false)
@@ -705,13 +712,15 @@ export default function Index() {
   }
 
   function loadDailyStats(force = false) {
-    const today = new Date().toISOString().slice(0, 10)
+    const localNow = new Date()
+    const today = `${localNow.getFullYear()}-${String(localNow.getMonth() + 1).padStart(2, '0')}-${String(localNow.getDate()).padStart(2, '0')}`
+    const timezoneOffset = localNow.getTimezoneOffset()
     if (!force && dailyStats?.date === today && Date.now() - dailyStatsLoadedAt.current < TAB_CACHE_TTL) {
       return Promise.resolve()
     }
     if (dailyStatsRequest.current) return dailyStatsRequest.current
     setDailyStatsLoading(true)
-    const request = api.dailyStatistics().then(result => {
+    const request = api.dailyStatistics(today, timezoneOffset).then(result => {
       setDailyStats(result)
       dailyStatsLoadedAt.current = Date.now()
     }).finally(() => {
@@ -1077,18 +1086,6 @@ export default function Index() {
       const result = await api.cancelMatchLobby(matchLobby.id)
       setMatchLobby(result.lobby)
       replaceScreen('home')
-    })
-  }
-
-  async function startLobbyDirect() {
-    if (!matchLobby?.isOwner || matchLobby.status !== 'preparing' || matchLobby.members.length !== 4) return
-    await run(async () => {
-      const result = await api.startMatchLobby(matchLobby.id, matchLobby.members.map(member => member.id))
-      setMatchLobby(result.lobby)
-      activateCreatedMatch(result, 'home')
-      friendsLoadedAt.current = 0
-      await Taro.showToast({ title: '牌局已创建', icon: 'success' })
-      void refreshDashboard().catch(error => console.error('Refresh dashboard after lobby start failed:', error))
     })
   }
 
@@ -1541,7 +1538,7 @@ export default function Index() {
     return run(async () => {
       const data = handId
         ? await api.updateHand(match.id, handId, input, adminToken)
-        : await api.addHand(match.id, input, adminToken)
+        : await api.addHand(match.id, { ...input, clientRequestId: scoreRequestId }, adminToken)
       const nextMatch = applyHandMutation(match, data, handId)
       setMatch(nextMatch)
       invalidateStatisticsCaches()
@@ -1586,6 +1583,7 @@ export default function Index() {
     if (!match || !matchCanEdit || match.status !== 'active') return
     setLastSaveNotice(null)
     setEditingHandId(null)
+    setScoreRequestId(`score_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 12)}_${Math.random().toString(36).slice(2, 8)}`)
     setScoreEntryType(type)
     setScoreTileEditorOpen(false)
     setScoreDrawerKey(current => current + 1)
@@ -1596,6 +1594,7 @@ export default function Index() {
     if (!match || !matchCanEdit || match.status !== 'active') return
     setLastSaveNotice(null)
     setEditingHandId(hand.id)
+    setScoreRequestId('')
     setScoreEntryType(hand.result_type)
     setScoreTileEditorOpen(false)
     setScoreDrawerKey(current => current + 1)
@@ -1719,7 +1718,6 @@ export default function Index() {
       onAddNewFriend={showAddFriend}
       onRemoveMember={member => removeLobbyMember(member.id)}
       onStartSeating={beginLobbySeating}
-      onStartDirect={startLobbyDirect}
       onCancel={cancelMatchLobby}
       onEnsureFriends={() => loadFriends()}
       onFriendsChanged={async () => { friendsLoadedAt.current = 0; await loadFriends(true) }}
@@ -1871,7 +1869,7 @@ export default function Index() {
       onPreferencesChange={updatePreferences}
       onLogout={logout}
       onScoringSettings={showScoringSettings}
-      onInfo={title => { void showDialog({ title, content: '当前版本按系统默认设置运行。', showCancel: false, variant: 'info' }) }}
+      onInfo={title => { void showDialog({ title, content: '雀记仅使用完成登录、牌局记录、牌友与组局功能所需的数据；账号授权可通过退出登录停止当前会话。', showCancel: false, variant: 'info' }) }}
     />}
     {screen === 'scoring-settings' && user && <ScoringSettingsScreen
       preferences={preferences}

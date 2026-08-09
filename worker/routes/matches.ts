@@ -1,5 +1,5 @@
 import type { Context, Hono } from 'hono'
-import type { Hand, HandInput, Wind } from '../../src/shared/types'
+import type { Hand, HandInput, Match, Wind } from '../../src/shared/types'
 import { canWrite, currentUser } from '../auth-service'
 import {
   avatarSeed,
@@ -67,7 +67,92 @@ function responseOutcomes(input: HandInput): Hand['outcomes'] {
   }))
 }
 
-function handInputError(input: HandInput, validPlayerIds: Set<string>) {
+function replayInput(hand: Hand): HandInput {
+  return {
+    type: hand.result_type,
+    winnerPlayerId: hand.winner_player_id ?? undefined,
+    loserPlayerId: hand.loser_player_id ?? undefined,
+    outcomes: hand.outcomes.map(outcome => ({
+      winnerPlayerId: outcome.winner_player_id,
+      score: outcome.score,
+      note: outcome.note ?? undefined,
+      tileRecord: outcome.tile_record ?? undefined,
+    })),
+    scores: hand.scores,
+    note: hand.note ?? undefined,
+    tileRecord: hand.tile_record ?? undefined,
+  }
+}
+
+export function replayMatchProgress(match: Match, replacement: Hand) {
+  const playerBySeat = new Map(match.players.map(player => [player.seat, player.id]))
+  const originalById = new Map(match.hands.map(hand => [hand.id, hand]))
+  const ordered = match.hands
+    .map(hand => hand.id === replacement.id ? replacement : hand)
+    .sort((first, second) => first.sequence - second.sequence)
+  let wind: Wind = 'east'
+  let handNumber = 1
+  let finishedAt: string | null = null
+  const currentEventNotes: Array<string | null> = []
+  const positions: Array<{ id: string; wind: Wind; handNumber: number }> = []
+
+  for (let index = 0; index < ordered.length; index += 1) {
+    const hand = ordered[index]
+    if (finishedAt) {
+      return { error: '修改后牌局会在后续记录之前结束，请先撤销受影响的后续记录' } as const
+    }
+    positions.push({ id: hand.id, wind, handNumber })
+    if (hand.result_type === 'event') {
+      currentEventNotes.push(hand.note)
+      continue
+    }
+
+    const isNorthFour = wind === 'north' && handNumber === 4
+    const dealerPlayerId = playerBySeat.get(handNumber - 1)
+    const retainDealer = shouldRetainDealer(replayInput(hand), dealerPlayerId, isNorthFour, currentEventNotes)
+    currentEventNotes.length = 0
+    if (isNorthFour && !retainDealer) {
+      finishedAt = hand.created_at
+      continue
+    }
+    if (!retainDealer) {
+      const next = nextPosition(wind, handNumber)
+      wind = next.wind
+      handNumber = next.hand
+    }
+  }
+
+  const changedPositions = positions.filter(position => {
+    const original = originalById.get(position.id)
+    return original && (original.wind !== position.wind || original.hand_number !== position.handNumber)
+  })
+  return {
+    error: null,
+    currentWind: wind,
+    currentHand: handNumber,
+    status: finishedAt ? 'finished' as const : 'active' as const,
+    finishedAt,
+    changedPositions,
+  }
+}
+
+async function existingHandMutation(db: D1Database, matchId: string, requestKey: string) {
+  const existing = await db.prepare('SELECT id FROM hands WHERE match_id = ? AND request_key = ? LIMIT 1')
+    .bind(matchId, requestKey).first<{ id: string }>()
+  if (!existing) return null
+  const match = await getMatch(db, matchId)
+  const hand = match?.hands.find(item => item.id === existing.id)
+  if (!match || !hand) return null
+  return {
+    hand,
+    current_wind: match.current_wind,
+    current_hand: match.current_hand,
+    status: match.status,
+    finished_at: match.finished_at,
+  }
+}
+
+export function handInputError(input: HandInput, validPlayerIds: Set<string>) {
   if (new Set(input.scores.map(score => score.playerId)).size !== 4 ||
       input.scores.some(score => !validPlayerIds.has(score.playerId))) {
     return '必须为本桌四位玩家各提交一条分数'
@@ -113,8 +198,20 @@ function handInputError(input: HandInput, validPlayerIds: Set<string>) {
     }
   }
 
+  if (input.type === 'draw') {
+    if (input.winnerPlayerId || input.loserPlayerId || outcomes.length || input.scores.some(item => item.change !== 0)) {
+      return '流局不能指定输赢玩家，四人分数变化必须为 0'
+    }
+  }
   if (input.type === 'tsumo') {
     if (outcomes.length !== 1 || input.loserPlayerId) return '自摸需要且只能指定一位胡牌者'
+    const winnerId = winnerIds[0]
+    const winnerScore = input.scores.find(item => item.playerId === winnerId)?.change ?? 0
+    const payerScores = input.scores.filter(item => item.playerId !== winnerId).map(item => item.change)
+    if (winnerScore <= 0 || payerScores.some(score => score >= 0) || new Set(payerScores).size !== 1 ||
+        winnerScore !== -payerScores.reduce((sum, score) => sum + score, 0)) {
+      return '自摸应由其余三家等额支付'
+    }
   }
   if (input.type === 'ron') {
     if (!input.loserPlayerId || !validPlayerIds.has(input.loserPlayerId)) return '点炮需要指定放炮者'
@@ -287,6 +384,11 @@ export function registerMatchRoutes(app: Hono<Env>) {
     const authorizedAt = performance.now()
     const input = validateHand(await c.req.json().catch(() => null))
     if (!input) return jsonError(c, '计分数据格式无效')
+    if (input.type === 'custom') return jsonError(c, '自定义计分已停用，请使用自摸、点炮、流局或局内事件')
+    if (input.clientRequestId) {
+      const existing = await existingHandMutation(c.env.DB, id, input.clientRequestId)
+      if (existing) return c.json(existing, 201)
+    }
 
     const [matchResult, playerResult, sequenceResult, currentHandEventsResult] = await c.env.DB.batch([
       c.env.DB.prepare(
@@ -350,11 +452,12 @@ export function registerMatchRoutes(app: Hono<Env>) {
       created_at: createdAt,
     }
     const preparedAt = performance.now()
-    await c.env.DB.batch([
-      c.env.DB.prepare(`
+    try {
+      await c.env.DB.batch([
+        c.env.DB.prepare(`
         INSERT INTO hands(id, match_id, sequence, wind, hand_number, result_type,
-          winner_player_id, loser_player_id, note, tile_record, created_at)
-        VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          winner_player_id, loser_player_id, note, tile_record, request_key, created_at)
+        VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).bind(
         hand.id,
         id,
@@ -366,6 +469,7 @@ export function registerMatchRoutes(app: Hono<Env>) {
         hand.loser_player_id,
         hand.note,
         hand.tile_record ? JSON.stringify(hand.tile_record) : null,
+        input.clientRequestId ?? null,
         hand.created_at,
       ),
       ...hand.scores.map(score => c.env.DB.prepare(
@@ -387,11 +491,18 @@ export function registerMatchRoutes(app: Hono<Env>) {
         SET current_wind = ?, current_hand = ?, status = ?, finished_at = ?, updated_at = ?
         WHERE id = ?
       `).bind(next.wind, next.hand, nextStatus, finishedAt, createdAt, id),
-      ...(finishesMatch ? [c.env.DB.prepare(`
-        UPDATE group_sessions SET status = 'finished', updated_at = ?
-        WHERE match_id = ? AND status = 'active'
-      `).bind(createdAt, id)] : []),
-    ])
+        ...(finishesMatch ? [c.env.DB.prepare(`
+          UPDATE group_sessions SET status = 'finished', updated_at = ?
+          WHERE match_id = ? AND status = 'active'
+        `).bind(createdAt, id)] : []),
+      ])
+    } catch (error) {
+      if (input.clientRequestId) {
+        const existing = await existingHandMutation(c.env.DB, id, input.clientRequestId)
+        if (existing) return c.json(existing, 201)
+      }
+      throw error
+    }
     if (finishesMatch) await publishGroupMatchFinished(c, id)
     const completedAt = performance.now()
     c.header('Server-Timing', [
@@ -420,6 +531,7 @@ export function registerMatchRoutes(app: Hono<Env>) {
     const authorizedAt = performance.now()
     const input = validateHand(await c.req.json().catch(() => null))
     if (!input) return jsonError(c, '计分数据格式无效')
+    if (input.type === 'custom') return jsonError(c, '自定义计分已停用，请改为受支持的计分类型')
 
     const [matchResult, handResult, playerResult] = await c.env.DB.batch([
       c.env.DB.prepare(
@@ -463,6 +575,11 @@ export function registerMatchRoutes(app: Hono<Env>) {
       outcomes,
       scores: input.scores,
     }
+    const fullMatch = await getMatch(c.env.DB, id)
+    if (!fullMatch) return jsonError(c, '牌局不存在', 404)
+    const replay = replayMatchProgress(fullMatch, hand)
+    if (replay.error) return jsonError(c, replay.error, 409)
+
     const updatedAt = now()
     const preparedAt = performance.now()
     await c.env.DB.batch([
@@ -495,8 +612,20 @@ export function registerMatchRoutes(app: Hono<Env>) {
         outcome.tile_record ? JSON.stringify(outcome.tile_record) : null,
         index,
       )),
-      c.env.DB.prepare('UPDATE matches SET updated_at = ? WHERE id = ?').bind(updatedAt, id),
+      ...replay.changedPositions.map(position => c.env.DB.prepare(`
+        UPDATE hands SET wind = ?, hand_number = ? WHERE id = ? AND match_id = ?
+      `).bind(position.wind, position.handNumber, position.id, id)),
+      c.env.DB.prepare(`
+        UPDATE matches
+        SET current_wind = ?, current_hand = ?, status = ?, finished_at = ?, updated_at = ?
+        WHERE id = ?
+      `).bind(replay.currentWind, replay.currentHand, replay.status, replay.finishedAt, updatedAt, id),
+      ...(replay.status === 'finished' ? [c.env.DB.prepare(`
+        UPDATE group_sessions SET status = 'finished', updated_at = ?
+        WHERE match_id = ? AND status = 'active'
+      `).bind(updatedAt, id)] : []),
     ])
+    if (replay.status === 'finished') await publishGroupMatchFinished(c, id)
     const completedAt = performance.now()
     c.header('Server-Timing', [
       `authorize;dur=${(authorizedAt - startedAt).toFixed(1)}`,
@@ -504,7 +633,18 @@ export function registerMatchRoutes(app: Hono<Env>) {
       `write;dur=${(completedAt - preparedAt).toFixed(1)}`,
       `total;dur=${(completedAt - startedAt).toFixed(1)}`,
     ].join(', '))
-    const response = { hand, current_wind: match.current_wind, current_hand: match.current_hand }
+    const response = {
+      hand: {
+        ...hand,
+        wind: replay.changedPositions.find(position => position.id === hand.id)?.wind ?? hand.wind,
+        hand_number: replay.changedPositions.find(position => position.id === hand.id)?.handNumber ?? hand.hand_number,
+      },
+      current_wind: replay.currentWind,
+      current_hand: replay.currentHand,
+      status: replay.status,
+      finished_at: replay.finishedAt,
+      repositionedHands: replay.changedPositions.map(position => ({ id: position.id, wind: position.wind, hand_number: position.handNumber })),
+    }
     if (c.req.header('x-match-response') === 'hand-delta-v1') return c.json(response)
     return c.json({ ...response, match: await getMatch(c.env.DB, id) })
   })

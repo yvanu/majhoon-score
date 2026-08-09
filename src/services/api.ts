@@ -99,7 +99,7 @@ export const api = {
   uploadProfileAvatar,
   history: () => request<{ matches: MatchSummary[] }>('/api/me/matches'),
   recentMatch: () => request<{ matches: MatchSummary[] }>('/api/me/matches', 'GET', { limit: 1 }),
-  dailyStatistics: () => request<DailyStats>('/api/me/daily-statistics'),
+  dailyStatistics: (date: string, timezoneOffset: number) => request<DailyStats>(`/api/me/daily-statistics?date=${encodeURIComponent(date)}&timezoneOffset=${timezoneOffset}`),
   personalStatistics: (dimension: StatisticsDimension, value: string, timezoneOffset: number) =>
     request<PersonalStatistics>(`/api/me/statistics?dimension=${dimension}&value=${encodeURIComponent(value)}&timezoneOffset=${timezoneOffset}`),
   friends: (summary = false) => request<{ friends: Friend[] }>(`/api/me/friends${summary ? '?summary=1' : ''}`),

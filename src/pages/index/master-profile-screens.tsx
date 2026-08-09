@@ -223,7 +223,6 @@ export function PreferencesScreen({ preferences, onChange, onBack }: {
     <View className='master-pref-list'>
       <View onClick={() => { void chooseScores() }}><Text>推荐分数</Text><Text>{preferences.quickScores[0]} / {preferences.quickScores[1]}</Text></View>
       <View onClick={() => { void chooseStep() }}><Text>快捷调整步长</Text><Text>±{preferences.quickAdjustStep}</Text></View>
-      <View onClick={() => onChange({ ...preferences, defaultMultiRon: !preferences.defaultMultiRon })}><Text>默认一炮多响</Text><Text>{preferences.defaultMultiRon ? '开启' : '关闭'}</Text></View>
       <View onClick={() => onChange({ ...preferences, clearScoreStateAfterSave: !preferences.clearScoreStateAfterSave })}><Text>录分后清空状态</Text><Text>{preferences.clearScoreStateAfterSave ? '开启' : '关闭'}</Text></View>
       <View onClick={() => onChange({ ...preferences, showSettlementPreview: !preferences.showSettlementPreview })}><Text>显示结算预览</Text><Text>{preferences.showSettlementPreview ? '开启' : '关闭'}</Text></View>
     </View>
@@ -250,7 +249,7 @@ export function ScoringSettingsScreen({ preferences, onBack, onPreferences }: { 
   </ScrollView>
 }
 
-export function SettingsScreen({ onBack, onEditProfile, onScoringSettings, onInfo }: {
+export function SettingsScreen({ onBack, onEditProfile, onScoringSettings, onLogout, onInfo }: {
   user: AuthUser
   preferences: UserPreferences
   loading: boolean
@@ -265,13 +264,12 @@ export function SettingsScreen({ onBack, onEditProfile, onScoringSettings, onInf
   const rows = [
     { title: '账号与资料', subtitle: '微信昵称、头像', action: onEditProfile },
     { title: '记分设置', subtitle: '默认分值与快捷操作', action: onScoringSettings },
-    { title: '通知', subtitle: '组局和群聊提醒', action: () => onInfo('通知') },
-    { title: '显示', subtitle: '字号与界面偏好', action: () => onInfo('显示') },
-    { title: '隐私', subtitle: '数据与授权', action: () => onInfo('隐私') },
+    { title: '隐私与协议', subtitle: '数据使用与授权说明', action: () => onInfo('隐私与协议') },
   ]
   return <View className='master-settings-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
     <BackTitle title='设置' onBack={onBack} />
     <View className='master-settings-list'>{rows.map(row => <View key={row.title} onClick={row.action}><View><Text>{row.title}</Text><Text>{row.subtitle}</Text></View><MasterRightChevronGlyph /></View>)}</View>
+    <Button className='master-settings-logout' hoverClass='none' onClick={onLogout}>退出登录</Button>
   </View>
 }
 

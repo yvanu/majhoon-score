@@ -208,6 +208,7 @@
   line-height: 78.846rpx;
 }
 .master-start-secondary-actions button::after { border: 0; }
+.master-start-secondary-actions button:only-child { grid-column: 1 / -1; }
 .master-start-secondary-actions button[disabled] { opacity: .38; }
 
 .master-start-rule-card {

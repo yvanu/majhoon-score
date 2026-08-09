@@ -3,17 +3,17 @@ import { Button, Image, Input, ScrollView, Text, View } from '@tarojs/components
 import type { AuthUser, Friend, GroupSessionMember, MatchLobby, MatchLobbyMember } from '@shared/types'
 import { matchLobbyQrUrl } from '../../services/api'
 import { IdentityAvatar } from './identity-avatar'
-import { MasterBackGlyph, MasterRightChevronGlyph, getPageTopInset } from './shared'
+import { MasterBackGlyph, getPageTopInset } from './shared'
 import { GroupMemberInfoModal } from './group-member-info'
 
-const seatSpots = [
-  { spot: 'top', seat: '北', memberIndex: 3 },
-  { spot: 'right', seat: '东', memberIndex: 0 },
-  { spot: 'bottom', seat: '南', memberIndex: 1 },
-  { spot: 'left', seat: '西', memberIndex: 2 },
+const participantSpots = [
+  { spot: 'top', memberIndex: 3 },
+  { spot: 'right', memberIndex: 0 },
+  { spot: 'bottom', memberIndex: 1 },
+  { spot: 'left', memberIndex: 2 },
 ] as const
 
-export function LobbyScreen({ lobby, user, friends, friendsLoading, loading, closeOverlayRequest, onOverlayOpenChange, onBack, onRefresh, onJoin, onAddSelf, onAddFriend, onAddGuest, onAddNewFriend, onRemoveMember, onStartSeating, onStartDirect, onCancel, onEnsureFriends, onFriendsChanged, onOpenFriend }: {
+export function LobbyScreen({ lobby, user, friends, friendsLoading, loading, closeOverlayRequest, onOverlayOpenChange, onBack, onRefresh, onJoin, onAddSelf, onAddFriend, onAddGuest, onAddNewFriend, onRemoveMember, onStartSeating, onCancel, onEnsureFriends, onFriendsChanged, onOpenFriend }: {
   lobby: MatchLobby
   user: AuthUser
   friends: Friend[]
@@ -30,7 +30,6 @@ export function LobbyScreen({ lobby, user, friends, friendsLoading, loading, clo
   onAddNewFriend: () => void
   onRemoveMember: (member: MatchLobbyMember) => Promise<void>
   onStartSeating: () => void
-  onStartDirect: () => Promise<void>
   onCancel: () => Promise<void>
   onEnsureFriends: () => Promise<void>
   onFriendsChanged: () => Promise<void>
@@ -99,20 +98,18 @@ export function LobbyScreen({ lobby, user, friends, friendsLoading, loading, clo
   return <View className='master-start-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
     <View className='master-start-nav'>
       <Button className='master-start-back' hoverClass='none' onClick={onBack}><MasterBackGlyph /></Button>
-      <View><Text>开始新牌局</Text><Text>确认本场玩家、座位与庄家</Text></View>
+      <View><Text>开始新牌局</Text><Text>先确认四位参与者，座位在下一步分配</Text></View>
     </View>
 
     <View className='master-start-table-card'>
       <View className='master-start-card-head'><Text>本场玩家</Text><Text>{lobby.members.length} / 4</Text></View>
       <View className='master-start-table-center'><Text>南京麻将</Text></View>
-      {seatSpots.map(({ spot, seat, memberIndex }) => {
+      {participantSpots.map(({ spot, memberIndex }) => {
         const member = lobby.members[memberIndex]
         const isSelf = member?.userId === user.id
         return <View className={`master-start-seat ${spot}`} key={spot}>
-          <Text className='master-start-seat-chip'>{seat}</Text>
           {member ? <View className='master-start-player' onClick={() => setSelectedMember(member)}>
             <View className={`master-start-avatar${isSelf ? ' self' : ''}`}><IdentityAvatar name={member.name} gender={member.gender} avatarUrl={member.avatarUrl} fallback='smile' /></View>
-            {seat === '东' && <Text className='master-start-dealer'>庄</Text>}
             <Text className='master-start-player-name'>{isSelf ? '我' : member.name}</Text>
           </View> : <View className='master-start-player empty' onClick={openPlayerEditor}>
             <View className='master-start-empty-avatar'><Text>＋</Text></View>
@@ -123,17 +120,16 @@ export function LobbyScreen({ lobby, user, friends, friendsLoading, loading, clo
     </View>
 
     <View className='master-start-secondary-actions'>
-      <Button hoverClass='none' disabled={!full || !canEdit} onClick={onStartSeating}>调整座位</Button>
       <Button hoverClass='none' disabled={!canEdit} onClick={openPlayerEditor}>更换玩家</Button>
     </View>
 
     <View className='master-start-rule-card'>
-      <View><Text>南京麻将 · 标准规则</Text><Text>从组局进入时仅确认座位与庄家</Text></View>
-      <View className='master-start-rule-link'><Text>查看规则</Text><MasterRightChevronGlyph /></View>
+      <View><Text>南京麻将 · 标准规则</Text><Text>当前只确认参与者，东南西北与庄家在下一步分配</Text></View>
+      <View className='master-start-rule-link'><Text>座位待确认</Text></View>
     </View>
 
     {!lobby.isMember && lobby.status === 'preparing' && !full && <Button className='master-start-join' hoverClass='none' disabled={loading} onClick={() => { void onJoin() }}>{loading ? '加入中…' : '先加入这桌'}</Button>}
-    {lobby.isOwner && lobby.status === 'preparing' && <Button className='master-start-primary' hoverClass='none' disabled={!full || loading} onClick={() => { if (full) void onStartDirect() }}>{loading ? '创建牌局中…' : '开始记分'}</Button>}
+    {lobby.isOwner && lobby.status === 'preparing' && <Button className='master-start-primary' hoverClass='none' disabled={!full || loading} onClick={() => { if (full) onStartSeating() }}>{loading ? '处理中…' : '确认座位并开始'}</Button>}
     {!lobby.isOwner && lobby.isMember && lobby.status === 'preparing' && <Button className='master-start-primary muted' hoverClass='none' disabled>等待房主开始</Button>}
     {lobby.status !== 'preparing' && <Button className='master-start-primary muted' hoverClass='none' disabled>{lobby.status === 'started' ? '牌局已经开始' : '准备桌已关闭'}</Button>}
 
