@@ -129,13 +129,13 @@ function StatusView({ match, editable, loading, onAdd, onFinish }: {
       <Text className='master-match-section-title'>本局操作</Text>
       <View className='master-match-actions'>
         <View className='master-match-action' onClick={() => { if (!loading) onAdd('tsumo') }}>
-          <View><Text>自摸</Text><Text>赢家一次录入</Text></View><View className='master-match-plus'><MasterRightChevronGlyph /></View>
+          <View><Text>自摸</Text><Text>赢家一次录入</Text></View><View className='master-match-plus'><View className='master-match-plus-horizontal' /><View className='master-match-plus-vertical' /></View>
         </View>
         <View className='master-match-action' onClick={() => { if (!loading) onAdd('ron') }}>
-          <View><Text>点炮</Text><Text>选择点炮者与胡牌者</Text></View><View className='master-match-plus'><MasterRightChevronGlyph /></View>
+          <View><Text>点炮</Text><Text>选择点炮者与胡牌者</Text></View><View className='master-match-plus'><View className='master-match-plus-horizontal' /><View className='master-match-plus-vertical' /></View>
         </View>
         <View className='master-match-action' onClick={() => { if (!loading) onAdd('event') }}>
-          <View><Text>局内事件</Text><Text>杠 / 跟圈 / 四风归一</Text></View><View className='master-match-plus'><MasterRightChevronGlyph /></View>
+          <View><Text>局内事件</Text><Text>杠 / 跟圈 / 四风归一</Text></View><View className='master-match-plus'><View className='master-match-plus-horizontal' /><View className='master-match-plus-vertical' /></View>
         </View>
       </View>
       <Button className='master-match-finish' hoverClass='none' disabled={loading} onClick={onFinish}>结束牌局</Button>
@@ -169,7 +169,7 @@ function RecordsView({ match, editable, onEdit }: { match: Match; editable: bool
           <Text className='master-record-detail'>{recordDetail(match, hand)}</Text>
         </View>
         {recordScore(hand) && <Text className='master-record-score'>{recordScore(hand)}</Text>}
-        {editable && <View className='master-record-chevron'><MasterRightChevronGlyph /></View>}
+        {editable && hand.result_type !== 'tsumo' && <View className='master-record-chevron'><MasterRightChevronGlyph /></View>}
       </View>) : <View className='master-record-empty'><Text>暂无记录</Text></View>}</View>
     </ScrollView>
   </>

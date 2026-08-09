@@ -173,14 +173,19 @@
 }
 .master-match-plus {
   position: absolute;
-  left: 610.462rpx;
-  top: 61.999rpx;
-  width: 8.862rpx;
-  height: 19.2rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  left: 598.077rpx;
+  top: 55.769rpx;
+  width: 26.923rpx;
+  height: 26.923rpx;
 }
+.master-match-plus-horizontal,
+.master-match-plus-vertical {
+  position: absolute;
+  border-radius: 1rpx;
+  background: #85827A;
+}
+.master-match-plus-horizontal { left: 4.808rpx; top: 12.5rpx; width: 17.308rpx; height: 1.923rpx; }
+.master-match-plus-vertical { left: 12.5rpx; top: 4.808rpx; width: 1.923rpx; height: 17.308rpx; }
 .master-match-finish {
   width: 100%;
   height: 100rpx;

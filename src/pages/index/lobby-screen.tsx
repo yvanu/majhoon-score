@@ -104,14 +104,14 @@ export function LobbyScreen({ lobby, user, friends, friendsLoading, loading, clo
 
     <View className='master-start-table-card'>
       <View className='master-start-card-head'><Text>本场玩家</Text><Text>{lobby.members.length} / 4</Text></View>
-      <View className='master-start-table-center' />
+      <View className='master-start-table-center'><Text>南京麻将</Text></View>
       {seatSpots.map(({ spot, seat, memberIndex }) => {
         const member = lobby.members[memberIndex]
         const isSelf = member?.userId === user.id
         return <View className={`master-start-seat ${spot}`} key={spot}>
           <Text className='master-start-seat-chip'>{seat}</Text>
           {member ? <View className='master-start-player' onClick={() => setSelectedMember(member)}>
-            <View className={`master-start-avatar${isSelf ? ' self' : ''}`}><IdentityAvatar name={member.name} gender={member.gender} avatarUrl={member.avatarUrl} /></View>
+            <View className={`master-start-avatar${isSelf ? ' self' : ''}`}><IdentityAvatar name={member.name} gender={member.gender} avatarUrl={member.avatarUrl} fallback='smile' /></View>
             {seat === '东' && <Text className='master-start-dealer'>庄</Text>}
             <Text className='master-start-player-name'>{isSelf ? '我' : member.name}</Text>
           </View> : <View className='master-start-player empty' onClick={openPlayerEditor}>
@@ -156,7 +156,7 @@ export function LobbyScreen({ lobby, user, friends, friendsLoading, loading, clo
         {friendsLoading && <Text className='lobby-v4-friend-empty'>正在加载牌友…</Text>}
         {!friendsLoading && !visibleFriends.length && <Text className='lobby-v4-friend-empty'>没有可选择的牌友</Text>}
         {visibleFriends.map(friend => <View className='lobby-v4-friend-row' key={friend.id} onClick={() => { void chooseFriend(friend) }}>
-          <View className='lobby-v4-friend-avatar'><IdentityAvatar name={friend.wechatName || friend.name} gender={friend.wechatGender} avatarUrl={friend.wechatAvatarUrl} /></View>
+          <View className='lobby-v4-friend-avatar'><IdentityAvatar name={friend.wechatName || friend.name} gender={friend.wechatGender} avatarUrl={friend.wechatAvatarUrl} fallback='smile' /></View>
           <View><Text>{friend.name}</Text><Text>{friend.linkedUserId && friend.wechatName ? `微信昵称 ${friend.wechatName} · ` : ''}共同 {friend.jointMatches} 将</Text></View>
           <Text>›</Text>
         </View>)}

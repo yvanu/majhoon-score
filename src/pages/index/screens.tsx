@@ -540,8 +540,21 @@ const bottomNavIconSources: Record<BottomNavKey, { active: string; inactive: str
   },
 }
 
+function bottomNavVectorSource(type: BottomNavKey, active: boolean) {
+  const fill = active ? '#171714' : '#85827A'
+  const body = type === 'home'
+    ? `<path d="M64.96 796V787.4L71.16 781.58L77.36 787.4V796H64.96ZM67.16 793.82H75.18V788.2L71.16 784.46L67.16 788.2V793.82Z" fill="${fill}"/>`
+    : type === 'groups'
+      ? `<circle cx="162" cy="788.4" r="8.63" fill="none" stroke="${fill}" stroke-width="0.74"/><circle cx="162" cy="788.4" r="5.61" fill="none" stroke="${fill}" stroke-width="0.62"/>`
+      : type === 'friends'
+        ? `<rect x="241.35" y="780.15" width="11.5" height="14.55" rx="3.1" fill="none" stroke="${fill}" stroke-width="1.25"/><rect x="247.28" y="782.35" width="11.45" height="14.55" rx="3.1" fill="none" stroke="${fill}" stroke-width="1.25"/><path d="M247.4 787.1h2.25v2.4H247.4zM250.55 787.9h2.25v2.4h-2.25z" fill="${fill}"/>`
+        : `<circle cx="338" cy="788.4" r="8.63" fill="none" stroke="${fill}" stroke-width="0.74"/><circle cx="338" cy="788.4" r="5.92" fill="${fill}"/>`
+  const viewBox = type === 'home' ? '62 780 18 18' : type === 'groups' ? '152 778.4 20 20' : type === 'friends' ? '240 778.4 20 20' : '328 778.4 20 20'
+  return `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">${body}</svg>`)}`
+}
+
 function BottomNavIcon({ type, active }: { type: BottomNavKey; active: boolean }) {
-  return <Image className='tabbar-v4-icon-image' mode='aspectFit' src={bottomNavIconSources[type][active ? 'active' : 'inactive']} />
+  return <Image className='tabbar-v4-icon-image' mode='aspectFit' src={bottomNavVectorSource(type, active)} />
 }
 
 export function BottomNav({ active, unreadChats, onHome, onGroups, onFriends, onProfile }: {

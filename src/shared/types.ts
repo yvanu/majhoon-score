@@ -296,6 +296,13 @@ export interface PersonalStatistics {
   patterns: PersonalPatternStat[]
   featuredBigHand: FeaturedBigHand | null
   bigHandRecords: BigHandRecord[]
+  comparison?: {
+    label: string
+    totalHandsDelta: number
+    winRateDelta: number
+    tsumoRateDelta: number
+    dealInRateDelta: number
+  }
 }
 
 export interface UserPreferences {

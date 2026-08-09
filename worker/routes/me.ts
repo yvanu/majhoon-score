@@ -787,7 +787,7 @@ export function registerMeRoutes(app: Hono<Env>) {
     if (!period) return jsonError(c, '统计时间范围无效')
 
     const playerName = user.display_name?.trim() || user.username
-    const [rowsResult, featuredResult, trendResult, recentBigResult] = await c.env.DB.batch([
+    const [rowsResult, featuredResult, trendResult, recentBigResult, previousRowsResult] = await c.env.DB.batch([
       c.env.DB.prepare(`
         SELECT h.id hand_id, h.result_type, h.loser_player_id,
           p.id player_id,
@@ -858,12 +858,30 @@ export function registerMeRoutes(app: Hono<Env>) {
         ORDER BY h.created_at DESC
         LIMIT 100
       `).bind(user.id, user.id, playerName, period.startAt, period.endAt),
+      c.env.DB.prepare(`
+        SELECT h.id hand_id, h.result_type, h.loser_player_id,
+          p.id player_id,
+          ho.winner_player_id outcome_winner_player_id,
+          ho.note outcome_note
+        FROM hands h
+        JOIN matches m ON m.id = h.match_id
+        JOIN players p ON p.match_id = m.id AND (
+          p.user_id = ? OR (
+            m.owner_user_id = ? AND p.user_id IS NULL AND p.friend_id IS NULL AND
+            p.name = ? COLLATE NOCASE
+          )
+        )
+        LEFT JOIN hand_outcomes ho ON ho.hand_id = h.id AND ho.winner_player_id = p.id
+        WHERE h.created_at >= ? AND h.created_at < ?
+        ORDER BY h.created_at DESC
+      `).bind(user.id, user.id, playerName, period.previousStartAt, period.previousEndAt),
     ])
     const queriedAt = performance.now()
     const rows = rowsResult as D1Result<Record<string, unknown>>
     const featuredRow = (featuredResult as D1Result<Record<string, unknown>>).results[0]
     const trendRows = trendResult as D1Result<Record<string, unknown>>
     const recentBigRows = recentBigResult as D1Result<Record<string, unknown>>
+    const previousRows = previousRowsResult as D1Result<Record<string, unknown>>
 
     let wins = 0
     let dealIns = 0
@@ -888,6 +906,29 @@ export function registerMeRoutes(app: Hono<Env>) {
         }
       }
       if (isDealIn) dealIns += 1
+    }
+
+    let previousWins = 0
+    let previousDealIns = 0
+    let previousTsumoWins = 0
+    for (const row of previousRows.results) {
+      const playerId = String(row.player_id)
+      const isWin = row.outcome_winner_player_id === playerId
+      if (isWin) {
+        previousWins += 1
+        if (row.result_type === 'tsumo') previousTsumoWins += 1
+      }
+      if (row.result_type === 'ron' && row.loser_player_id === playerId) previousDealIns += 1
+    }
+    const totalHands = rows.results.filter(row => row.result_type !== 'event').length
+    const previousTotalHands = previousRows.results.filter(row => row.result_type !== 'event').length
+    const ratePercent = (part: number, total: number) => total ? part / total * 100 : 0
+    const comparison: PersonalStatistics['comparison'] = {
+      label: period.comparisonLabel,
+      totalHandsDelta: totalHands - previousTotalHands,
+      winRateDelta: Math.round(ratePercent(wins, totalHands) - ratePercent(previousWins, previousTotalHands)),
+      tsumoRateDelta: Math.round(ratePercent(tsumoWins, totalHands) - ratePercent(previousTsumoWins, previousTotalHands)),
+      dealInRateDelta: Math.round(ratePercent(dealIns, totalHands) - ratePercent(previousDealIns, previousTotalHands)),
     }
 
     if (featuredRow) {
@@ -928,7 +969,7 @@ export function registerMeRoutes(app: Hono<Env>) {
       dimension: period.dimension,
       value: period.value,
       label: period.label,
-      totalHands: rows.results.filter(row => row.result_type !== 'event').length,
+      totalHands,
       wins,
       dealIns,
       tsumoWins,
@@ -940,6 +981,7 @@ export function registerMeRoutes(app: Hono<Env>) {
         .sort((first, second) => second.count - first.count || first.name.localeCompare(second.name, 'zh-CN')),
       featuredBigHand,
       bigHandRecords,
+      comparison,
     }
     const aggregatedAt = performance.now()
     c.header('Server-Timing', [

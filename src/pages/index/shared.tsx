@@ -135,7 +135,7 @@ export function Avatar({ player, large = false, selected = false, isSelf = false
   return <AvatarFace name={player.name} palette={player.seat} seat={player.seat} large={large} selected={selected} isSelf={isSelf} />
 }
 
-export function FriendAvatar({ friend, large = false }: { friend: Friend; large?: boolean }) {
+export function FriendAvatar({ friend, large = false, masterFallback = false }: { friend: Friend; large?: boolean; masterFallback?: boolean }) {
   if (friend.linkedUserId) {
     return <IdentityAvatar
       name={friend.wechatName || friend.name}
@@ -143,11 +143,13 @@ export function FriendAvatar({ friend, large = false }: { friend: Friend; large?
       avatarUrl={friend.wechatAvatarUrl}
       size={large ? 'large' : 'normal'}
       badge='微信'
+      fallback={masterFallback ? 'smile' : 'initial'}
     />
   }
   if (friend.avatarUrl) {
     return <IdentityAvatar name={friend.name} avatarUrl={friend.avatarUrl} size={large ? 'large' : 'normal'} />
   }
+  if (masterFallback) return <IdentityAvatar name={friend.name} size={large ? 'large' : 'normal'} fallback='smile' />
   return <AvatarFace name={friend.name} palette={Number(friend.avatar_seed || 0)} large={large} />
 }
 

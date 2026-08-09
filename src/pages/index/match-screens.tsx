@@ -670,6 +670,22 @@ function ScoreChangePreview({ players, scores, label, note }: {
   </View>
 }
 
+function MasterScoreDotAvatar({ selected }: { selected: boolean }) {
+  return <View className={`master-score-dot-avatar${selected ? ' selected' : ''}`} />
+}
+
+function MasterScoreSmileAvatar({ selected = false }: { selected?: boolean }) {
+  return <View className={`master-score-smile-avatar${selected ? ' selected' : ''}`}>
+    <View className='master-score-smile-eye left' />
+    <View className='master-score-smile-eye right' />
+    <View className='master-score-smile-mouth' />
+  </View>
+}
+
+function MasterScoreShade({ tone, onClick }: { tone: 'soft' | 'dark'; onClick: () => void }) {
+  return <View className={`master-score-shade ${tone}`} onClick={onClick} />
+}
+
 export function ScoreScreen({ players, currentUserId, currentWind, currentHand, initialHand, initialType, preferences, loading, closeTileEditorRequest, onTileEditorOpenChange, onBack, onSubmit }: {
   players: Player[]
   currentUserId: string | null
@@ -1179,7 +1195,7 @@ export function ScoreScreen({ players, currentUserId, currentWind, currentHand, 
   const tileEditorSubtitle = `第${currentHand}局 · ${tileEditorPlayer ? masterPlayerLabel(tileEditorPlayer) : '我'} · ${tileEditorNote} · +${tileEditorScore}`
 
   if (tileEditorTarget) {
-    return <View className='master-score-dialog master-score-tile-dialog'>
+    return <><MasterScoreShade tone='dark' onClick={() => setTileEditorTarget(null)} /><View className='master-score-dialog master-score-tile-dialog'>
       <View className='master-score-header tile'>
         <View><Text>录入牌谱</Text><Text>{tileEditorSubtitle}</Text></View>
         <Button hoverClass='none' onClick={() => setTileEditorTarget(null)}><MasterCloseGlyph /></Button>
@@ -1193,11 +1209,11 @@ export function ScoreScreen({ players, currentUserId, currentWind, currentHand, 
         />
       </ScrollView>
       <Button className='master-score-submit' hoverClass='none' onClick={completeTileEditor}>保存牌谱</Button>
-    </View>
+    </View></>
   }
 
   if (masterViewType === 'tsumo') {
-    return <View className='master-score-dialog master-score-dialog-tsumo'>
+    return <><MasterScoreShade tone='soft' onClick={onBack} /><View className='master-score-dialog master-score-dialog-tsumo'>
       <View className='master-score-header no-close'>
         <View><Text>{isEditing ? '修改自摸' : '录入自摸'}</Text><Text>一次选人、选分、保存，不再进入子页面</Text></View>
       </View>
@@ -1205,7 +1221,7 @@ export function ScoreScreen({ players, currentUserId, currentWind, currentHand, 
       <View className='master-score-player-grid'>{players.map(player => {
         const selected = winner === player.id
         return <View className={`master-score-player-card${selected ? ' selected' : ''}`} key={player.id} onClick={() => { feedback(); setWinner(player.id) }}>
-          <View className='master-score-avatar'><Avatar player={player} selected={selected} isSelf={false} /></View>
+          <View className='master-score-avatar'><MasterScoreDotAvatar selected={selected} /></View>
           <Text>{masterPlayerLabel(player)}</Text>
         </View>
       })}</View>
@@ -1218,11 +1234,11 @@ export function ScoreScreen({ players, currentUserId, currentWind, currentHand, 
       <View className='master-score-field-head notes'><Text>大胡备注</Text>{canRecordTsumoTiles && <Text className='master-score-tile-link' onClick={() => openTileEditor('tsumo')}>{hasTileRecordContent(tileRecord) ? '修改牌谱' : '录入牌谱'}</Text>}</View>
       <View className='master-score-note-grid'>{masterTsumoNotes.map(option => <View className={notes.includes(option) ? 'selected' : ''} key={option} onClick={() => toggleNote(option)}><Text>{option}</Text></View>)}</View>
       <Button className='master-score-submit' hoverClass='none' disabled={loading || !canSaveTsumo} onClick={save}>{loading ? '保存中…' : '确认保存'}</Button>
-    </View>
+    </View></>
   }
 
   if (masterViewType === 'ron' && !multiRonEnabled) {
-    return <View className='master-score-dialog master-score-dialog-ron'>
+    return <><MasterScoreShade tone='soft' onClick={onBack} /><View className='master-score-dialog master-score-dialog-ron'>
       <View className='master-score-header no-close ron'>
         <View><Text>{isEditing ? '修改点炮' : '录入点炮'}</Text><Text>胡牌者与点炮者都在一个弹窗完成</Text></View>
         <View className='master-score-multi-toggle' onClick={toggleMultiRonMode}><Text>一炮多响</Text><Text>关</Text></View>
@@ -1231,7 +1247,7 @@ export function ScoreScreen({ players, currentUserId, currentWind, currentHand, 
       <View className='master-score-player-grid ron-losers'>{players.map(player => {
         const selected = loser === player.id
         return <View className={`master-score-player-card${selected ? ' selected' : ''}`} key={player.id} onClick={() => masterChooseRonLoser(player.id)}>
-          <View className='master-score-avatar'><Avatar player={player} selected={selected} isSelf={false} /></View>
+          <View className='master-score-avatar'><MasterScoreDotAvatar selected={selected} /></View>
           <Text>{masterPlayerLabel(player)}</Text>
         </View>
       })}</View>
@@ -1240,7 +1256,7 @@ export function ScoreScreen({ players, currentUserId, currentWind, currentHand, 
         const selected = ronWinnerIds.includes(player.id)
         const disabled = player.id === loser
         return <View className={`master-score-player-card${selected ? ' selected' : ''}${disabled ? ' disabled' : ''}`} key={player.id} onClick={() => { if (!disabled) masterChooseRonWinner(player.id) }}>
-          <View className='master-score-avatar'><Avatar player={player} selected={selected} isSelf={false} /></View>
+          <View className='master-score-avatar'><MasterScoreDotAvatar selected={selected} /></View>
           <Text>{masterPlayerLabel(player)}</Text>
         </View>
       })}</View>
@@ -1259,11 +1275,11 @@ export function ScoreScreen({ players, currentUserId, currentWind, currentHand, 
         }}><Text>{option}</Text></View>
       })}<View className={displayedRonDraft?.notes.some(note => !masterRonNotes.includes(note)) ? 'selected' : ''} onClick={() => { if (displayedRonWinnerId) void chooseRonPrimaryNote(displayedRonWinnerId) }}><Text>更多</Text></View></View>
       <Button className='master-score-submit' hoverClass='none' disabled={loading || !canSaveRon} onClick={save}>{loading ? '保存中…' : '确认保存'}</Button>
-    </View>
+    </View></>
   }
 
   if (masterViewType === 'ron' && multiRonEnabled) {
-    return <View className='master-score-dialog master-score-dialog-multi'>
+    return <><MasterScoreShade tone='dark' onClick={onBack} /><View className='master-score-dialog master-score-dialog-multi'>
       <View className='master-score-header'>
         <View><Text>点炮</Text><Text>一炮多响已开启</Text></View>
         <Button hoverClass='none' onClick={onBack}><MasterCloseGlyph /></Button>
@@ -1271,13 +1287,13 @@ export function ScoreScreen({ players, currentUserId, currentWind, currentHand, 
       <Text className='master-score-compact-label'>点炮者</Text>
       <View className='master-score-compact-picks multi-loser-picks'>{players.map(player => {
         const selected = loser === player.id
-        return <View className={selected ? 'selected' : ''} key={player.id} onClick={() => masterChooseRonLoser(player.id)}><View className='master-score-compact-avatar'><Avatar player={player} selected={selected} isSelf={false} /></View><Text>{masterPlayerLabel(player)}</Text></View>
+        return <View className={selected ? 'selected' : ''} key={player.id} onClick={() => masterChooseRonLoser(player.id)}><View className='master-score-compact-avatar'><MasterScoreSmileAvatar selected={selected} /></View><Text>{masterPlayerLabel(player)}</Text></View>
       })}</View>
       <View className='master-score-compact-head'><Text>胡牌者（多选）</Text><Text onClick={toggleMultiRonMode}>一炮多响</Text></View>
       <View className='master-score-compact-picks winners'>{players.map(player => {
         const selected = ronWinnerIds.includes(player.id)
         const disabled = player.id === loser
-        return <View className={`${selected ? 'selected' : ''}${disabled ? ' disabled' : ''}`} key={player.id} onClick={() => { if (!disabled) masterChooseRonWinner(player.id) }}><View className='master-score-compact-avatar'><Avatar player={player} selected={selected} isSelf={false} /></View><Text>{masterPlayerLabel(player)}</Text></View>
+        return <View className={`${selected ? 'selected' : ''}${disabled ? ' disabled' : ''}`} key={player.id} onClick={() => { if (!disabled) masterChooseRonWinner(player.id) }}><View className='master-score-compact-avatar'><MasterScoreSmileAvatar selected={selected} /></View><Text>{masterPlayerLabel(player)}</Text></View>
       })}</View>
       <ScrollView scrollY className='master-multi-winner-scroll' showScrollbar={false}>
         <View className='master-multi-winner-list'>{ronWinnerIds.map(playerId => {
@@ -1292,15 +1308,16 @@ export function ScoreScreen({ players, currentUserId, currentWind, currentHand, 
           </View>
         })}</View>
       </ScrollView>
-      {preferences.showSettlementPreview && canSaveRon && <View className='master-score-settlement'><Text>结算预览</Text><Text>{ronScores.filter(score => score.change !== 0).map(score => `${masterPlayerLabel(players.find(player => player.id === score.playerId)!)} ${score.change > 0 ? '+' : ''}${score.change}`).join(' · ')}</Text></View>}
+      <View className={`master-score-settlement${preferences.showSettlementPreview && canSaveRon ? '' : ' placeholder'}`}><Text>结算预览</Text><Text>{preferences.showSettlementPreview && canSaveRon ? ronScores.filter(score => score.change !== 0).map(score => `${masterPlayerLabel(players.find(player => player.id === score.playerId)!)} ${score.change > 0 ? '+' : ''}${score.change}`).join(' · ') : '选择点炮者与胡牌者后显示结算'}</Text></View>
       <Button className='master-score-submit' hoverClass='none' disabled={loading || !canSaveRon} onClick={save}>{loading ? '保存中…' : '确认保存'}</Button>
-    </View>
+    </View></>
   }
 
   if (masterViewType === 'event') {
     const payerLabel = eventType === '明杠' ? '放杠者' : ''
     const playerLabel = eventType === '明杠' ? '明杠者' : eventOption.playerLabel
-    return <View className='master-score-dialog master-score-dialog-event'>
+    const zeroEventPlayers = eventScores.filter(score => score.change === 0).length
+    return <><MasterScoreShade tone='dark' onClick={onBack} /><View className='master-score-dialog master-score-dialog-event'>
       <View className='master-score-header'>
         <View><Text>局内事件</Text><Text>事件不同，选人方式会自动变化</Text></View>
         <Button hoverClass='none' onClick={onBack}><MasterCloseGlyph /></Button>
@@ -1311,26 +1328,26 @@ export function ScoreScreen({ players, currentUserId, currentWind, currentHand, 
         <Text className='master-score-compact-label role payer-role'>{payerLabel}</Text>
         <View className='master-score-compact-picks event-payer-picks'>{players.map(player => {
           const selected = eventPayer === player.id
-          return <View className={selected ? 'selected' : ''} key={player.id} onClick={() => { feedback(); setEventPayer(player.id); if (player.id === eventPlayer) setEventPlayer('') }}><View className='master-score-compact-avatar'><Avatar player={player} selected={selected} isSelf={false} /></View><Text>{masterPlayerLabel(player)}</Text></View>
+          return <View className={selected ? 'selected' : ''} key={player.id} onClick={() => { feedback(); setEventPayer(player.id); if (player.id === eventPlayer) setEventPlayer('') }}><View className='master-score-compact-avatar'><MasterScoreSmileAvatar selected={selected} /></View><Text>{masterPlayerLabel(player)}</Text></View>
         })}</View>
       </>}
       <Text className={`master-score-compact-label role player-role${eventType === '明杠' ? '' : ' solo'}`}>{playerLabel}</Text>
       <View className={`master-score-compact-picks event-player-picks${eventType === '明杠' ? '' : ' solo'}`}>{players.map(player => {
         const selected = eventPlayer === player.id
         const disabled = eventType === '明杠' && eventPayer === player.id
-        return <View className={`${selected ? 'selected' : ''}${disabled ? ' disabled' : ''}`} key={player.id} onClick={() => { if (!disabled) { feedback(); selectEventPlayer(player.id) } }}><View className='master-score-compact-avatar'><Avatar player={player} selected={selected} isSelf={false} /></View><Text>{masterPlayerLabel(player)}</Text></View>
+        return <View className={`${selected ? 'selected' : ''}${disabled ? ' disabled' : ''}`} key={player.id} onClick={() => { if (!disabled) { feedback(); selectEventPlayer(player.id) } }}><View className='master-score-compact-avatar'><MasterScoreSmileAvatar selected={selected} /></View><Text>{masterPlayerLabel(player)}</Text></View>
       })}</View>
-      {preferences.showSettlementPreview && canSaveEvent && <View className='master-score-event-settlement'><Text>本次结算</Text><View>{masterEventScores.map(score => <View key={score.playerId}><Text>{masterPlayerLabel(players.find(player => player.id === score.playerId)!)}</Text><Text className={score.change > 0 ? 'positive' : 'negative'}>{score.change > 0 ? '+' : ''}{score.change}</Text></View>)}</View><Text>总和 0</Text></View>}
+      <View className={`master-score-event-settlement${preferences.showSettlementPreview && canSaveEvent ? '' : ' placeholder'}`}><Text>本次结算</Text><View>{preferences.showSettlementPreview && canSaveEvent ? masterEventScores.map(score => <View key={score.playerId}><Text>{masterPlayerLabel(players.find(player => player.id === score.playerId)!)}</Text><Text className={score.change > 0 ? 'positive' : 'negative'}>{score.change > 0 ? '+' : ''}{score.change}</Text></View>) : <View className='master-score-event-placeholder'><Text>选择事件玩家后显示</Text><Text>—</Text></View>}</View><View className='master-score-event-footer'><Text>{preferences.showSettlementPreview && canSaveEvent && zeroEventPlayers ? `其余${zeroEventPlayers === 1 ? '一' : zeroEventPlayers === 2 ? '两' : zeroEventPlayers === 3 ? '三' : zeroEventPlayers}人 0 分` : ''}</Text><Text>总和 0</Text></View></View>
       <Button className='master-score-submit' hoverClass='none' disabled={loading || !canSaveEvent} onClick={save}>{loading ? '保存中…' : '确认记录'}</Button>
-    </View>
+    </View></>
   }
 
   if (masterViewType === 'draw') {
-    return <View className='master-score-dialog master-score-dialog-draw'>
+    return <><MasterScoreShade tone='soft' onClick={onBack} /><View className='master-score-dialog master-score-dialog-draw'>
       <View className='master-score-header'><View><Text>流局</Text><Text>本局无人胡牌</Text></View><Button hoverClass='none' onClick={onBack}>×</Button></View>
       <View className='master-draw-card'><Text>确认本局流局</Text><Text>{drawDealer?.name || '当前庄家'}继续坐庄，四位玩家分数不变</Text></View>
       <Button className='master-score-submit' hoverClass='none' disabled={loading} onClick={save}>{loading ? '保存中…' : '确认流局'}</Button>
-    </View>
+    </View></>
   }
 
   if (tileEditorTarget) {

@@ -32,7 +32,7 @@ export function FriendsScreen({ friends, loading, query, onQueryChange, onOpen }
     <View className='master-friends-search'><MasterSearchGlyph /><Input value={query} maxlength={20} placeholder='搜索牌友' onInput={event => onQueryChange(event.detail.value)} /></View>
     <ScrollView scrollY className='master-friends-scroll' showScrollbar={false}>
       <View className='master-friends-list'>{visible.map(friend => <View className='master-friend-row' key={friend.id} onClick={() => onOpen(friend)}>
-        <View className='master-friend-avatar'><FriendAvatar friend={friend} /></View>
+        <View className='master-friend-avatar'><FriendAvatar friend={friend} masterFallback /></View>
         <View className='master-friend-copy'><Text>{friend.wechatName || friend.name}</Text><Text>共 {friend.jointMatches} 将 · 胡牌率 {Math.round((friend.winRate || 0) * 100)}%</Text></View>
         <Text className={friend.netScore > 0 ? 'positive' : friend.netScore < 0 ? 'negative' : ''}>{friend.netScore > 0 ? '+' : ''}{friend.netScore}</Text>
       </View>)}</View>
@@ -96,7 +96,7 @@ export function FriendStatisticsScreen({ statistics, onBack }: {
     <View className='master-friend-detail-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
       <View className='master-friend-detail-nav'><View className='master-friend-back' onClick={onBack}><MasterBackGlyph /></View><View><Text>{displayName}</Text><Text>牌友详情</Text></View></View>
       <View className='master-friend-summary'>
-        <View className='master-friend-detail-avatar'><FriendAvatar friend={friend} large /></View>
+        <View className='master-friend-detail-avatar'><FriendAvatar friend={friend} large masterFallback /></View>
         <View><Text>{displayName}</Text><Text>一起打了 {friend.jointMatches} 将 · {statistics.totalHands} 局</Text><View><Text>净胜</Text><Text className={statistics.netScore > 0 ? 'positive' : statistics.netScore < 0 ? 'negative' : ''}>{statistics.netScore > 0 ? '+' : ''}{statistics.netScore}</Text></View></View>
       </View>
 

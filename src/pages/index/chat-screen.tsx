@@ -331,7 +331,7 @@ export function GroupChatScreen({ group, user, loading: actionLoading, onBack, o
             </View>
           }
           return <View id={`chat-message-${message.id}`} className={`master-chat-message${mine ? ' mine' : ''}`} key={message.id}>
-            {!mine && <View className='master-chat-message-avatar'><IdentityAvatar name={message.sender_name || '牌友'} gender={member?.gender || null} avatarUrl={member?.avatar_url || null} size='small' /></View>}
+            {!mine && <View className='master-chat-message-avatar'><IdentityAvatar name={message.sender_name || '牌友'} gender={member?.gender || null} avatarUrl={member?.avatar_url || null} size='small' fallback='smile' /></View>}
             <View className='master-chat-message-body'>
               <View className='master-chat-bubble'><Text>{message.content}</Text></View>
               <Text className='master-chat-time'>{formatChatTime(message.created_at)}</Text>

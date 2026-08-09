@@ -134,7 +134,14 @@ export function resolveStatisticsPeriod(
     : dimension === 'month'
       ? `${year}年${month}月`
       : `${year}年`
-  return { dimension, value, label, startAt, endAt }
+  const previousLocal = dimension === 'day'
+    ? new Date(Date.UTC(year, month - 1, day - 1))
+    : dimension === 'month'
+      ? new Date(Date.UTC(year, month - 2, 1))
+      : new Date(Date.UTC(year - 1, 0, 1))
+  const previousStartAt = toUtc(previousLocal.getUTCFullYear(), previousLocal.getUTCMonth() + 1, previousLocal.getUTCDate())
+  const comparisonLabel = dimension === 'day' ? '较昨日' : dimension === 'month' ? '较上月' : '较去年'
+  return { dimension, value, label, startAt, endAt, previousStartAt, previousEndAt: startAt, comparisonLabel }
 }
 
 export function validateHand(value: unknown): HandInput | null {

@@ -12,16 +12,18 @@ export function IdentityAvatar({ name, gender = null, avatarUrl = null, size = '
   avatarUrl?: string | null
   size?: 'small' | 'normal' | 'large'
   badge?: string
-  fallback?: 'initial' | 'neutral'
+  fallback?: 'initial' | 'neutral' | 'smile'
 }) {
   return <View className={`identity-avatar ${size}`}>
     {avatarUrl
       ? <Image className='identity-avatar-image' src={resolveAssetUrl(avatarUrl)} mode='aspectFill' />
-      : gender
-        ? <View className={`identity-avatar-default ${gender}`}><View className='identity-avatar-head' /><View className='identity-avatar-body' /></View>
-        : fallback === 'neutral'
-          ? <View className='identity-avatar-default neutral'><View className='identity-avatar-head' /><View className='identity-avatar-body' /></View>
-          : <View className='identity-avatar-initial'><Text>{initialOf(name)}</Text></View>}
+      : fallback === 'smile'
+        ? <View className='identity-avatar-smile'><View className='eye left' /><View className='eye right' /><View className='mouth' /></View>
+        : gender
+          ? <View className={`identity-avatar-default ${gender}`}><View className='identity-avatar-head' /><View className='identity-avatar-body' /></View>
+          : fallback === 'neutral'
+            ? <View className='identity-avatar-default neutral'><View className='identity-avatar-head' /><View className='identity-avatar-body' /></View>
+            : <View className='identity-avatar-initial'><Text>{initialOf(name)}</Text></View>}
     {badge && <Text className='identity-avatar-badge'>{badge}</Text>}
   </View>
 }

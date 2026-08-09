@@ -332,6 +332,8 @@
 .master-create-row > view:first-child text:first-child { color: #171714; font-size: 23.077rpx; font-weight: 800; }
 .master-create-row > view:first-child text:last-child { margin-top: 7.692rpx; color: #9B958D; font-size: 16.346rpx; }
 .master-create-picker-pair { display: flex; align-items: center; gap: 8rpx; color: #8E8981; font-size: 19.231rpx; }
+.master-create-time-picker { display: flex; align-items: center; gap: 9.615rpx; }
+.master-create-time-picker > text { color: #8E8981; font-size: 19.231rpx; }
 .master-create-row.location input { width: 240rpx; color: #89847C; font-size: 19.231rpx; text-align: right; }
 .master-create-row.location > text { margin-left: 8rpx; color: #AAA49B; font-size: 28rpx; }
 .master-create-section-head { margin-top: 49.038rpx; display: flex; align-items: center; justify-content: space-between; }
@@ -353,6 +355,8 @@
 .master-create-invite > view > view { width: 65.385rpx; height: 65.385rpx; }
 .master-create-invite .identity-avatar,
 .master-create-invite .avatar { width: 65.385rpx !important; height: 65.385rpx !important; margin: 0 !important; border-radius: 50% !important; }
+.master-create-invite .identity-avatar-badge,
+.master-picker-list .identity-avatar-badge { display: none !important; }
 .master-create-invite > view > text { max-width: 100%; margin-top: 11.538rpx; overflow: hidden; color: #5D5851; font-size: 16.346rpx; text-overflow: ellipsis; white-space: nowrap; }
 .master-create-invite .add { position: relative; display: flex; align-items: center; justify-content: center; box-sizing: border-box; border: 1.923rpx solid #DCD7CE; border-radius: 50%; color: #9C968D; font-size: 25rpx; }
 .master-create-plus-horizontal,

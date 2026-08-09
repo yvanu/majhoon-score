@@ -1,7 +1,7 @@
 .identity-avatar { position: relative; width: 72rpx; height: 72rpx; flex: 0 0 auto; border-radius: 50%; overflow: visible; }
 .identity-avatar.small { width: 56rpx; height: 56rpx; }
 .identity-avatar.large { width: 152rpx; height: 152rpx; }
-.identity-avatar-image, .identity-avatar-default, .identity-avatar-initial { width: 100%; height: 100%; border-radius: 50%; overflow: hidden; }
+.identity-avatar-image, .identity-avatar-default, .identity-avatar-initial, .identity-avatar-smile { width: 100%; height: 100%; border-radius: 50%; overflow: hidden; }
 .identity-avatar-image { display: block; }
 .identity-avatar-default { position: relative; background: #eef2f5; }
 .identity-avatar-default.neutral { background: #eeeae2; }
@@ -11,6 +11,11 @@
 .identity-avatar-body { position: absolute; left: 50%; bottom: -8%; width: 68%; height: 50%; margin-left: -34%; border-radius: 50% 50% 18% 18%; background: rgba(59,67,76,.76); }
 .identity-avatar-default.neutral .identity-avatar-head, .identity-avatar-default.neutral .identity-avatar-body { background: rgba(78,74,68,.62); }
 .identity-avatar-default.female .identity-avatar-head, .identity-avatar-default.female .identity-avatar-body { background: rgba(113,71,84,.72); }
+.identity-avatar-smile { position: relative; background: #efeade; }
+.identity-avatar-smile .eye { position: absolute; top: 39%; width: 7%; height: 7%; border-radius: 50%; background: #918b82; }
+.identity-avatar-smile .eye.left { left: 31%; }
+.identity-avatar-smile .eye.right { right: 31%; }
+.identity-avatar-smile .mouth { position: absolute; left: 34%; top: 56%; width: 32%; height: 17%; box-sizing: border-box; border-bottom: 2rpx solid #918b82; border-radius: 0 0 50% 50%; }
 .identity-avatar-initial { display: flex; align-items: center; justify-content: center; background: #eee9de; color: #4f4a43; }
 .identity-avatar-initial text { font-size: 30rpx; font-weight: 800; }
 .identity-avatar.large .identity-avatar-initial text { font-size: 52rpx; }

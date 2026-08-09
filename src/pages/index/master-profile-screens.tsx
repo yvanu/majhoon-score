@@ -49,7 +49,14 @@ export function deriveMasterPlayStyle(statistics: PersonalStatistics | null) {
     stability >= 70 ? '领先时收得更稳' : '比分变化时调整较积极',
     risk >= 60 ? '点炮后下一局仍敢进攻' : '点炮后下一局明显保守',
   ]
-  return { title, tag: `${title}型牌风`, attack, stability, risk, features }
+  const tag = stability >= 70
+    ? '稳健型牌风'
+    : attack >= 72
+      ? '进攻型牌风'
+      : risk >= 66
+        ? '冒险型牌风'
+        : '均衡型牌风'
+  return { title, tag, attack, stability, risk, features }
 }
 
 function BackTitle({ title, subtitle, onBack }: { title: string; subtitle?: string; onBack: () => void }) {
@@ -62,6 +69,12 @@ function BackTitle({ title, subtitle, onBack }: { title: string; subtitle?: stri
 function percent(part: number, total: number) {
   if (!total) return '0%'
   return `${Math.round(part / total * 100)}%`
+}
+
+function bigHandTitle(note: string, resultType: 'ron' | 'tsumo') {
+  const label = note?.split('、').join(' · ') || '大胡'
+  if (label.split(' · ').includes('抢杠')) return label
+  return `${label} · ${resultType === 'tsumo' ? '自摸' : '点炮胡'}`
 }
 
 function relativeTime(value: string) {
@@ -95,7 +108,7 @@ export function ProfileScreen({ user, statistics, statisticsLoading, onSettings,
   return <View className='master-profile-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
     <View className='master-profile-header'><Text>我的</Text><Text>个人数据与偏好</Text></View>
     <View className='master-profile-user-card'>
-      <View className='master-profile-avatar'><IdentityAvatar name={user.display_name || user.username} gender={user.gender} avatarUrl={user.avatar_url} /></View>
+      <View className='master-profile-avatar'><IdentityAvatar name={user.display_name || user.username} gender={user.gender} avatarUrl={user.avatar_url} fallback='smile' /></View>
       <View className='master-profile-user-copy'><Text>{user.display_name || user.username}</Text><Text>{statisticsLoading && !statistics ? '统计加载中…' : `本月 ${matches} 将 · ${score > 0 ? '+' : ''}${score}`}</Text><Text>{style.tag}</Text></View>
       <View className='master-profile-stats-link' onClick={onPersonalStatistics}><Text>我的战绩</Text><MasterRightChevronGlyph /></View>
     </View>
@@ -127,6 +140,19 @@ export function PersonalStatisticsScreen({ statistics, loading, onBack, onChange
     { value: 'year', label: '年' },
   ]
   const recentBig = statistics.bigHandRecords?.[0] || null
+  const comparison = statistics.comparison || {
+    label: statistics.dimension === 'day' ? '较昨日' : statistics.dimension === 'month' ? '较上月' : '较去年',
+    totalHandsDelta: 0,
+    winRateDelta: 0,
+    tsumoRateDelta: 0,
+    dealInRateDelta: 0,
+  }
+  const signedDelta = (value: number, suffix = '') => `${value > 0 ? '+' : ''}${value}${suffix}`
+  const recentTrend = statistics.trend.slice(-7)
+  const recentNetScore = recentTrend.reduce((sum, point) => sum + point.score, 0)
+  const trendPoints = recentTrend.length
+    ? [{ matchId: 'master-trend-baseline', createdAt: recentTrend[0].createdAt, score: 0 }, ...recentTrend]
+    : []
 
   function changeDimension(dimension: StatisticsDimension) {
     const now = new Date()
@@ -148,15 +174,15 @@ export function PersonalStatisticsScreen({ statistics, loading, onBack, onChange
         <Button hoverClass='none' onClick={onBigHands}>看详情</Button>
       </View>
       <View className='master-stats-metrics'>
-        <View><Text>总局数</Text><Text>{statistics.totalHands} 局</Text><Text>{statistics.dimension === 'day' ? '较昨日 --' : '当前周期'}</Text></View>
-        <View><Text>胡牌率</Text><Text>{percent(statistics.wins, statistics.totalHands)}</Text><Text>{statistics.dimension === 'day' ? '较昨日 --' : `胡 ${statistics.wins} 次`}</Text></View>
-        <View><Text>自摸率</Text><Text>{percent(statistics.tsumoWins, statistics.totalHands)}</Text><Text>{statistics.dimension === 'day' ? '较昨日 --' : `自摸 ${statistics.tsumoWins} 次`}</Text></View>
-        <View><Text>点炮率</Text><Text>{percent(statistics.dealIns, statistics.totalHands)}</Text><Text>{statistics.dimension === 'day' ? '较昨日 --' : `点炮 ${statistics.dealIns} 次`}</Text></View>
+        <View><Text>总局数</Text><Text>{statistics.totalHands} 局</Text><Text>{comparison.label} {signedDelta(comparison.totalHandsDelta)}</Text></View>
+        <View><Text>胡牌率</Text><Text>{percent(statistics.wins, statistics.totalHands)}</Text><Text>{comparison.label} {signedDelta(comparison.winRateDelta, '%')}</Text></View>
+        <View><Text>自摸率</Text><Text>{percent(statistics.tsumoWins, statistics.totalHands)}</Text><Text>{comparison.label} {signedDelta(comparison.tsumoRateDelta, '%')}</Text></View>
+        <View><Text>点炮率</Text><Text>{percent(statistics.dealIns, statistics.totalHands)}</Text><Text>{comparison.label} {signedDelta(comparison.dealInRateDelta, '%')}</Text></View>
       </View>
-      <Text className='master-stats-section-title'>近 {Math.min(7, statistics.trend.length || 7)} 场趋势</Text>
-      <View className='master-stats-trend'><Text>近{Math.min(7, statistics.trend.length || 7)}场 {statistics.netScore > 0 ? '+' : ''}{statistics.netScore}</Text><ScoreTrendChart points={statistics.trend.slice(-7)} /></View>
+      <Text className='master-stats-section-title'>近 {recentTrend.length || 7} 场趋势</Text>
+      <View className='master-stats-trend'><Text>近{recentTrend.length || 7}场 {recentNetScore > 0 ? '+' : ''}{recentNetScore}</Text><ScoreTrendChart points={trendPoints} /></View>
       <Text className='master-stats-section-title big'>最近大胡</Text>
-      {recentBig ? <View className='master-stats-big-hand' onClick={onBigHands}><View><Text>{recentBig.note?.split('、').join(' · ') || '大胡'} · {recentBig.resultType === 'tsumo' ? '自摸' : '点炮胡'}</Text><Text>{relativeTime(recentBig.createdAt)} · {recentBig.score > 0 ? '+' : ''}{recentBig.score}</Text></View>{recentBig.tileRecord && <Text>牌谱</Text>}</View>
+      {recentBig ? <View className='master-stats-big-hand' onClick={onBigHands}><View><Text>{bigHandTitle(recentBig.note, recentBig.resultType)}</Text><Text>{relativeTime(recentBig.createdAt)} · {recentBig.score > 0 ? '+' : ''}{recentBig.score}</Text></View>{recentBig.tileRecord && <Text>牌谱</Text>}</View>
         : <View className='master-stats-big-empty'><Text>当前周期暂无大胡</Text></View>}
       {loading && <Text className='master-stats-loading'>更新中…</Text>}
     </View>
@@ -268,7 +294,7 @@ export function BigHandsScreen({ statistics, onBack }: { statistics: PersonalSta
       <View className='master-big-patterns'>{patterns.length ? patterns.map(pattern => <Text key={pattern.name}>{pattern.name} {pattern.count}</Text>) : <Text>暂无</Text>}</View>
       <Text className='master-big-section-title records'>记录</Text>
       <View className='master-big-record-list'>{records.map(record => <View key={record.handId} onClick={() => { void openRecord(record) }}>
-        <View><Text>{relativeTime(record.createdAt)}</Text><Text>{record.note?.split('、').join(' · ') || '大胡'}{record.resultType === 'tsumo' ? ' · 自摸' : ' · 点炮胡'}</Text></View>
+        <View><Text>{relativeTime(record.createdAt)}</Text><Text>{bigHandTitle(record.note, record.resultType)}</Text></View>
         <View>{record.tileRecord && <Text>有牌谱</Text>}<Text className={record.score >= 0 ? 'positive' : 'negative'}>{record.score > 0 ? '+' : ''}{record.score}</Text></View>
         <MasterRightChevronGlyph />
       </View>)}</View>
