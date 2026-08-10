@@ -244,6 +244,8 @@ export default function Index() {
   const reviewReturnScreen = useRef<Screen>('home')
   const matchReturnScreen = useRef<Screen>('home')
   const backTrapRearmTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const backTrapOwnerScreen = useRef<Screen | null>(null)
+  const backTrapArmedAt = useRef(0)
 
   Taro.useLoad<{ groupCode?: string; lobbyCode?: string; scene?: string }>(options => {
     const groupCode = options.groupCode?.trim().toUpperCase() || ''
@@ -325,6 +327,27 @@ export default function Index() {
     return () => clearTimeout(timer)
   }, [lastSaveNotice])
 
+  function disarmBackTrap() {
+    backTrapOwnerScreen.current = null
+    backTrapArmedAt.current = 0
+    setBackTrapOpen(false)
+  }
+
+  function armBackTrap(screenToArm: Screen) {
+    if (screenRef.current !== screenToArm || !shouldTrapNativeBack(screenToArm) || pendingPageScrollTop.current !== null) return
+    backTrapOwnerScreen.current = screenToArm
+    backTrapArmedAt.current = Date.now()
+    setBackTrapOpen(true)
+  }
+
+  function scheduleBackTrapArm(screenToArm: Screen = screenRef.current, delay = 140) {
+    if (backTrapRearmTimer.current) clearTimeout(backTrapRearmTimer.current)
+    backTrapRearmTimer.current = setTimeout(() => {
+      backTrapRearmTimer.current = null
+      armBackTrap(screenToArm)
+    }, delay)
+  }
+
   useEffect(() => {
     const target = pendingPageScrollTop.current
     if (target === null) return
@@ -335,7 +358,7 @@ export default function Index() {
       void Taro.pageScrollTo({ scrollTop: target, duration: 0 }).catch(error => {
         console.error('Restore page scroll position failed:', error)
       }).finally(() => {
-        if (reopenBackTrap && screenRef.current === screenAfterScroll) setBackTrapOpen(true)
+        if (reopenBackTrap && screenRef.current === screenAfterScroll) scheduleBackTrapArm(screenAfterScroll)
       })
     })
   }, [screen])
@@ -349,9 +372,14 @@ export default function Index() {
     if (tabSwitch) history.splice(0, history.length, next)
     else if (existingIndex >= 0) history.splice(existingIndex + 1)
     else history.push(next)
+    if (backTrapRearmTimer.current) {
+      clearTimeout(backTrapRearmTimer.current)
+      backTrapRearmTimer.current = null
+    }
+    disarmBackTrap()
     screenRef.current = next
     setScreenState(next)
-    setBackTrapOpen(shouldTrapNativeBack(next) && pendingPageScrollTop.current === null)
+    if (shouldTrapNativeBack(next) && pendingPageScrollTop.current === null) scheduleBackTrapArm(next)
   }
 
   function replaceScreen(next: Screen) {
@@ -363,9 +391,14 @@ export default function Index() {
     else if (returnsToPrevious) history.pop()
     else if (history.length) history[history.length - 1] = next
     else history.push(next)
+    if (backTrapRearmTimer.current) {
+      clearTimeout(backTrapRearmTimer.current)
+      backTrapRearmTimer.current = null
+    }
+    disarmBackTrap()
     screenRef.current = next
     setScreenState(next)
-    setBackTrapOpen(shouldTrapNativeBack(next) && pendingPageScrollTop.current === null)
+    if (shouldTrapNativeBack(next) && pendingPageScrollTop.current === null) scheduleBackTrapArm(next)
   }
 
   function showAuth(successScreen: Screen = screenRef.current) {
@@ -421,7 +454,7 @@ export default function Index() {
         screenHistory.current = ['home']
         screenRef.current = 'home'
         setScreenState('home')
-        if (updateBackTrap) setBackTrapOpen(false)
+        if (updateBackTrap) disarmBackTrap()
       }
       return
     }
@@ -436,7 +469,10 @@ export default function Index() {
     }
     screenRef.current = previous
     setScreenState(previous)
-    if (updateBackTrap) setBackTrapOpen(shouldTrapNativeBack(previous))
+    if (updateBackTrap) {
+      disarmBackTrap()
+      if (shouldTrapNativeBack(previous)) scheduleBackTrapArm(previous)
+    }
   }
 
   function goBack() {
@@ -444,30 +480,25 @@ export default function Index() {
   }
 
   function scheduleBackTrapRearm() {
-    if (backTrapRearmTimer.current) clearTimeout(backTrapRearmTimer.current)
-    Taro.nextTick(() => {
-      setBackTrapOpen(shouldTrapNativeBack(screenRef.current))
-    })
-    backTrapRearmTimer.current = setTimeout(() => {
-      backTrapRearmTimer.current = null
-      setBackTrapOpen(shouldTrapNativeBack(screenRef.current))
-    }, 80)
+    scheduleBackTrapArm(screenRef.current)
   }
 
-  function handleNativeBack() {
+  function handleNativeBack(expectedTrapOwner: Screen | null) {
     const hasOpenOverlay = Boolean(dialog) || auxiliaryOverlayOpen || scoreTileEditorOpen || matchDetailOpen
-    // PageContainer 的 onBeforeLeave 不只由微信左滑触发；当底部 Tab 上的菜单/弹窗被代码主动关闭时也会触发。
-    // 这种情况下不能把“容器收起”误判成一次页面返回，否则会把 groups/profile 等根页面弹回前一个 Tab。
-    if (!hasOpenOverlay && !shouldTrapNativeBack(screenRef.current)) {
-      setBackTrapOpen(false)
+    const currentScreen = screenRef.current
+    const trapBelongsToCurrentScreen = expectedTrapOwner === currentScreen && backTrapOwnerScreen.current === currentScreen
+    const trapHasSettled = backTrapArmedAt.current > 0 && Date.now() - backTrapArmedAt.current >= 100
+
+    // 微信 PageContainer 在 show 状态快速切换时，可能把上一轮容器的 leave 回调延迟到新页面。
+    // 只有“当前页面自己的、已经稳定挂载”的返回陷阱才允许触发页面返回；旧页面残留回调或程序主动收起一律忽略。
+    if (!hasOpenOverlay && (!trapBelongsToCurrentScreen || !trapHasSettled)) {
+      disarmBackTrap()
+      if (shouldTrapNativeBack(currentScreen)) scheduleBackTrapArm(currentScreen)
       return
     }
-    setBackTrapOpen(false)
-    navigateBack(false)
-    scheduleBackTrapRearm()
-  }
 
-  function rearmBackTrap() {
+    disarmBackTrap()
+    navigateBack(false)
     scheduleBackTrapRearm()
   }
 
@@ -1668,6 +1699,7 @@ export default function Index() {
         : screen === 'home'
           ? 'home'
           : null
+  const pageContainerTrapOwner = backTrapOpen && !activeTab ? backTrapOwnerScreen.current : null
   const unreadChatCount = groupSessions.reduce(
     (total, group) => total + ((group.is_owner || group.is_member) ? group.chat_unread_count : 0),
     0,
@@ -1943,14 +1975,14 @@ export default function Index() {
       onConfirm={() => closeDialog(true)}
     />}
     <PageContainer
-      show={Boolean(dialog) || auxiliaryOverlayOpen || scoreTileEditorOpen || matchDetailOpen || (backTrapOpen && !activeTab)}
+      key={pageContainerTrapOwner ? `back-trap-${pageContainerTrapOwner}` : 'overlay-trap'}
+      show={Boolean(dialog) || auxiliaryOverlayOpen || scoreTileEditorOpen || matchDetailOpen || Boolean(pageContainerTrapOwner)}
       duration={0}
       zIndex={0}
       overlay={false}
       position='right'
       customStyle='width:1px;height:1px;overflow:hidden;background:transparent;pointer-events:none;'
-      onBeforeLeave={handleNativeBack}
-      onAfterLeave={rearmBackTrap}
+      onBeforeLeave={() => handleNativeBack(pageContainerTrapOwner)}
     />
   </View>
 }
