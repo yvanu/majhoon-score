@@ -69,6 +69,9 @@
   line-height: 50rpx;
 }
 .master-profile-setup-change::after { border: 0; }
+.master-profile-setup-avatar-wrap.uploading .master-profile-setup-avatar-button,
+.master-profile-setup-avatar-wrap.uploading .master-profile-setup-change { pointer-events: none; opacity: .62; }
+.master-profile-setup-avatar-error { display: block; margin-top: 10rpx; color: #C4544C; font-size: 16rpx; line-height: 1.35; text-align: center; }
 .master-profile-setup-label { display: block; margin-top: 55.769rpx; color: #171714; font-size: 21.154rpx; font-weight: 800; }
 .master-profile-setup-label.gender { margin-top: 13.462rpx; }
 .master-profile-setup-input {
@@ -813,6 +816,7 @@
   height: 226.923rpx;
 }
 .master-profile-setup-change { margin-top: 15.385rpx; }
+.master-profile-setup-avatar-error { position: absolute; left: 38.462rpx; right: 38.462rpx; top: 220rpx; margin: 0; }
 .master-profile-setup-label {
   position: absolute;
   left: 38.462rpx;

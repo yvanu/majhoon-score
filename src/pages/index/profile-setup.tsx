@@ -18,6 +18,7 @@ export function ProfileSetupScreen({ user, required, loading, onBack, onSave, on
   const [gender, setGender] = useState<UserGender | null>(user.gender)
   const [avatarUrl, setAvatarUrl] = useState(user.avatar_url)
   const [avatarUploading, setAvatarUploading] = useState(false)
+  const [avatarError, setAvatarError] = useState('')
   const normalizedName = displayName.trim()
   const valid = Boolean(normalizedName) && normalizedName.length <= 12 && Boolean(gender)
 
@@ -28,6 +29,7 @@ export function ProfileSetupScreen({ user, required, loading, onBack, onSave, on
 
   async function chooseAvatar(filePath: string) {
     if (!filePath || avatarUploading) return
+    setAvatarError('')
     setAvatarUploading(true)
     try {
       let uploadPath = filePath
@@ -39,6 +41,11 @@ export function ProfileSetupScreen({ user, required, loading, onBack, onSave, on
       }
       const updated = await onUploadAvatar(uploadPath)
       setAvatarUrl(updated.avatar_url)
+    } catch (error) {
+      const detail = error as { message?: string; errMsg?: string }
+      const message = detail.message || detail.errMsg || '头像上传失败，请重试'
+      console.error('Upload profile avatar failed:', error)
+      setAvatarError(message.replace(/^uploadFile:fail\s*/i, ''))
     } finally {
       setAvatarUploading(false)
     }
@@ -50,11 +57,12 @@ export function ProfileSetupScreen({ user, required, loading, onBack, onSave, on
       <View><Text>{required ? '完善资料' : '账号与资料'}</Text><Text>{required ? '进入雀记前仅需一次' : '修改昵称、头像与性别'}</Text></View>
     </View>
 
-    <View className='master-profile-setup-avatar-wrap'>
-      <Button className='master-profile-setup-avatar-button' openType='chooseAvatar' hoverClass='none' disabled={avatarUploading || loading} onChooseAvatar={event => { void chooseAvatar(event.detail.avatarUrl) }}>
+    <View className={`master-profile-setup-avatar-wrap${avatarUploading ? ' uploading' : ''}`}>
+      <Button className='master-profile-setup-avatar-button' openType='chooseAvatar' hoverClass='none' onChooseAvatar={event => { void chooseAvatar(event.detail.avatarUrl) }}>
         <View className='master-profile-setup-avatar-real'><IdentityAvatar name={normalizedName || '雀记'} gender={gender} avatarUrl={avatarUrl} size='large' fallback='neutral' /></View>
       </Button>
-      <Button className='master-profile-setup-change' openType='chooseAvatar' hoverClass='none' disabled={avatarUploading || loading} onChooseAvatar={event => { void chooseAvatar(event.detail.avatarUrl) }}>{avatarUploading ? '上传中' : '更换头像'}</Button>
+      <Button className='master-profile-setup-change' openType='chooseAvatar' hoverClass='none' onChooseAvatar={event => { void chooseAvatar(event.detail.avatarUrl) }}>{avatarUploading ? '上传中' : '更换头像'}</Button>
+      {avatarError && <Text className='master-profile-setup-avatar-error'>{avatarError}</Text>}
     </View>
 
     <Text className='master-profile-setup-label'>昵称</Text>
