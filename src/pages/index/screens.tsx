@@ -18,6 +18,8 @@ import {
   displayUserName,
   formatMatchTime,
   getPageTopInset,
+  MasterBackGlyph,
+  masterSafeTopStyle,
   shiftStatisticsValue,
   sortMahjongTiles,
   statisticsValue,
@@ -61,25 +63,30 @@ export function Auth({ onBack, onWechatLogin, loading }: {
   onWechatLogin: () => void
   loading: boolean
 }) {
-  return <View className='auth-final-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
-    <View className='auth-final-nav'>
-      <Button hoverClass='none' onClick={onBack}>‹</Button>
-      <Text>微信登录</Text>
-      <View />
+  return <View className='master-auth-screen master-safe-top' style={masterSafeTopStyle(113.462)}>
+    <View className='master-auth-nav'>
+      <Button hoverClass='none' onClick={onBack}><MasterBackGlyph /></Button>
+      <View><Text>微信登录</Text><Text>登录后同步你的牌局与战绩</Text></View>
     </View>
 
-    <View className='auth-final-hero'>
-      <Text>微信授权后，快速开始记分</Text>
-      <Text>只用于识别你自己的牌局、牌友和战绩</Text>
-      <View className='auth-final-wechat-mark'>
-        <View className='auth-final-bubble one'><View /><View /></View>
-        <View className='auth-final-bubble two'><View /><View /></View>
+    <View className='master-auth-card'>
+      <View className='master-auth-wechat-mark'>
+        <View className='master-auth-bubble one'><View /><View /></View>
+        <View className='master-auth-bubble two'><View /><View /></View>
       </View>
+      <Text className='master-auth-card-title'>用微信身份进入雀记</Text>
+      <Text className='master-auth-card-copy'>快速识别你自己的牌局、牌友和战绩，不读取通讯录，也不会自动获取你的昵称和头像。</Text>
     </View>
 
-    <View className='auth-final-actions'>
+    <View className='master-auth-points'>
+      <View><Text>牌局同步</Text><Text>换设备后仍能继续查看自己的历史记录</Text></View>
+      <View><Text>身份一致</Text><Text>组局、牌友与记分页面使用同一套玩家身份</Text></View>
+      <View><Text>资料可控</Text><Text>昵称、头像和性别都由你主动完善或修改</Text></View>
+    </View>
+
+    <View className='master-auth-actions'>
       <Button hoverClass='none' disabled={loading} onClick={onWechatLogin}>{loading ? '登录中…' : '微信一键登录'}</Button>
-      <Text>登录仅使用当前小程序的微信用户标识；昵称、头像与性别由你主动完善。</Text>
+      <Text>继续即表示你同意使用当前小程序的微信用户标识完成登录。</Text>
     </View>
   </View>
 }
