@@ -152,9 +152,15 @@ function applyHandMutation(current: Match, result: HandMutationResult, replacedH
 }
 
 const bottomTabScreens = new Set<Screen>(['home', 'groups', 'friends', 'profile'])
+const groupFlowScreens = new Set<Screen>(['groups', 'group-create', 'group-detail', 'group-chat', 'seating'])
+type ScreenMotion = 'push' | 'pop' | 'replace' | 'tab' | 'direct'
 
 function shouldTrapNativeBack(screen: Screen) {
   return !bottomTabScreens.has(screen)
+}
+
+function resolveScreenMotion(current: Screen, next: Screen, fallback: Exclude<ScreenMotion, 'direct'>): ScreenMotion {
+  return groupFlowScreens.has(current) || groupFlowScreens.has(next) ? 'direct' : fallback
 }
 
 export default function Index() {
@@ -345,28 +351,25 @@ export default function Index() {
     })
   }, [screen])
 
-  function transitionScreen(next: Screen, motion: 'push' | 'pop' | 'replace' | 'tab') {
+  function transitionScreen(next: Screen, motion: ScreenMotion) {
     if (screenTransitionTimer.current) {
       clearTimeout(screenTransitionTimer.current)
       screenTransitionTimer.current = null
       setScreenTransition(null)
     }
 
-    const currentScreen = screenRef.current
-    const renderedCurrentLayer = layerScreensRef.current.findIndex(item => item === currentScreen)
-    const from = (renderedCurrentLayer === 0 || renderedCurrentLayer === 1 ? renderedCurrentLayer : activeLayerRef.current) as 0 | 1
-    activeLayerRef.current = from
-
-    if (motion === 'tab') {
-      const other = from === 0 ? 1 : 0
-      const updated: [Screen | null, Screen | null] = [...layerScreensRef.current]
-      updated[from] = next
-      updated[other] = null
+    if (motion === 'tab' || motion === 'direct') {
+      const updated: [Screen | null, Screen | null] = [next, null]
+      activeLayerRef.current = 0
       layerScreensRef.current = updated
       setLayerScreens(updated)
       return
     }
 
+    const currentScreen = screenRef.current
+    const renderedCurrentLayer = layerScreensRef.current.findIndex(item => item === currentScreen)
+    const from = (renderedCurrentLayer === 0 || renderedCurrentLayer === 1 ? renderedCurrentLayer : activeLayerRef.current) as 0 | 1
+    activeLayerRef.current = from
     const to = (from === 0 ? 1 : 0) as 0 | 1
     const updated: [Screen | null, Screen | null] = [...layerScreensRef.current]
     updated[to] = next
@@ -386,7 +389,7 @@ export default function Index() {
     if (next === current) return
     const existingIndex = history.lastIndexOf(next)
     const tabSwitch = bottomTabScreens.has(current) && bottomTabScreens.has(next)
-    const motion = tabSwitch ? 'tab' : existingIndex >= 0 ? 'pop' : 'push'
+    const motion = resolveScreenMotion(current, next, tabSwitch ? 'tab' : existingIndex >= 0 ? 'pop' : 'push')
     if (tabSwitch) history.splice(0, history.length, next)
     else if (existingIndex >= 0) history.splice(existingIndex + 1)
     else history.push(next)
@@ -401,7 +404,7 @@ export default function Index() {
     const current = screenRef.current
     const returnsToPrevious = history.length > 1 && history[history.length - 2] === next
     const tabSwitch = bottomTabScreens.has(current) && bottomTabScreens.has(next)
-    const motion = tabSwitch ? 'tab' : returnsToPrevious ? 'pop' : 'replace'
+    const motion = resolveScreenMotion(current, next, tabSwitch ? 'tab' : returnsToPrevious ? 'pop' : 'replace')
     if (returnsToPrevious) history.pop()
     else if (history.length) history[history.length - 1] = next
     else history.push(next)
@@ -462,7 +465,7 @@ export default function Index() {
     if (history.length <= 1) {
       if (shouldTrapNativeBack(screenRef.current)) {
         screenHistory.current = ['home']
-        transitionScreen('home', 'pop')
+        transitionScreen('home', resolveScreenMotion(screenRef.current, 'home', 'pop'))
         screenRef.current = 'home'
         setScreenState('home')
         if (updateBackTrap) setBackTrapOpen(false)
@@ -478,7 +481,7 @@ export default function Index() {
     if ((current === 'group-detail' || current === 'group-create' || current === 'group-chat') && previous === 'groups') {
       pendingPageScrollTop.current = groupListScrollTop.current
     }
-    transitionScreen(previous, bottomTabScreens.has(current) && bottomTabScreens.has(previous) ? 'tab' : 'pop')
+    transitionScreen(previous, resolveScreenMotion(current, previous, bottomTabScreens.has(current) && bottomTabScreens.has(previous) ? 'tab' : 'pop'))
     screenRef.current = previous
     setScreenState(previous)
     if (updateBackTrap) setBackTrapOpen(shouldTrapNativeBack(previous))
