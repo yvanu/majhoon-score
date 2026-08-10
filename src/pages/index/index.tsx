@@ -36,7 +36,6 @@ import type { DialogOptions, DialogState, Screen, SyncStatus } from './shared'
 import {
   Auth,
   BottomNav,
-  DailyStatsScreen,
   HistoryScreen,
 } from './screens'
 import { AddFriendScreen, FriendStatisticsScreen, FriendsScreen } from './master-friend-screens'
@@ -84,7 +83,6 @@ import './settings-v4.scss'
 import './history-v4.scss'
 import './personal-stats-v4.scss'
 import './friend-detail-v4.scss'
-import './daily-stats-v4.scss'
 import './auth-v4.scss'
 import './modal-polish-v4.scss'
 import './master-match-screen.scss'
@@ -1160,14 +1158,10 @@ export default function Index() {
 
   function showDailyStats() {
     if (!user) {
-      showAuth('daily')
+      showAuth('personal')
       return
     }
-    setScreen('daily')
-    void loadDailyStats().catch(error => {
-      console.error('Refresh daily statistics failed:', error)
-      if (!dailyStats) void Taro.showToast({ title: '今日战绩加载失败，请稍后重试', icon: 'none' })
-    })
+    showPersonalStatistics('day', statisticsValue('day'))
   }
 
   function showFriends() {
@@ -1743,9 +1737,6 @@ export default function Index() {
       onOpen={current => openMatch(current.id, current.status)}
       onDelete={deleteHistoryMatch}
     />}
-    {screen === 'daily' && (dailyStats
-      ? <DailyStatsScreen stats={dailyStats} onBack={goBack} />
-      : <LoadingScreen title='今日战绩' message={dailyStatsLoading ? '正在加载今日战绩…' : '暂无今日战绩数据'} onBack={goBack} />)}
     {screen === 'groups' && user && <GroupSessionsScreen
       groups={groupSessions}
       loading={groupsLoading}

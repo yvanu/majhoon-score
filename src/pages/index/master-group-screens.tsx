@@ -267,7 +267,7 @@ export function GroupCreateScreen({ user, friends, loading, friendPickerOpen, de
 
     <View className='master-create-section-head'><Text>邀请牌友</Text><Text>可稍后再邀请</Text></View>
     <View className='master-create-invite' onClick={openPicker}>
-      {selectedFriends.slice(0, 3).map(friend => <View key={friend.id}><View><FriendAvatar friend={friend} masterFallback /></View><Text>{friend.name}</Text></View>)}
+      {selectedFriends.slice(0, 3).map(friend => <View key={friend.id}><View><FriendAvatar friend={friend} /></View><Text>{friend.name}</Text></View>)}
       {Array.from({ length: Math.max(0, 3 - selectedFriends.length) }, (_, index) => <View key={`placeholder-${index}`} className='placeholder'><View className='master-create-placeholder-face'><View className='eye left' /><View className='eye right' /><View className='smile' /></View><Text>牌友</Text></View>)}
       <View><View className='add'><View className='master-create-plus-horizontal' /><View className='master-create-plus-vertical' /></View><Text>邀请</Text></View>
     </View>
@@ -283,7 +283,7 @@ export function GroupCreateScreen({ user, friends, loading, friendPickerOpen, de
       <ScrollView scrollY className='master-picker-list' showScrollbar={false}>{visibleFriends.map(friend => {
         const selected = draftFriendIds.includes(friend.id)
         return <View className={selected ? 'selected' : ''} key={friend.id} onClick={() => toggleFriend(friend.id)}>
-          <View><FriendAvatar friend={friend} masterFallback /></View><Text>{friend.name}</Text><Text>{selected ? '✓' : '+'}</Text>
+          <View><FriendAvatar friend={friend} /></View><Text>{friend.name}</Text><Text>{selected ? '✓' : '+'}</Text>
         </View>
       })}</ScrollView>
       <Button className='master-picker-confirm' hoverClass='none' onClick={() => { setFriendIds(draftFriendIds); onFriendPickerOpenChange(false) }}>确定（{draftFriendIds.length}/3）</Button>
@@ -343,7 +343,7 @@ export function GroupDetailScreen({ group, currentUserId, friends, friendsLoadin
 
       <Text className='master-detail-section-title'>成员</Text>
       <View className='master-detail-members'>{group.members.slice(0, 4).map(member => <View key={member.id}>
-        <View className='master-detail-member-avatar'><IdentityAvatar name={member.name} avatarUrl={member.avatar_url} gender={member.gender} fallback='smile' /></View>
+        <View className='master-detail-member-avatar'><IdentityAvatar name={member.name} avatarUrl={member.avatar_url} gender={member.gender} /></View>
         {member.status === 'confirmed' && <View className='master-detail-member-check'><View /></View>}
         <Text>{member.user_id === currentUserId ? '我' : member.name}</Text>
       </View>)}</View>

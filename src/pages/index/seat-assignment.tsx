@@ -74,7 +74,7 @@ export function SeatAssignmentScreen({ participants, loading, onBack, onConfirm 
         return <View className={`master-start-seat ${spot}`} key={spot}>
           <Text className='master-start-seat-chip'>{seat}</Text>
           {participant && <View className='master-start-player' onClick={() => { void adjustSeats() }}>
-            <View className={`master-start-avatar${isSelf ? ' self' : ''}`}><IdentityAvatar name={participant.name} gender={participant.gender} avatarUrl={participant.avatarUrl} fallback='smile' /></View>
+            <View className={`master-start-avatar${isSelf ? ' self' : ''}`}><IdentityAvatar name={participant.name} gender={participant.gender} avatarUrl={participant.avatarUrl} /></View>
             {seatIndex === 0 && <Text className='master-start-dealer'>庄</Text>}
             <Text className='master-start-player-name'>{isSelf ? '我' : participant.name}</Text>
           </View>}

@@ -180,41 +180,9 @@
   height: 76.923rpx;
   flex: 0 0 76.923rpx;
 }
-.master-score-dot-avatar {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  background: #E6E3DB;
-}
-.master-score-dot-avatar.selected { background: #F3B43F; }
-.master-score-smile-avatar {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  box-sizing: border-box;
-  border-radius: 50%;
-  background: #EFEADE;
-}
-.master-score-smile-eye {
-  position: absolute;
-  top: 39%;
-  width: 5.769rpx;
-  height: 5.769rpx;
-  border-radius: 50%;
-  background: #918B82;
-}
-.master-score-smile-eye.left { left: 31%; }
-.master-score-smile-eye.right { right: 31%; }
-.master-score-smile-mouth {
-  position: absolute;
-  left: 34%;
-  top: 56%;
-  width: 32%;
-  height: 17%;
-  box-sizing: border-box;
-  border-bottom: 1.923rpx solid #918B82;
-  border-radius: 0 0 50% 50%;
-}
+.master-score-avatar .identity-avatar-badge,
+.master-score-avatar .avatar-seat-badge,
+.master-score-avatar .avatar-self-badge { display: none !important; }
 .master-score-player-card > text {
   max-width: 100%;
   margin-top: 12rpx;

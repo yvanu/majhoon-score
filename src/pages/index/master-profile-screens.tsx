@@ -8,7 +8,7 @@ import type {
   StatisticsDimension,
   UserPreferences,
 } from '@shared/types'
-import { MasterBackGlyph, MasterChoiceSheet, MasterRightChevronGlyph, masterSafeTopStyle } from './shared'
+import { MasterBackGlyph, MasterChoiceSheet, MasterRightChevronGlyph, masterSafeTopStyle, useMasterConfirmDialog } from './shared'
 import type { SyncStatus } from './shared'
 import { IdentityAvatar } from './identity-avatar'
 import { ScoreTrendChart } from './score-trend-chart'
@@ -108,7 +108,7 @@ export function ProfileScreen({ user, statistics, statisticsLoading, onSettings,
   return <View className='master-profile-screen master-safe-top' style={masterSafeTopStyle(125)}>
     <View className='master-profile-header'><Text>我的</Text><Text>个人数据与偏好</Text></View>
     <View className='master-profile-user-card'>
-      <View className='master-profile-avatar'><IdentityAvatar name={user.display_name || user.username} gender={user.gender} avatarUrl={user.avatar_url} fallback='smile' /></View>
+      <View className='master-profile-avatar'><IdentityAvatar name={user.display_name || user.username} gender={user.gender} avatarUrl={user.avatar_url} /></View>
       <View className='master-profile-user-copy'><Text>{user.display_name || user.username}</Text><Text>{statisticsLoading && !statistics ? '统计加载中…' : `本月 ${matches} 将 · ${score > 0 ? '+' : ''}${score}`}</Text><Text>{style.tag}</Text></View>
       <View className='master-profile-stats-link' onClick={onPersonalStatistics}><Text>我的战绩</Text><MasterRightChevronGlyph /></View>
     </View>
@@ -289,6 +289,7 @@ export function SettingsScreen({ onBack, onEditProfile, onScoringSettings, onLog
 }
 
 export function BigHandsScreen({ statistics, onBack }: { statistics: PersonalStatistics; onBack: () => void }) {
+  const { confirm, confirmDialog } = useMasterConfirmDialog()
   const records = statistics.bigHandRecords || []
   const patterns = statistics.patterns.slice(0, 4)
   const mostRecent = records[0]
@@ -297,21 +298,30 @@ export function BigHandsScreen({ statistics, onBack }: { statistics: PersonalSta
       await Taro.showToast({ title: `${record.note || '大胡'} · ${record.score > 0 ? '+' : ''}${record.score}`, icon: 'none' })
       return
     }
-    await Taro.showModal({ title: record.note || '大胡牌谱', content: `本次得分 ${record.score > 0 ? '+' : ''}${record.score}，已保存牌谱。`, showCancel: false })
+    await confirm({
+      title: record.note || '大胡牌谱',
+      content: `本次得分 ${record.score > 0 ? '+' : ''}${record.score}，已保存牌谱。`,
+      showCancel: false,
+      confirmText: '知道了',
+      variant: 'info',
+    })
   }
-  return <ScrollView scrollY className='master-big-hands-scroll' showScrollbar={false}>
-    <View className='master-big-hands-screen master-safe-top' style={masterSafeTopStyle(113.462)}>
-      <BackTitle title='我的大胡' subtitle={`近 30 天共 ${statistics.bigHands} 次`} onBack={onBack} />
-      <View className='master-big-summary'><Text>本月大胡</Text><Text>{statistics.bigHands} 次</Text><Text>{mostRecent ? `最近一次 ${mostRecent.score > 0 ? '+' : ''}${mostRecent.score}` : '暂无记录'}</Text></View>
-      <Text className='master-big-section-title'>胡型统计</Text>
-      <View className='master-big-patterns'>{patterns.length ? patterns.map(pattern => <Text key={pattern.name}>{pattern.name} {pattern.count}</Text>) : <Text>暂无</Text>}</View>
-      <Text className='master-big-section-title records'>记录</Text>
-      <View className='master-big-record-list'>{records.map(record => <View key={record.handId} onClick={() => { void openRecord(record) }}>
-        <View><Text>{relativeTime(record.createdAt)}</Text><Text>{bigHandTitle(record.note, record.resultType)}</Text></View>
-        <View>{record.tileRecord && <Text>有牌谱</Text>}<Text className={record.score >= 0 ? 'positive' : 'negative'}>{record.score > 0 ? '+' : ''}{record.score}</Text></View>
-        <MasterRightChevronGlyph />
-      </View>)}</View>
-      {!records.length && <View className='master-big-empty'><Text>当前周期还没有大胡记录</Text></View>}
-    </View>
-  </ScrollView>
+  return <>
+    {confirmDialog}
+    <ScrollView scrollY className='master-big-hands-scroll' showScrollbar={false}>
+      <View className='master-big-hands-screen master-safe-top' style={masterSafeTopStyle(113.462)}>
+        <BackTitle title='我的大胡' subtitle={`近 30 天共 ${statistics.bigHands} 次`} onBack={onBack} />
+        <View className='master-big-summary'><Text>本月大胡</Text><Text>{statistics.bigHands} 次</Text><Text>{mostRecent ? `最近一次 ${mostRecent.score > 0 ? '+' : ''}${mostRecent.score}` : '暂无记录'}</Text></View>
+        <Text className='master-big-section-title'>胡型统计</Text>
+        <View className='master-big-patterns'>{patterns.length ? patterns.map(pattern => <Text key={pattern.name}>{pattern.name} {pattern.count}</Text>) : <Text>暂无</Text>}</View>
+        <Text className='master-big-section-title records'>记录</Text>
+        <View className='master-big-record-list'>{records.map(record => <View key={record.handId} onClick={() => { void openRecord(record) }}>
+          <View><Text>{relativeTime(record.createdAt)}</Text><Text>{bigHandTitle(record.note, record.resultType)}</Text></View>
+          <View>{record.tileRecord && <Text>有牌谱</Text>}<Text className={record.score >= 0 ? 'positive' : 'negative'}>{record.score > 0 ? '+' : ''}{record.score}</Text></View>
+          <MasterRightChevronGlyph />
+        </View>)}</View>
+        {!records.length && <View className='master-big-empty'><Text>当前周期还没有大胡记录</Text></View>}
+      </View>
+    </ScrollView>
+  </>
 }

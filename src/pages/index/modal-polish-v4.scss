@@ -269,3 +269,79 @@
   color: #8f877c !important;
   text-align: center;
 }
+
+/* Master confirmation dialog: same visual language as the current scoring modals. */
+.master-confirm-backdrop {
+  position: fixed;
+  z-index: 140;
+  inset: 0;
+  padding: 0 38.462rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  background: rgba(20,20,19,.28);
+  animation: backdrop-enter .18s ease-out both;
+}
+.master-confirm-backdrop.closing { animation: backdrop-leave .18s ease-in both; }
+.master-confirm-dialog {
+  width: 673.077rpx;
+  padding: 42.308rpx 34.615rpx 34.615rpx;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 46.154rpx;
+  background: #fff;
+  color: #171714;
+  box-shadow: 0 30.769rpx 76.923rpx rgba(37,33,25,.14);
+  animation: confirm-pop .22s cubic-bezier(.2,.82,.3,1) both;
+}
+.master-confirm-backdrop.closing .master-confirm-dialog { animation: confirm-leave .18s ease-in both; }
+.master-confirm-copy text { display: block; }
+.master-confirm-title {
+  color: #171714;
+  font-size: 38.462rpx;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -.6rpx;
+  text-align: left;
+}
+.master-confirm-content {
+  margin-top: 15.385rpx;
+  color: #969088;
+  font-size: 20.192rpx;
+  font-weight: 400;
+  line-height: 1.55;
+  text-align: left;
+}
+.master-confirm-actions {
+  margin-top: 38.462rpx;
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 15.385rpx;
+}
+.master-confirm-actions.single { grid-template-columns: 1fr; }
+.master-confirm-actions button {
+  height: 84.615rpx;
+  min-height: 84.615rpx;
+  margin: 0;
+  padding: 0 15.385rpx;
+  border: 0;
+  border-radius: 23.077rpx;
+  font-size: 21.154rpx;
+  font-weight: 800;
+  line-height: 84.615rpx;
+  box-shadow: none;
+}
+.master-confirm-actions button::after { border: 0; }
+.master-confirm-cancel {
+  background: #f3f1ec;
+  color: #625d55;
+}
+.master-confirm-submit {
+  background: #f3b43f;
+  color: #3b2a09;
+}
+.master-confirm-submit.danger {
+  background: #d95c50;
+  color: #fff;
+}

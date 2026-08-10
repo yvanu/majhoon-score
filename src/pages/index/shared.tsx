@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react'
 import Taro from '@tarojs/taro'
 import { Button, Image, ScrollView, Text, View } from '@tarojs/components'
 import type {
@@ -84,7 +85,7 @@ export function shiftStatisticsValue(dimension: StatisticsDimension, value: stri
   return String(Number(value) + amount)
 }
 
-export type Screen = 'home' | 'lobby' | 'seating' | 'auth' | 'nickname' | 'history' | 'daily' | 'groups' | 'group-create' | 'group-detail' | 'group-chat' | 'friends' | 'friend-add' | 'friend' | 'personal' | 'big-hands' | 'style' | 'preferences' | 'profile' | 'settings' | 'scoring-settings' | 'match' | 'review'
+export type Screen = 'home' | 'lobby' | 'seating' | 'auth' | 'nickname' | 'history' | 'groups' | 'group-create' | 'group-detail' | 'group-chat' | 'friends' | 'friend-add' | 'friend' | 'personal' | 'big-hands' | 'style' | 'preferences' | 'profile' | 'settings' | 'scoring-settings' | 'match' | 'review'
 export type TileRecordSection = 'pongs' | 'exposedKongs' | 'concealedKongs' | 'hand' | 'winningTile'
 export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'offline'
 export type DialogVariant = 'default' | 'danger' | 'info' | 'error'
@@ -135,7 +136,7 @@ export function Avatar({ player, large = false, selected = false, isSelf = false
   return <AvatarFace name={player.name} palette={player.seat} seat={player.seat} large={large} selected={selected} isSelf={isSelf} />
 }
 
-export function FriendAvatar({ friend, large = false, masterFallback = false }: { friend: Friend; large?: boolean; masterFallback?: boolean }) {
+export function FriendAvatar({ friend, large = false }: { friend: Friend; large?: boolean }) {
   if (friend.linkedUserId) {
     return <IdentityAvatar
       name={friend.wechatName || friend.name}
@@ -143,13 +144,11 @@ export function FriendAvatar({ friend, large = false, masterFallback = false }: 
       avatarUrl={friend.wechatAvatarUrl}
       size={large ? 'large' : 'normal'}
       badge='微信'
-      fallback={masterFallback ? 'smile' : 'initial'}
     />
   }
   if (friend.avatarUrl) {
     return <IdentityAvatar name={friend.name} avatarUrl={friend.avatarUrl} size={large ? 'large' : 'normal'} />
   }
-  if (masterFallback) return <IdentityAvatar name={friend.name} size={large ? 'large' : 'normal'} fallback='smile' />
   return <AvatarFace name={friend.name} palette={Number(friend.avatar_seed || 0)} large={large} />
 }
 
@@ -173,23 +172,61 @@ export function ConfirmDialog({ dialog, onConfirm, onCancel }: {
   onConfirm: () => void
   onCancel: () => void
 }) {
-  const icon = dialog.variant === 'danger' ? '!' : dialog.variant === 'error' ? '×' : dialog.variant === 'info' ? 'i' : '✓'
   const showCancel = dialog.showCancel !== false
+  const variant = dialog.variant || 'default'
 
   return <View
-    className={`confirm-backdrop${dialog.closing ? ' closing' : ''}`}
+    className={`master-confirm-backdrop${dialog.closing ? ' closing' : ''}`}
     onClick={() => { if (showCancel) onCancel() }}
   >
-    <View className={`confirm-sheet confirm-${dialog.variant || 'default'}`} onClick={event => event.stopPropagation()}>
-      <View className='confirm-icon'><Text>{icon}</Text></View>
-      <Text className='confirm-title'>{dialog.title}</Text>
-      <Text className='confirm-content'>{dialog.content}</Text>
-      <View className={`confirm-actions${showCancel ? '' : ' single'}`}>
-        {showCancel && <Button className='confirm-button confirm-cancel' hoverClass='none' onClick={onCancel}>{dialog.cancelText || '取消'}</Button>}
-        <Button className={`confirm-button confirm-submit${dialog.variant === 'danger' || dialog.variant === 'error' ? ' danger' : ''}`} hoverClass='none' onClick={onConfirm}>{dialog.confirmText || '确定'}</Button>
+    <View className={`master-confirm-dialog ${variant}`} onClick={event => event.stopPropagation()}>
+      <View className='master-confirm-copy'>
+        <Text className='master-confirm-title'>{dialog.title}</Text>
+        <Text className='master-confirm-content'>{dialog.content}</Text>
+      </View>
+      <View className={`master-confirm-actions${showCancel ? '' : ' single'}`}>
+        {showCancel && <Button className='master-confirm-cancel' hoverClass='none' onClick={onCancel}>{dialog.cancelText || '取消'}</Button>}
+        <Button className={`master-confirm-submit${variant === 'danger' || variant === 'error' ? ' danger' : ''}`} hoverClass='none' onClick={onConfirm}>{dialog.confirmText || '确定'}</Button>
       </View>
     </View>
   </View>
+}
+
+export function useMasterConfirmDialog() {
+  const [localDialog, setLocalDialog] = useState<DialogState | null>(null)
+  const resolver = useRef<((confirmed: boolean) => void) | null>(null)
+
+  function confirm(options: DialogOptions): Promise<boolean> {
+    resolver.current?.(false)
+    return new Promise(resolve => {
+      resolver.current = resolve
+      setLocalDialog({
+        confirmText: '确定',
+        cancelText: '取消',
+        showCancel: true,
+        variant: 'default',
+        ...options,
+        closing: false,
+      })
+    })
+  }
+
+  function close(confirmed: boolean) {
+    setLocalDialog(current => current ? { ...current, closing: true } : current)
+    setTimeout(() => {
+      setLocalDialog(null)
+      const resolve = resolver.current
+      resolver.current = null
+      resolve?.(confirmed)
+    }, 180)
+  }
+
+  return {
+    confirm,
+    confirmDialog: localDialog
+      ? <ConfirmDialog dialog={localDialog} onConfirm={() => close(true)} onCancel={() => close(false)} />
+      : null,
+  }
 }
 
 export function MasterChoiceSheet({ open, title, subtitle, options, selectedKey, onSelect, onClose }: {

@@ -50,17 +50,6 @@
   line-height: 1;
 }
 .master-profile-setup-avatar-button::after { border: 0; }
-.master-profile-setup-smile {
-  position: relative;
-  width: 161.538rpx;
-  height: 161.538rpx;
-  border-radius: 50%;
-  background: #EEE9DE;
-}
-.master-profile-setup-smile .eye { position: absolute; top: 67.308rpx; width: 6.731rpx; height: 6.731rpx; border-radius: 50%; background: #918B82; }
-.master-profile-setup-smile .eye.left { left: 51.923rpx; }
-.master-profile-setup-smile .eye.right { right: 51.923rpx; }
-.master-profile-setup-smile .smile { position: absolute; left: 50.962rpx; top: 94.231rpx; width: 59.615rpx; height: 25rpx; border-bottom: 3.846rpx solid #918B82; border-radius: 0 0 50% 50%; }
 .master-profile-setup-avatar-real,
 .master-profile-setup-avatar-real .identity-avatar,
 .master-profile-setup-avatar-real .avatar { width: 161.538rpx !important; height: 161.538rpx !important; margin: 0 !important; border-radius: 50% !important; }

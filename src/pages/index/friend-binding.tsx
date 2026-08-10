@@ -4,6 +4,7 @@ import { Button, ScrollView, Text, View } from '@tarojs/components'
 import type { Friend, KnownUser } from '@shared/types'
 import { api } from '../../services/api'
 import { IdentityAvatar } from './identity-avatar'
+import { useMasterConfirmDialog } from './shared'
 
 export function FriendBindingControl({ friend, closeRequest = 0, onOpenChange, onChanged }: {
   friend: Friend
@@ -15,6 +16,7 @@ export function FriendBindingControl({ friend, closeRequest = 0, onOpenChange, o
   const [knownUsers, setKnownUsers] = useState<KnownUser[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const { confirm, confirmDialog } = useMasterConfirmDialog()
 
   useEffect(() => {
     onOpenChange?.(open)
@@ -42,12 +44,12 @@ export function FriendBindingControl({ friend, closeRequest = 0, onOpenChange, o
 
   async function link(user: KnownUser) {
     if (saving) return
-    const confirmed = await Taro.showModal({
+    const confirmed = await confirm({
       title: `关联“${user.displayName}”？`,
       content: `绑定后，“${friend.name}”的历史牌局会与该微信用户的后续战绩合并展示，原始牌局记录不会被改写。`,
       confirmText: '确认关联',
     })
-    if (!confirmed.confirm) return
+    if (!confirmed) return
     setSaving(true)
     try {
       await api.linkFriend(friend.id, user.id)
@@ -63,13 +65,13 @@ export function FriendBindingControl({ friend, closeRequest = 0, onOpenChange, o
 
   async function unlink() {
     if (saving) return
-    const confirmed = await Taro.showModal({
+    const confirmed = await confirm({
       title: '解除关联？',
       content: '解除后，微信用户与历史牌友会恢复为独立身份；历史牌局和战绩不会删除。',
       confirmText: '解除关联',
-      confirmColor: '#E34D4D',
+      variant: 'danger',
     })
-    if (!confirmed.confirm) return
+    if (!confirmed) return
     setSaving(true)
     try {
       await api.unlinkFriend(friend.id)
@@ -94,6 +96,7 @@ export function FriendBindingControl({ friend, closeRequest = 0, onOpenChange, o
       <Text className='friend-binding-action'>{friend.linkedUserId ? '管理 ›' : '去关联 ›'}</Text>
     </View>
 
+    {confirmDialog}
     {open && <View className='modal-backdrop friend-binding-backdrop' onClick={() => { if (!saving) setOpen(false) }}>
       <View className='detail-modal friend-binding-modal' onClick={event => event.stopPropagation()}>
         <View className='detail-header'>

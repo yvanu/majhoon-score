@@ -671,18 +671,6 @@ function ScoreChangePreview({ players, scores, label, note }: {
   </View>
 }
 
-function MasterScoreDotAvatar({ selected }: { selected: boolean }) {
-  return <View className={`master-score-dot-avatar${selected ? ' selected' : ''}`} />
-}
-
-function MasterScoreSmileAvatar({ selected = false }: { selected?: boolean }) {
-  return <View className={`master-score-smile-avatar${selected ? ' selected' : ''}`}>
-    <View className='master-score-smile-eye left' />
-    <View className='master-score-smile-eye right' />
-    <View className='master-score-smile-mouth' />
-  </View>
-}
-
 function MasterScoreShade({ tone, onClick }: { tone: 'soft' | 'dark'; onClick: () => void }) {
   return <View className={`master-score-shade ${tone}`} onClick={onClick} />
 }
@@ -1233,7 +1221,7 @@ export function ScoreScreen({ players, currentUserId, currentWind, currentHand, 
       <View className='master-score-player-grid'>{players.map(player => {
         const selected = winner === player.id
         return <View className={`master-score-player-card${selected ? ' selected' : ''}`} key={player.id} onClick={() => { feedback(); setWinner(player.id) }}>
-          <View className='master-score-avatar'><MasterScoreDotAvatar selected={selected} /></View>
+          <View className='master-score-avatar'><Avatar player={player} /></View>
           <Text>{masterPlayerLabel(player)}</Text>
         </View>
       })}</View>
@@ -1259,7 +1247,7 @@ export function ScoreScreen({ players, currentUserId, currentWind, currentHand, 
       <View className='master-score-player-grid ron-losers'>{players.map(player => {
         const selected = loser === player.id
         return <View className={`master-score-player-card${selected ? ' selected' : ''}`} key={player.id} onClick={() => masterChooseRonLoser(player.id)}>
-          <View className='master-score-avatar'><MasterScoreDotAvatar selected={selected} /></View>
+          <View className='master-score-avatar'><Avatar player={player} /></View>
           <Text>{masterPlayerLabel(player)}</Text>
         </View>
       })}</View>
@@ -1268,7 +1256,7 @@ export function ScoreScreen({ players, currentUserId, currentWind, currentHand, 
         const selected = ronWinnerIds.includes(player.id)
         const disabled = player.id === loser
         return <View className={`master-score-player-card${selected ? ' selected' : ''}${disabled ? ' disabled' : ''}`} key={player.id} onClick={() => { if (!disabled) masterChooseRonWinner(player.id) }}>
-          <View className='master-score-avatar'><MasterScoreDotAvatar selected={selected} /></View>
+          <View className='master-score-avatar'><Avatar player={player} /></View>
           <Text>{masterPlayerLabel(player)}</Text>
         </View>
       })}</View>
@@ -1299,13 +1287,13 @@ export function ScoreScreen({ players, currentUserId, currentWind, currentHand, 
       <Text className='master-score-compact-label'>点炮者</Text>
       <View className='master-score-compact-picks multi-loser-picks'>{players.map(player => {
         const selected = loser === player.id
-        return <View className={selected ? 'selected' : ''} key={player.id} onClick={() => masterChooseRonLoser(player.id)}><View className='master-score-compact-avatar'><MasterScoreSmileAvatar selected={selected} /></View><Text>{masterPlayerLabel(player)}</Text></View>
+        return <View className={selected ? 'selected' : ''} key={player.id} onClick={() => masterChooseRonLoser(player.id)}><View className='master-score-compact-avatar'><Avatar player={player} /></View><Text>{masterPlayerLabel(player)}</Text></View>
       })}</View>
       <View className='master-score-compact-head'><Text>胡牌者（多选）</Text><Text onClick={toggleMultiRonMode}>一炮多响</Text></View>
       <View className='master-score-compact-picks winners'>{players.map(player => {
         const selected = ronWinnerIds.includes(player.id)
         const disabled = player.id === loser
-        return <View className={`${selected ? 'selected' : ''}${disabled ? ' disabled' : ''}`} key={player.id} onClick={() => { if (!disabled) masterChooseRonWinner(player.id) }}><View className='master-score-compact-avatar'><MasterScoreSmileAvatar selected={selected} /></View><Text>{masterPlayerLabel(player)}</Text></View>
+        return <View className={`${selected ? 'selected' : ''}${disabled ? ' disabled' : ''}`} key={player.id} onClick={() => { if (!disabled) masterChooseRonWinner(player.id) }}><View className='master-score-compact-avatar'><Avatar player={player} /></View><Text>{masterPlayerLabel(player)}</Text></View>
       })}</View>
       <ScrollView scrollY className='master-multi-winner-scroll' showScrollbar={false}>
         <View className='master-multi-winner-list'>{ronWinnerIds.map(playerId => {
@@ -1340,14 +1328,14 @@ export function ScoreScreen({ players, currentUserId, currentWind, currentHand, 
         <Text className='master-score-compact-label role payer-role'>{payerLabel}</Text>
         <View className='master-score-compact-picks event-payer-picks'>{players.map(player => {
           const selected = eventPayer === player.id
-          return <View className={selected ? 'selected' : ''} key={player.id} onClick={() => { feedback(); setEventPayer(player.id); if (player.id === eventPlayer) setEventPlayer('') }}><View className='master-score-compact-avatar'><MasterScoreSmileAvatar selected={selected} /></View><Text>{masterPlayerLabel(player)}</Text></View>
+          return <View className={selected ? 'selected' : ''} key={player.id} onClick={() => { feedback(); setEventPayer(player.id); if (player.id === eventPlayer) setEventPlayer('') }}><View className='master-score-compact-avatar'><Avatar player={player} /></View><Text>{masterPlayerLabel(player)}</Text></View>
         })}</View>
       </>}
       <Text className={`master-score-compact-label role player-role${eventType === '明杠' ? '' : ' solo'}`}>{playerLabel}</Text>
       <View className={`master-score-compact-picks event-player-picks${eventType === '明杠' ? '' : ' solo'}`}>{players.map(player => {
         const selected = eventPlayer === player.id
         const disabled = eventType === '明杠' && eventPayer === player.id
-        return <View className={`${selected ? 'selected' : ''}${disabled ? ' disabled' : ''}`} key={player.id} onClick={() => { if (!disabled) { feedback(); selectEventPlayer(player.id) } }}><View className='master-score-compact-avatar'><MasterScoreSmileAvatar selected={selected} /></View><Text>{masterPlayerLabel(player)}</Text></View>
+        return <View className={`${selected ? 'selected' : ''}${disabled ? ' disabled' : ''}`} key={player.id} onClick={() => { if (!disabled) { feedback(); selectEventPlayer(player.id) } }}><View className='master-score-compact-avatar'><Avatar player={player} /></View><Text>{masterPlayerLabel(player)}</Text></View>
       })}</View>
       <View className={`master-score-event-settlement${preferences.showSettlementPreview && canSaveEvent ? '' : ' placeholder'}`}><Text>本次结算</Text><View>{preferences.showSettlementPreview && canSaveEvent ? masterEventScores.map(score => <View key={score.playerId}><Text>{masterPlayerLabel(players.find(player => player.id === score.playerId)!)}</Text><Text className={score.change > 0 ? 'positive' : 'negative'}>{score.change > 0 ? '+' : ''}{score.change}</Text></View>) : <View className='master-score-event-placeholder'><Text>选择事件玩家后显示</Text><Text>—</Text></View>}</View><View className='master-score-event-footer'><Text>{preferences.showSettlementPreview && canSaveEvent && zeroEventPlayers ? `其余${zeroEventPlayers === 1 ? '一' : zeroEventPlayers === 2 ? '两' : zeroEventPlayers === 3 ? '三' : zeroEventPlayers}人 0 分` : ''}</Text><Text>总和 0</Text></View></View>
       <Button className='master-score-submit' hoverClass='none' disabled={loading || !canSaveEvent} onClick={save}>{loading ? '保存中…' : '确认记录'}</Button>

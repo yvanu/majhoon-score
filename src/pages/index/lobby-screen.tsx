@@ -3,7 +3,7 @@ import { Button, Image, Input, ScrollView, Text, View } from '@tarojs/components
 import type { AuthUser, Friend, GroupSessionMember, MatchLobby, MatchLobbyMember } from '@shared/types'
 import { matchLobbyQrUrl } from '../../services/api'
 import { IdentityAvatar } from './identity-avatar'
-import { MasterBackGlyph, masterSafeTopStyle } from './shared'
+import { FriendAvatar, MasterBackGlyph, masterSafeTopStyle } from './shared'
 import { GroupMemberInfoModal } from './group-member-info'
 
 const participantSpots = [
@@ -109,7 +109,7 @@ export function LobbyScreen({ lobby, user, friends, friendsLoading, loading, clo
         const isSelf = member?.userId === user.id
         return <View className={`master-start-seat ${spot}`} key={spot}>
           {member ? <View className='master-start-player' onClick={() => setSelectedMember(member)}>
-            <View className={`master-start-avatar${isSelf ? ' self' : ''}`}><IdentityAvatar name={member.name} gender={member.gender} avatarUrl={member.avatarUrl} fallback='smile' /></View>
+            <View className={`master-start-avatar${isSelf ? ' self' : ''}`}><IdentityAvatar name={member.name} gender={member.gender} avatarUrl={member.avatarUrl} /></View>
             <Text className='master-start-player-name'>{isSelf ? '我' : member.name}</Text>
           </View> : <View className='master-start-player empty' onClick={openPlayerEditor}>
             <View className='master-start-empty-avatar'><Text>＋</Text></View>
@@ -152,7 +152,7 @@ export function LobbyScreen({ lobby, user, friends, friendsLoading, loading, clo
         {friendsLoading && <Text className='lobby-v4-friend-empty'>正在加载牌友…</Text>}
         {!friendsLoading && !visibleFriends.length && <Text className='lobby-v4-friend-empty'>没有可选择的牌友</Text>}
         {visibleFriends.map(friend => <View className='lobby-v4-friend-row' key={friend.id} onClick={() => { void chooseFriend(friend) }}>
-          <View className='lobby-v4-friend-avatar'><IdentityAvatar name={friend.wechatName || friend.name} gender={friend.wechatGender} avatarUrl={friend.wechatAvatarUrl} fallback='smile' /></View>
+          <View className='lobby-v4-friend-avatar'><FriendAvatar friend={friend} /></View>
           <View><Text>{friend.name}</Text><Text>{friend.linkedUserId && friend.wechatName ? `微信昵称 ${friend.wechatName} · ` : ''}共同 {friend.jointMatches} 将</Text></View>
           <Text>›</Text>
         </View>)}

@@ -102,7 +102,7 @@ async function loadMembers(db: D1Database, groupIds: string[]) {
   const result = await db.prepare(`
     SELECT gm.id, gm.group_session_id, gm.user_id, gm.friend_id,
       CASE WHEN gm.user_id IS NOT NULL THEN COALESCE(NULLIF(TRIM(u.display_name), ''), u.username) ELSE gm.name END name,
-      gm.avatar_seed, COALESCE(u.avatar_url, linked.avatar_url) avatar_url,
+      gm.avatar_seed, COALESCE(u.avatar_url, linked.avatar_url, f.avatar_url) avatar_url,
       COALESCE(u.gender, linked.gender) gender,
       gm.role, gm.status, gm.joined_at
     FROM group_session_members gm

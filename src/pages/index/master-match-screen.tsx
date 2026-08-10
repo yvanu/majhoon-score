@@ -99,7 +99,7 @@ function ScoreBoard({ players, currentHand, title = '当前总分' }: { players:
   return <View className='master-match-scoreboard'>
     <Text className='master-match-scoreboard-title'>{title}</Text>
     <View className='master-match-scoreboard-grid'>{bySeat.map(player => <View key={player.id}>
-      <View className='master-match-score-avatar'><IdentityAvatar name={player.name} gender={player.gender} avatarUrl={player.avatar_url} fallback='smile' /></View>
+      <View className='master-match-score-avatar'><IdentityAvatar name={player.name} gender={player.gender} avatarUrl={player.avatar_url} /></View>
       <Text className='master-match-score-seat'>{seatLabels[player.seat]}{player.seat === currentHand - 1 ? ' · 庄' : ''}</Text>
       <Text className='master-match-score-name'>{player.name}</Text>
       <Text className={`master-match-score ${player.score > 0 ? 'positive' : player.score < 0 ? 'negative' : ''}`}>{player.score > 0 ? '+' : ''}{player.score}</Text>

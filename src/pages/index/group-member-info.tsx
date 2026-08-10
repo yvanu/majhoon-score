@@ -3,7 +3,7 @@ import Taro from '@tarojs/taro'
 import { Button, ScrollView, Text, View } from '@tarojs/components'
 import type { Friend, FriendStatistics, GroupSessionMember } from '@shared/types'
 import { api } from '../../services/api'
-import { FriendAvatar } from './shared'
+import { FriendAvatar, useMasterConfirmDialog } from './shared'
 import { IdentityAvatar } from './identity-avatar'
 
 export function GroupMemberInfoModal({ member, currentUserId, friends, friendsLoading, contextLabel, onEnsureFriends, onFriendsChanged, onOpenFriend, onClose }: {
@@ -20,6 +20,7 @@ export function GroupMemberInfoModal({ member, currentUserId, friends, friendsLo
   const [binding, setBinding] = useState(false)
   const [relationship, setRelationship] = useState<FriendStatistics | null>(null)
   const [relationshipLoading, setRelationshipLoading] = useState(false)
+  const { confirm, confirmDialog } = useMasterConfirmDialog()
   const linkedFriend = useMemo(() => member.user_id
     ? friends.find(friend => friend.source !== 'wechat' && friend.linkedUserId === member.user_id) || null
     : member.friend_id ? friends.find(friend => friend.id === member.friend_id) || null : null, [friends, member.friend_id, member.user_id])
@@ -57,12 +58,12 @@ export function GroupMemberInfoModal({ member, currentUserId, friends, friendsLo
 
   async function bind(friend: Friend) {
     if (!member.user_id) return
-    const confirmed = await Taro.showModal({
+    const confirmed = await confirm({
       title: `关联“${friend.name}”？`,
       content: `绑定后，“${friend.name}”以前的牌局会与微信用户“${member.name}”合并统计，历史记录不会被改写。`,
       confirmText: '确认关联',
     })
-    if (!confirmed.confirm) return
+    if (!confirmed) return
     try {
       await api.linkFriend(friend.id, member.user_id)
       await onFriendsChanged()
@@ -73,7 +74,9 @@ export function GroupMemberInfoModal({ member, currentUserId, friends, friendsLo
     }
   }
 
-  return <View className='modal-backdrop group-member-info-backdrop' onClick={onClose}>
+  return <>
+    {confirmDialog}
+    <View className='modal-backdrop group-member-info-backdrop' onClick={onClose}>
     <View className='detail-modal group-member-info-modal' onClick={event => event.stopPropagation()}>
       <View className='detail-header'>
         <View><Text className='eyebrow'>玩家信息</Text><Text className='title-small'>{member.name}</Text></View>
@@ -115,4 +118,5 @@ export function GroupMemberInfoModal({ member, currentUserId, friends, friendsLo
       </View>}
     </View>
   </View>
+  </>
 }

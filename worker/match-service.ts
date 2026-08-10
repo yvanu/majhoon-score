@@ -46,7 +46,7 @@ function statisticsStatements(db: D1Database, idOrCode: string) {
     db.prepare(`SELECT COUNT(*) count FROM hands WHERE match_id = ${matchIdSelector} AND result_type <> 'event'`).bind(key, code),
     db.prepare(`
       SELECT p.id, p.name, p.avatar_seed, p.friend_id, p.user_id, p.seat,
-        COALESCE(u.avatar_url, linked.avatar_url) avatar_url,
+        COALESCE(u.avatar_url, linked.avatar_url, f.avatar_url) avatar_url,
         COALESCE(u.gender, linked.gender) gender,
         (SELECT COALESCE(SUM(hs.score_change), 0) FROM hand_scores hs WHERE hs.player_id = p.id) score,
         (SELECT COUNT(*) FROM hands h
@@ -100,7 +100,7 @@ export async function getMatchBundle(
     `).bind(key, code),
     db.prepare(`
       SELECT p.id, p.name, p.avatar_seed, p.friend_id, p.user_id, p.seat,
-        COALESCE(u.avatar_url, linked.avatar_url) avatar_url,
+        COALESCE(u.avatar_url, linked.avatar_url, f.avatar_url) avatar_url,
         COALESCE(u.gender, linked.gender) gender,
         COALESCE(SUM(hs.score_change), 0) score
       FROM players p

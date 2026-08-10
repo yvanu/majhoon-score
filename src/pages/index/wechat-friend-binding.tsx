@@ -3,7 +3,7 @@ import Taro from '@tarojs/taro'
 import { Button, ScrollView, Text, View } from '@tarojs/components'
 import type { Friend } from '@shared/types'
 import { api } from '../../services/api'
-import { FriendAvatar } from './shared'
+import { FriendAvatar, useMasterConfirmDialog } from './shared'
 
 export function WechatFriendBindingControl({ targetUserId, targetName, friends, closeRequest, onOpenChange, onLinked }: {
   targetUserId: string
@@ -15,6 +15,7 @@ export function WechatFriendBindingControl({ targetUserId, targetName, friends, 
 }) {
   const [open, setOpen] = useState(false)
   const [savingFriendId, setSavingFriendId] = useState('')
+  const { confirm, confirmDialog } = useMasterConfirmDialog()
   const candidates = useMemo(
     () => friends.filter(friend => friend.source !== 'wechat' && !friend.linkedUserId),
     [friends],
@@ -32,12 +33,12 @@ export function WechatFriendBindingControl({ targetUserId, targetName, friends, 
 
   async function link(friend: Friend) {
     if (savingFriendId) return
-    const confirmed = await Taro.showModal({
+    const confirmed = await confirm({
       title: `关联“${friend.name}”？`,
       content: `绑定后，“${friend.name}”以前的历史记录会与微信用户“${targetName}”合并统计；原始牌局不会被改写。`,
       confirmText: '确认关联',
     })
-    if (!confirmed.confirm) return
+    if (!confirmed) return
     setSavingFriendId(friend.id)
     try {
       await api.linkFriend(friend.id, targetUserId)
@@ -52,6 +53,7 @@ export function WechatFriendBindingControl({ targetUserId, targetName, friends, 
   }
 
   return <>
+    {confirmDialog}
     <View className='wechat-friend-bind-entry' onClick={() => setOpen(true)}>
       <View><Text>关联已有牌友</Text><Text>把以前手工记录的历史战绩合并到这个微信身份</Text></View>
       <Text>›</Text>

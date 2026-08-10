@@ -18,7 +18,7 @@ async function loadLobby(db: D1Database, idOrCode: string, viewerUserId: string)
   if (!lobby) return null
   const membersResult = await db.prepare(`
     SELECT lm.id, lm.user_id, lm.friend_id, lm.name, lm.avatar_seed, lm.joined_at,
-      COALESCE(u.avatar_url, linked.avatar_url) avatar_url,
+      COALESCE(u.avatar_url, linked.avatar_url, f.avatar_url) avatar_url,
       COALESCE(u.gender, linked.gender) gender
     FROM match_lobby_members lm
     LEFT JOIN users u ON u.id = lm.user_id
