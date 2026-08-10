@@ -239,6 +239,7 @@ export default function Index() {
   const pendingPageScrollTop = useRef<number | null>(null)
   const pendingGroupCode = useRef('')
   const pendingLobbyCode = useRef('')
+  const matchLobbyCreateGeneration = useRef(0)
   const authSuccessScreen = useRef<Screen>('home')
   const reviewReturnScreen = useRef<Screen>('home')
   const matchReturnScreen = useRef<Screen>('home')
@@ -981,13 +982,25 @@ export default function Index() {
       showAuth('home')
       return
     }
+    const generation = ++matchLobbyCreateGeneration.current
+    setMatchLobby(null)
+    setScreen('lobby')
     void run(async () => {
       const result = await api.createMatchLobby()
+      if (generation !== matchLobbyCreateGeneration.current || screenRef.current !== 'lobby') {
+        void api.cancelMatchLobby(result.lobby.id).catch(error => {
+          console.error('Cleanup abandoned match lobby failed:', error)
+        })
+        return
+      }
       setMatchLobby(result.lobby)
-      setScreen('lobby')
       void loadFriends().catch(error => {
         console.error('Prefetch friends for match lobby failed:', error)
       })
+    }, { blockUi: false }).then(succeeded => {
+      if (!succeeded && generation === matchLobbyCreateGeneration.current && screenRef.current === 'lobby') {
+        replaceScreen('home')
+      }
     })
   }
 
@@ -1679,7 +1692,7 @@ export default function Index() {
       onBack={closeSeatAssignment}
       onConfirm={confirmSeatAssignment}
     />}
-    {screen === 'lobby' && user && matchLobby && <LobbyScreen
+    {screen === 'lobby' && user && (matchLobby ? <LobbyScreen
       lobby={matchLobby}
       user={user}
       friends={friends}
@@ -1700,7 +1713,7 @@ export default function Index() {
       onEnsureFriends={() => loadFriends()}
       onFriendsChanged={async () => { friendsLoadedAt.current = 0; await loadFriends(true) }}
       onOpenFriend={openFriend}
-    />}
+    /> : <LoadingScreen title='开始新牌局' message='正在创建准备桌…' onBack={goBack} />)}
     {screen === 'auth' && <Auth onBack={goBack} onWechatLogin={wechatLogin} loading={loading} />}
     {screen === 'nickname' && user && <ProfileSetupScreen
       user={user}

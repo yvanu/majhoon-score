@@ -55,13 +55,16 @@ async function findLobby(c: Context<Env>, viewerUserId: string) {
   return loadLobby(c.env.DB, c.req.param('id') || '', viewerUserId)
 }
 
-async function ensureLobbyCode(db: D1Database) {
-  let code = shareCode()
+async function insertLobby(db: D1Database, lobbyId: string, ownerUserId: string, createdAt: string) {
   for (let attempt = 0; attempt < 6; attempt++) {
-    if (!await db.prepare('SELECT 1 FROM match_lobbies WHERE share_code = ?').bind(code).first()) return code
-    code = shareCode()
+    const code = shareCode()
+    const inserted = await db.prepare(`
+      INSERT OR IGNORE INTO match_lobbies(id, share_code, owner_user_id, status, created_at, updated_at)
+      VALUES(?, ?, ?, 'preparing', ?, ?)
+    `).bind(lobbyId, code, ownerUserId, createdAt, createdAt).run()
+    if (Number(inserted.meta?.changes || 0) === 1) return code
   }
-  return `${shareCode()}${Date.now().toString(36).slice(-2).toUpperCase()}`
+  throw new Error('MATCH_LOBBY_CODE_EXHAUSTED')
 }
 
 async function createOrFindFriend(db: D1Database, ownerUserId: string, name: string, friendId: string | null, at: string) {
@@ -108,12 +111,21 @@ export function registerLobbyRoutes(app: Hono<Env>) {
     if (!user) return jsonError(c, '请先登录', 401)
     const createdAt = now()
     const lobbyId = uid()
-    const code = await ensureLobbyCode(c.env.DB)
-    await c.env.DB.prepare(`
-      INSERT INTO match_lobbies(id, share_code, owner_user_id, status, created_at, updated_at)
-      VALUES(?, ?, ?, 'preparing', ?, ?)
-    `).bind(lobbyId, code, user.id, createdAt, createdAt).run()
-    return c.json({ lobby: await loadLobby(c.env.DB, lobbyId, user.id) }, 201)
+    const code = await insertLobby(c.env.DB, lobbyId, user.id, createdAt)
+    return c.json({
+      lobby: {
+        id: lobbyId,
+        shareCode: code,
+        ownerUserId: user.id,
+        status: 'preparing',
+        matchId: null,
+        members: [],
+        isOwner: true,
+        isMember: false,
+        createdAt,
+        updatedAt: createdAt,
+      } satisfies MatchLobby,
+    }, 201)
   })
 
   app.get('/api/match-lobbies/:id', async c => {
