@@ -1911,7 +1911,7 @@ export default function Index() {
       reviewReturnLabel={reviewReturnLabel()}
     /> : <LoadingScreen title='牌局详情' message='正在加载战况与逐局记录…' onBack={goBack} />)}
     </View>
-    {activeTab && screen !== 'profile' && <BottomNav
+    {activeTab && <BottomNav
       active={activeTab}
       unreadChats={unreadChatCount}
       onHome={() => setScreen('home')}
