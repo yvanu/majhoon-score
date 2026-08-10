@@ -8,7 +8,6 @@ import type {
   Friend,
   FriendStatistics,
   GroupChatMessage,
-  GroupMemberStatus,
   GroupSession,
   GroupSessionInput,
   GroupSessionSummary,
@@ -189,7 +188,6 @@ export default function Index() {
   const [historyLoading, setHistoryLoading] = useState(false)
   const [friendsLoading, setFriendsLoading] = useState(false)
   const [groupsLoading, setGroupsLoading] = useState(false)
-  const [dailyStatsLoading, setDailyStatsLoading] = useState(false)
   const [friendStats, setFriendStats] = useState<FriendStatistics | null>(null)
   const [activeFriend, setActiveFriend] = useState<Friend | null>(null)
   const [friendStatsLoadingId, setFriendStatsLoadingId] = useState('')
@@ -479,10 +477,6 @@ export default function Index() {
     navigateBack(true)
   }
 
-  function scheduleBackTrapRearm() {
-    scheduleBackTrapArm(screenRef.current)
-  }
-
   function handleNativeBack(expectedTrapOwner: Screen | null) {
     const hasOpenOverlay = Boolean(dialog) || auxiliaryOverlayOpen || scoreTileEditorOpen || matchDetailOpen
     const currentScreen = screenRef.current
@@ -499,7 +493,7 @@ export default function Index() {
 
     disarmBackTrap()
     navigateBack(false)
-    scheduleBackTrapRearm()
+    scheduleBackTrapArm(screenRef.current)
   }
 
   function updateRecentMatch(recentMatch: MatchSummary | null) {
@@ -747,13 +741,11 @@ export default function Index() {
       return Promise.resolve()
     }
     if (dailyStatsRequest.current) return dailyStatsRequest.current
-    setDailyStatsLoading(true)
     const request = api.dailyStatistics(today, timezoneOffset).then(result => {
       setDailyStats(result)
       dailyStatsLoadedAt.current = Date.now()
     }).finally(() => {
       dailyStatsRequest.current = null
-      setDailyStatsLoading(false)
     })
     dailyStatsRequest.current = request
     return request
@@ -943,67 +935,6 @@ export default function Index() {
     })
   }
 
-  async function leaveGroupSession() {
-    if (!activeGroup) return
-    const confirmed = await showDialog({
-      title: '退出组局？',
-      content: '退出后会释放你的座位，之后仍可在未满员时重新加入。',
-      confirmText: '退出',
-      variant: 'danger',
-    })
-    if (!confirmed) return
-    await run(async () => {
-      const result = await api.leaveGroupSession(activeGroup.id)
-      updateGroupState(result.group)
-      groupsLoadedAt.current = 0
-      await Taro.showToast({ title: '已退出组局', icon: 'success' })
-    })
-  }
-
-  async function updateGroupMember(memberId: string, status: GroupMemberStatus) {
-    if (!activeGroup) return
-    await run(async () => {
-      const result = await api.updateGroupMember(activeGroup.id, memberId, status)
-      updateGroupState(result.group)
-      groupsLoadedAt.current = 0
-    })
-  }
-
-  async function removeGroupMember(memberId: string) {
-    if (!activeGroup) return
-    const member = activeGroup.members.find(item => item.id === memberId)
-    if (!member) return
-    const confirmed = await showDialog({
-      title: `移除${member.name}？`,
-      content: '移除后将释放这个位置，对方仍可通过组局码重新加入。',
-      confirmText: '移除',
-      variant: 'danger',
-    })
-    if (!confirmed) return
-    await run(async () => {
-      const result = await api.removeGroupMember(activeGroup.id, memberId)
-      updateGroupState(result.group)
-      groupsLoadedAt.current = 0
-    })
-  }
-
-  async function cancelGroupSession() {
-    if (!activeGroup) return
-    const confirmed = await showDialog({
-      title: '取消这个组局？',
-      content: '取消后成员将无法继续加入，也不能从该组局开始记分。',
-      confirmText: '取消组局',
-      variant: 'danger',
-    })
-    if (!confirmed) return
-    await run(async () => {
-      const result = await api.cancelGroupSession(activeGroup.id)
-      updateGroupState(result.group)
-      groupsLoadedAt.current = 0
-      await Taro.showToast({ title: '组局已取消', icon: 'success' })
-    })
-  }
-
   function startGroupSession() {
     if (!activeGroup || !activeGroup.is_owner) return
     const confirmed = activeGroup.members.filter(member => member.status === 'confirmed')
@@ -1107,14 +1038,6 @@ export default function Index() {
       const result = await api.addMatchLobbyMember(matchLobby.id, { source: 'guest', name, seat })
       setMatchLobby(result.lobby)
       friendsLoadedAt.current = 0
-    })
-  }
-
-  async function removeLobbyMember(memberId: string) {
-    if (!matchLobby) return
-    await run(async () => {
-      const result = await api.removeMatchLobbyMember(matchLobby.id, memberId)
-      setMatchLobby(result.lobby)
     })
   }
 
@@ -1489,7 +1412,7 @@ export default function Index() {
   }
 
   async function logout() {
-    const logoutRequest = api.logout().catch(error => {
+    void api.logout().catch(error => {
       console.error('Remote logout failed:', error)
     })
     Taro.removeStorageSync(AUTH_KEY)
@@ -1518,7 +1441,6 @@ export default function Index() {
     setHistoryLoading(false)
     setFriendsLoading(false)
     setGroupsLoading(false)
-    setDailyStatsLoading(false)
     dailyStatsLoadedAt.current = 0
     dailyStatsRequest.current = null
     setFriendStats(null)
@@ -1536,7 +1458,6 @@ export default function Index() {
     setDailyStats(null)
     setScreen('home')
     void Taro.showToast({ title: '已退出登录', icon: 'none' })
-    void logoutRequest
   }
 
   async function deleteHistoryMatch(id: string) {
@@ -1746,7 +1667,6 @@ export default function Index() {
       onAddFriend={addLobbyFriend}
       onAddGuest={addLobbyGuest}
       onAddNewFriend={showAddFriend}
-      onRemoveMember={member => removeLobbyMember(member.id)}
       onStart={startLobbyMatch}
       onCancel={cancelMatchLobby}
       onEnsureFriends={() => loadFriends()}
@@ -1792,7 +1712,6 @@ export default function Index() {
       onRefresh={() => { groupsLoadedAt.current = 0; void loadGroups(true).catch(error => console.error('Refresh groups failed:', error)) }}
     />}
     {screen === 'group-create' && user && <GroupCreateScreen
-      user={user}
       friends={friends}
       loading={loading}
       friendPickerOpen={groupFriendPickerOpen}
@@ -1806,23 +1725,12 @@ export default function Index() {
       ? <GroupDetailScreen
           group={activeGroup}
           currentUserId={user.id}
-          friends={friends}
-          friendsLoading={friendsLoading}
           loading={loading}
-          closeOverlayRequest={auxiliaryOverlayCloseRequest}
-          onOverlayOpenChange={setAuxiliaryOverlayOpen}
           onBack={closeGroup}
           onJoin={joinGroupSession}
-          onLeave={leaveGroupSession}
-          onUpdateMember={updateGroupMember}
-          onRemoveMember={removeGroupMember}
-          onCancel={cancelGroupSession}
           onStart={startGroupSession}
           onOpenMatch={matchId => openMatch(matchId, activeGroup.status === 'finished' ? 'finished' : 'active')}
           onOpenChat={openGroupChat}
-          onEnsureFriends={() => loadFriends()}
-          onFriendsChanged={async () => { friendsLoadedAt.current = 0; await loadFriends(true) }}
-          onOpenFriend={openFriend}
         />
       : <LoadingScreen title='组局详情' message='正在加载时间、地点和参与成员…' onBack={goBack} />)}
     {screen === 'group-chat' && user && activeGroup && <GroupChatScreen

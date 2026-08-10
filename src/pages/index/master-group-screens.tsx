@@ -2,9 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Taro from '@tarojs/taro'
 import { Button, Input, Picker, ScrollView, Text, Textarea, View } from '@tarojs/components'
 import type {
-  AuthUser,
   Friend,
-  GroupMemberStatus,
   GroupSession,
   GroupSessionInput,
   GroupSessionSummary,
@@ -215,8 +213,7 @@ export function GroupSessionsScreen({ groups, loading, tab, code, showCodeEntry,
   </View>
 }
 
-export function GroupCreateScreen({ user, friends, loading, friendPickerOpen, defaultLocation, defaultLeadMinutes, onFriendPickerOpenChange, onBack, onCreate }: {
-  user: AuthUser
+export function GroupCreateScreen({ friends, loading, friendPickerOpen, defaultLocation, defaultLeadMinutes, onFriendPickerOpenChange, onBack, onCreate }: {
   friends: Friend[]
   loading: boolean
   friendPickerOpen: boolean
@@ -235,7 +232,6 @@ export function GroupCreateScreen({ user, friends, loading, friendPickerOpen, de
   const [friendQuery, setFriendQuery] = useState('')
   const [draftFriendIds, setDraftFriendIds] = useState<string[]>([])
   const startAt = new Date(`${date}T${time}:00`)
-  const valid = location.trim().length > 0 && Number.isFinite(startAt.getTime())
 
   function publishGroup() {
     if (loading) return
@@ -315,41 +311,18 @@ export function GroupCreateScreen({ user, friends, loading, friendPickerOpen, de
   </View>
 }
 
-export function GroupDetailScreen({ group, currentUserId, friends, friendsLoading, loading, closeOverlayRequest, onOverlayOpenChange, onBack, onJoin, onLeave, onUpdateMember, onRemoveMember, onCancel, onStart, onOpenMatch, onOpenChat, onEnsureFriends, onFriendsChanged, onOpenFriend }: {
+export function GroupDetailScreen({ group, currentUserId, loading, onBack, onJoin, onStart, onOpenMatch, onOpenChat }: {
   group: GroupSession
   currentUserId: string
-  friends: Friend[]
-  friendsLoading: boolean
   loading: boolean
-  closeOverlayRequest: number
-  onOverlayOpenChange: (open: boolean) => void
   onBack: () => void
   onJoin: () => void
-  onLeave: () => void
-  onUpdateMember: (memberId: string, status: GroupMemberStatus) => void
-  onRemoveMember: (memberId: string) => void
-  onCancel: () => void
   onStart: () => void
   onOpenMatch: (matchId: string) => void
   onOpenChat: () => void
-  onEnsureFriends: () => Promise<void>
-  onFriendsChanged: () => Promise<void>
-  onOpenFriend: (friend: Friend) => void
 }) {
-  void friends
-  void friendsLoading
-  void closeOverlayRequest
-  void onOverlayOpenChange
-  void onUpdateMember
-  void onRemoveMember
-  void onEnsureFriends
-  void onFriendsChanged
-  void onOpenFriend
-  const confirmedMembers = group.members.filter(member => member.status === 'confirmed')
-  const myMember = group.members.find(member => member.user_id === currentUserId)
   const canStart = group.is_owner && !group.match_id && group.confirmed_count === group.capacity && (group.status === 'recruiting' || group.status === 'full')
   const canJoin = !group.is_member && group.status === 'recruiting' && group.confirmed_count < group.capacity
-  const canLeave = Boolean(myMember && myMember.role !== 'owner' && (group.status === 'recruiting' || group.status === 'full'))
   const ready = group.confirmed_count === group.capacity
 
   return <ScrollView scrollY className='master-group-detail-scroll' showScrollbar={false}>

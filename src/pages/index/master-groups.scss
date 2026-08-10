@@ -550,9 +550,6 @@
   line-height: 96.154rpx;
 }
 .master-detail-primary::after { border: 0; }
-.master-detail-minor { display: block; margin-top: 30rpx; color: #8E8880; font-size: 20rpx; text-align: center; }
-.master-detail-minor.danger { color: #C55A50; }
-
 /* 02 / 03 / 04 / 18 / 19: lock all master-board structural rectangles to SVG coordinates. */
 .master-groups-screen,
 .master-group-create-screen,

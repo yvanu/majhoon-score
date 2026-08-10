@@ -1,5 +1,5 @@
 import Taro from '@tarojs/taro'
-import type { AuthResult, AuthUser, DailyStats, Friend, FriendStatistics, GroupChatMessage, GroupChatSnapshot, GroupMemberStatus, GroupSession, GroupSessionInput, GroupSessionSummary, HandInput, HandMutationResult, KnownUser, Match, MatchLobby, MatchPlayerInput, MatchSummary, PersonalStatistics, StatisticsDimension, Stats, UserProfileInput } from '@shared/types'
+import type { AuthResult, AuthUser, DailyStats, Friend, FriendStatistics, GroupChatMessage, GroupChatSnapshot, GroupSession, GroupSessionInput, GroupSessionSummary, HandInput, HandMutationResult, KnownUser, Match, MatchLobby, MatchPlayerInput, MatchSummary, PersonalStatistics, StatisticsDimension, Stats, UserProfileInput } from '@shared/types'
 
 export const AUTH_KEY = 'mahjong-auth-token'
 export const CURRENT_KEY = 'mahjong-current'
@@ -115,25 +115,12 @@ export const api = {
   joinMatchLobby: (idOrCode: string, seat?: number) => request<{ lobby: MatchLobby }>(`/api/match-lobbies/${encodeURIComponent(idOrCode)}/join`, 'POST', seat === undefined ? undefined : { seat }),
   addMatchLobbyMember: (lobbyId: string, input: { source: 'self' | 'friend' | 'guest'; friendId?: string; name?: string; seat?: number }) =>
     request<{ lobby: MatchLobby }>(`/api/match-lobbies/${encodeURIComponent(lobbyId)}/members`, 'POST', input),
-  removeMatchLobbyMember: (lobbyId: string, memberId: string) =>
-    request<{ lobby: MatchLobby }>(`/api/match-lobbies/${encodeURIComponent(lobbyId)}/members/${encodeURIComponent(memberId)}`, 'DELETE'),
   cancelMatchLobby: (lobbyId: string) => request<{ lobby: MatchLobby }>(`/api/match-lobbies/${encodeURIComponent(lobbyId)}/cancel`, 'POST'),
   startMatchLobby: (lobbyId: string) => request<{ lobby: MatchLobby; match: Match; adminToken: string }>(`/api/match-lobbies/${encodeURIComponent(lobbyId)}/start`, 'POST'),
   groupSessions: () => request<{ groups: GroupSessionSummary[] }>('/api/group-sessions'),
   createGroupSession: (input: GroupSessionInput) => request<{ group: GroupSession }>('/api/group-sessions', 'POST', input),
   getGroupSession: (idOrCode: string) => request<{ group: GroupSession }>(`/api/group-sessions/${encodeURIComponent(idOrCode)}`),
   joinGroupSession: (groupId: string) => request<{ group: GroupSession }>(`/api/group-sessions/${encodeURIComponent(groupId)}/join`, 'POST'),
-  leaveGroupSession: (groupId: string) => request<{ group: GroupSession }>(`/api/group-sessions/${encodeURIComponent(groupId)}/leave`, 'POST'),
-  updateGroupMember: (groupId: string, memberId: string, status: GroupMemberStatus) => request<{ group: GroupSession }>(
-    `/api/group-sessions/${encodeURIComponent(groupId)}/members/${encodeURIComponent(memberId)}`,
-    'PUT',
-    { status },
-  ),
-  removeGroupMember: (groupId: string, memberId: string) => request<{ group: GroupSession }>(
-    `/api/group-sessions/${encodeURIComponent(groupId)}/members/${encodeURIComponent(memberId)}`,
-    'DELETE',
-  ),
-  cancelGroupSession: (groupId: string) => request<{ group: GroupSession }>(`/api/group-sessions/${encodeURIComponent(groupId)}/cancel`, 'POST'),
   startGroupSession: (groupId: string, memberIds: string[]) => request<{ group: GroupSession; match: Match; adminToken: string }>(`/api/group-sessions/${encodeURIComponent(groupId)}/start`, 'POST', { memberIds }),
   groupChat: (groupId: string, after = 0) => request<GroupChatSnapshot>(
     `/api/group-sessions/${encodeURIComponent(groupId)}/chat${after > 0 ? `?after=${after}` : ''}`,

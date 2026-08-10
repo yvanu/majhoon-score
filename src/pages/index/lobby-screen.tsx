@@ -14,7 +14,7 @@ const seatSpots = [
 ] as const
 type LobbySeat = typeof seatSpots[number]['seat']
 
-export function LobbyScreen({ lobby, user, friends, friendsLoading, loading, closeOverlayRequest, onOverlayOpenChange, onBack, onRefresh, onJoin, onAddSelf, onAddFriend, onAddGuest, onAddNewFriend, onRemoveMember, onStart, onCancel, onEnsureFriends, onFriendsChanged, onOpenFriend }: {
+export function LobbyScreen({ lobby, user, friends, friendsLoading, loading, closeOverlayRequest, onOverlayOpenChange, onBack, onRefresh, onJoin, onAddSelf, onAddFriend, onAddGuest, onAddNewFriend, onStart, onCancel, onEnsureFriends, onFriendsChanged, onOpenFriend }: {
   lobby: MatchLobby
   user: AuthUser
   friends: Friend[]
@@ -29,7 +29,6 @@ export function LobbyScreen({ lobby, user, friends, friendsLoading, loading, clo
   onAddFriend: (friendId: string, seat: LobbySeat) => Promise<void>
   onAddGuest: (name: string, seat: LobbySeat) => Promise<void>
   onAddNewFriend: () => void
-  onRemoveMember: (member: MatchLobbyMember) => Promise<void>
   onStart: () => Promise<void>
   onCancel: () => Promise<void>
   onEnsureFriends: () => Promise<void>
