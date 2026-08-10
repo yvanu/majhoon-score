@@ -133,39 +133,40 @@ export function LobbyScreen({ lobby, user, friends, friendsLoading, loading, clo
     {!lobby.isOwner && lobby.isMember && lobby.status === 'preparing' && <Button className='master-start-primary muted' hoverClass='none' disabled>等待房主开始</Button>}
     {lobby.status !== 'preparing' && <Button className='master-start-primary muted' hoverClass='none' disabled>{lobby.status === 'started' ? '牌局已经开始' : '准备桌已关闭'}</Button>}
 
-    {addOpen && <View className='lobby-v4-backdrop master-safe-overlay' onClick={() => setAddOpen(false)}><View className='lobby-v4-modal add' onClick={event => event.stopPropagation()}>
-      <View className='lobby-v4-modal-head'><View><Text>更换玩家</Text><Text>选择本场四位玩家</Text></View><Button hoverClass='none' onClick={() => setAddOpen(false)}>×</Button></View>
-      <View className='lobby-v4-option-list'>
-        {!lobby.members.some(member => member.userId === user.id) && <Button hoverClass='none' onClick={() => { void addSelf() }}><Text>选择我自己</Text><Text>›</Text></Button>}
-        <Button hoverClass='none' onClick={() => { setAddOpen(false); setFriendPickerOpen(true) }}><Text>选择已有牌友</Text><Text>›</Text></Button>
-        <Button hoverClass='none' onClick={() => { setAddOpen(false); onAddNewFriend() }}><Text>添加新牌友</Text><Text>›</Text></Button>
-        <Button hoverClass='none' openType='share'><Text>邀请微信好友</Text><Text>›</Text></Button>
-        <Button hoverClass='none' onClick={() => { setAddOpen(false); setQrOpen(true) }}><Text>让好友扫码加入</Text><Text>›</Text></Button>
-        {canEdit && lobby.members.length > 0 && <Button hoverClass='none' onClick={() => { setAddOpen(false); void onCancel() }}><Text>关闭准备桌</Text><Text>›</Text></Button>}
+    {addOpen && <View className='master-lobby-backdrop master-safe-overlay' onClick={() => setAddOpen(false)}><View className='master-lobby-modal actions' onClick={event => event.stopPropagation()}>
+      <View className='master-lobby-modal-head'><View><Text>更换玩家</Text><Text>选择本场四位参与者</Text></View><Button hoverClass='none' onClick={() => setAddOpen(false)}>×</Button></View>
+      <View className='master-lobby-action-list'>
+        {!lobby.members.some(member => member.userId === user.id) && <Button hoverClass='none' onClick={() => { void addSelf() }}><View><Text>选择我自己</Text><Text>使用当前微信身份加入本桌</Text></View><Text>›</Text></Button>}
+        <Button hoverClass='none' onClick={() => { setAddOpen(false); setFriendPickerOpen(true) }}><View><Text>选择已有牌友</Text><Text>从你的牌友记录中选择</Text></View><Text>›</Text></Button>
+        <Button hoverClass='none' onClick={() => { setAddOpen(false); onAddNewFriend() }}><View><Text>添加新牌友</Text><Text>创建新的本地牌友身份</Text></View><Text>›</Text></Button>
+        <Button hoverClass='none' openType='share'><View><Text>邀请微信好友</Text><Text>发送当前准备桌邀请</Text></View><Text>›</Text></Button>
+        <Button hoverClass='none' onClick={() => { setAddOpen(false); setQrOpen(true) }}><View><Text>让好友扫码加入</Text><Text>展示当前准备桌二维码</Text></View><Text>›</Text></Button>
+        {canEdit && lobby.members.length > 0 && <Button className='danger' hoverClass='none' onClick={() => { setAddOpen(false); void onCancel() }}><View><Text>关闭准备桌</Text><Text>已加入的玩家将无法继续进入</Text></View><Text>›</Text></Button>}
       </View>
     </View></View>}
 
-    {friendPickerOpen && <View className='lobby-v4-backdrop master-safe-overlay' onClick={() => setFriendPickerOpen(false)}><View className='lobby-v4-modal friends' onClick={event => event.stopPropagation()}>
-      <View className='lobby-v4-modal-head'><View><Text>选择牌友</Text><Text>从自己的牌友记录中选择</Text></View><Button hoverClass='none' onClick={() => setFriendPickerOpen(false)}>×</Button></View>
-      <View className='lobby-v4-search'><Input value={friendQuery} maxlength={20} placeholder='搜索牌友昵称' onInput={event => setFriendQuery(event.detail.value)} /></View>
-      <ScrollView scrollY className='lobby-v4-friend-list' showScrollbar={false}>
-        {friendsLoading && <Text className='lobby-v4-friend-empty'>正在加载牌友…</Text>}
-        {!friendsLoading && !visibleFriends.length && <Text className='lobby-v4-friend-empty'>没有可选择的牌友</Text>}
-        {visibleFriends.map(friend => <View className='lobby-v4-friend-row' key={friend.id} onClick={() => { void chooseFriend(friend) }}>
-          <View className='lobby-v4-friend-avatar'><FriendAvatar friend={friend} /></View>
-          <View><Text>{friend.name}</Text><Text>{friend.linkedUserId && friend.wechatName ? `微信昵称 ${friend.wechatName} · ` : ''}共同 {friend.jointMatches} 将</Text></View>
+    {friendPickerOpen && <View className='master-lobby-backdrop master-safe-overlay' onClick={() => setFriendPickerOpen(false)}><View className='master-lobby-modal friends' onClick={event => event.stopPropagation()}>
+      <View className='master-lobby-modal-head'><View><Text>选择牌友</Text><Text>从自己的牌友记录中选择</Text></View><Button hoverClass='none' onClick={() => setFriendPickerOpen(false)}>×</Button></View>
+      <View className='master-lobby-search'><Input value={friendQuery} maxlength={20} placeholder='搜索牌友昵称' onInput={event => setFriendQuery(event.detail.value)} /></View>
+      <ScrollView scrollY className='master-lobby-friend-list' showScrollbar={false}>
+        {friendsLoading && <Text className='master-lobby-friend-empty'>正在加载牌友…</Text>}
+        {!friendsLoading && !visibleFriends.length && <Text className='master-lobby-friend-empty'>没有可选择的牌友</Text>}
+        {visibleFriends.map(friend => <View className='master-lobby-friend-row' key={friend.id} onClick={() => { void chooseFriend(friend) }}>
+          <View className='master-lobby-friend-avatar'><FriendAvatar friend={friend} /></View>
+          <View><Text>{friend.wechatName || friend.name}</Text><Text>{friend.linkedUserId && friend.wechatName ? `历史昵称 ${friend.name} · ` : ''}共同 {friend.jointMatches} 将</Text></View>
           <Text>›</Text>
         </View>)}
       </ScrollView>
-      <View className='lobby-v4-new-friend'>
-        <Input value={guestName} maxlength={12} placeholder='输入新牌友昵称' onInput={event => setGuestName(event.detail.value)} />
+      <View className='master-lobby-new-friend'>
+        <Input value={guestName} maxlength={12} placeholder='临时输入一位牌友昵称' onInput={event => setGuestName(event.detail.value)} />
         <Button hoverClass='none' disabled={!guestName.trim() || loading} onClick={() => { void addGuest() }}>添加</Button>
       </View>
     </View></View>}
 
-    {qrOpen && <View className='lobby-v4-backdrop master-safe-overlay' onClick={() => setQrOpen(false)}><View className='lobby-v4-modal qr' onClick={event => event.stopPropagation()}>
-      <View className='lobby-v4-modal-head'><View><Text>扫码加入</Text><Text>让好友用微信扫一扫</Text></View><Button hoverClass='none' onClick={() => setQrOpen(false)}>×</Button></View>
-      <Image className='lobby-v4-qr' src={matchLobbyQrUrl(lobby.shareCode)} mode='aspectFit' />
+    {qrOpen && <View className='master-lobby-backdrop master-safe-overlay' onClick={() => setQrOpen(false)}><View className='master-lobby-modal qr' onClick={event => event.stopPropagation()}>
+      <View className='master-lobby-modal-head'><View><Text>扫码加入</Text><Text>让好友使用微信扫一扫进入本桌</Text></View><Button hoverClass='none' onClick={() => setQrOpen(false)}>×</Button></View>
+      <View className='master-lobby-qr-wrap'><Image className='master-lobby-qr' src={matchLobbyQrUrl(lobby.shareCode)} mode='aspectFit' /></View>
+      <Text className='master-lobby-qr-note'>准备桌码 {lobby.shareCode}</Text>
     </View></View>}
 
     {selectedMember && <GroupMemberInfoModal

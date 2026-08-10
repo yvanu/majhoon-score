@@ -152,17 +152,17 @@ export function FriendAvatar({ friend, large = false }: { friend: Friend; large?
   return <AvatarFace name={friend.name} palette={Number(friend.avatar_seed || 0)} large={large} />
 }
 
-export function Header({ title, onBack }: { title: string; onBack: () => void }) {
-  return <View className='header'><Button className='icon-button' hoverClass='none' onClick={onBack}>‹</Button><Text>{title}</Text></View>
-}
-
 export function LoadingScreen({ title, message, onBack }: { title: string; message: string; onBack: () => void }) {
-  return <View className='page detail-loading-page' style={{ paddingTop: `${getPageTopInset()}px` }}>
-    <Header title={title} onBack={onBack} />
-    <View className='detail-loading-card'>
-      <View className='detail-loading-spinner' />
-      <Text className='card-title'>正在加载</Text>
+  return <View className='master-loading-screen master-safe-top' style={masterSafeTopStyle(113.462)}>
+    <View className='master-loading-nav'>
+      <Button hoverClass='none' onClick={onBack}><MasterBackGlyph /></Button>
+      <View><Text>{title}</Text><Text>正在同步最新数据</Text></View>
+    </View>
+    <View className='master-loading-card'>
+      <View className='master-loading-spinner'><View /></View>
+      <Text>正在加载</Text>
       <Text>{message}</Text>
+      <View className='master-loading-lines'><View /><View /><View /></View>
     </View>
   </View>
 }

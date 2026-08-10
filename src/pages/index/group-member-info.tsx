@@ -3,7 +3,7 @@ import Taro from '@tarojs/taro'
 import { Button, ScrollView, Text, View } from '@tarojs/components'
 import type { Friend, FriendStatistics, GroupSessionMember } from '@shared/types'
 import { api } from '../../services/api'
-import { FriendAvatar, useMasterConfirmDialog } from './shared'
+import { FriendAvatar, MasterCloseGlyph, useMasterConfirmDialog } from './shared'
 import { IdentityAvatar } from './identity-avatar'
 
 export function GroupMemberInfoModal({ member, currentUserId, friends, friendsLoading, contextLabel, onEnsureFriends, onFriendsChanged, onOpenFriend, onClose }: {
@@ -76,47 +76,48 @@ export function GroupMemberInfoModal({ member, currentUserId, friends, friendsLo
 
   return <>
     {confirmDialog}
-    <View className='modal-backdrop group-member-info-backdrop' onClick={onClose}>
-    <View className='detail-modal group-member-info-modal' onClick={event => event.stopPropagation()}>
-      <View className='detail-header'>
-        <View><Text className='eyebrow'>玩家信息</Text><Text className='title-small'>{member.name}</Text></View>
-        <Button className='close-button' onClick={onClose}>×</Button>
-      </View>
-      <View className='group-member-info-identity'>
-        <IdentityAvatar name={member.name} avatarUrl={member.avatar_url} gender={member.gender} size='large' badge={member.user_id ? '微信' : '牌友'} />
-        <View className='grow'><Text className='group-member-info-name'>{member.name}</Text><Text>{contextLabel || (member.role === 'owner' ? '组局发起人' : member.status === 'confirmed' ? '已确认参加' : '等待确认')}</Text><Text>{member.user_id ? '微信用户资料' : '本地牌友'}</Text></View>
-      </View>
+    <View className='master-member-backdrop' onClick={onClose}>
+      <View className='master-member-dialog' onClick={event => event.stopPropagation()}>
+        <View className='master-member-head'>
+          <View><Text>{member.name}</Text><Text>{contextLabel || '玩家信息'}</Text></View>
+          <Button hoverClass='none' onClick={onClose}><MasterCloseGlyph /></Button>
+        </View>
 
-      {(linkedFriend || (member.user_id && member.user_id !== currentUserId)) && <View className='group-member-relationship-card'>
-        <View className='group-member-relationship-head'><Text>你们的共同战绩</Text><Text>{relationshipLoading ? '加载中…' : relationship ? `${relationship.friend.jointMatches} 将` : '暂无共同牌局'}</Text></View>
-        {relationship && <View className='group-member-relationship-grid'>
-          <View><Text className={relationship.netScore > 0 ? 'positive' : relationship.netScore < 0 ? 'negative' : ''}>{relationship.netScore > 0 ? '+' : ''}{relationship.netScore}</Text><Text>我的净分</Text></View>
-          <View><Text>{relationship.myWins}</Text><Text>我胡牌</Text></View>
-          <View><Text>{relationship.friendWins}</Text><Text>他胡牌</Text></View>
-          <View><Text>{relationship.myDealInsToFriend}</Text><Text>我点炮给他</Text></View>
+        <View className='master-member-identity'>
+          <View className='master-member-avatar'><IdentityAvatar name={member.name} avatarUrl={member.avatar_url} gender={member.gender} size='large' badge={member.user_id ? '微信' : '牌友'} /></View>
+          <View className='master-member-copy'><Text>{member.name}</Text><Text>{member.role === 'owner' ? '组局发起人' : member.status === 'confirmed' ? '已确认参加' : '等待确认'}</Text><Text>{member.user_id ? '微信用户身份' : '本地牌友身份'}</Text></View>
+        </View>
+
+        {(linkedFriend || (member.user_id && member.user_id !== currentUserId)) && <View className='master-member-stats'>
+          <View className='master-member-stats-head'><Text>你们的共同战绩</Text><Text>{relationshipLoading ? '加载中…' : relationship ? `${relationship.friend.jointMatches} 将` : '暂无共同牌局'}</Text></View>
+          {relationship && <View className='master-member-stats-grid'>
+            <View><Text className={relationship.netScore > 0 ? 'positive' : relationship.netScore < 0 ? 'negative' : ''}>{relationship.netScore > 0 ? '+' : ''}{relationship.netScore}</Text><Text>我的净分</Text></View>
+            <View><Text>{relationship.myWins}</Text><Text>我胡牌</Text></View>
+            <View><Text>{relationship.friendWins}</Text><Text>他胡牌</Text></View>
+            <View><Text>{relationship.myDealInsToFriend}</Text><Text>我点炮</Text></View>
+          </View>}
         </View>}
-      </View>}
 
-      {linkedFriend ? <View className='group-member-linked-card' onClick={() => { onClose(); onOpenFriend(linkedFriend) }}>
-        <FriendAvatar friend={linkedFriend} />
-        <View className='grow'><Text className='card-title'>{linkedFriend.name}</Text><Text>{member.user_id ? `已关联微信用户 ${member.name}` : '本地牌友战绩'}</Text><Text>共同 {linkedFriend.jointMatches} 将</Text></View>
-        <Text className='card-arrow'>›</Text>
-      </View> : canBind ? <View className='group-member-bind-entry' onClick={() => { void showBinding() }}>
-        <View><Text>关联已有牌友</Text><Text>合并你以前手工记录的历史战绩</Text></View><Text>›</Text>
-      </View> : member.user_id === currentUserId ? <Text className='group-member-self-note'>这是你当前登录的微信身份</Text> : null}
+        {linkedFriend ? <View className='master-member-link' onClick={() => { onClose(); onOpenFriend(linkedFriend) }}>
+          <View className='master-member-link-avatar'><FriendAvatar friend={linkedFriend} /></View>
+          <View><Text>{linkedFriend.wechatName || linkedFriend.name}</Text><Text>{member.user_id ? `已关联微信身份 · 共同 ${linkedFriend.jointMatches} 将` : `本地牌友 · 共同 ${linkedFriend.jointMatches} 将`}</Text></View>
+          <Text>›</Text>
+        </View> : canBind ? <View className='master-member-link' onClick={() => { void showBinding() }}>
+          <View><Text>关联已有牌友</Text><Text>合并以前手工记录的历史战绩</Text></View><Text>›</Text>
+        </View> : member.user_id === currentUserId ? <View className='master-member-self'><Text>这是你当前登录的微信身份</Text></View> : null}
 
-      {binding && <View className='group-member-binding-panel'>
-        <View className='group-member-binding-head'><Text>选择历史牌友</Text><Text onClick={() => setBinding(false)}>收起</Text></View>
-        <ScrollView scrollY className='group-member-binding-list' showScrollbar={false}>
-          {friendsLoading && !friends.length && <Text className='group-member-binding-empty'>正在加载牌友…</Text>}
-          {!friendsLoading && !candidates.length && <Text className='group-member-binding-empty'>没有可关联的历史牌友</Text>}
-          {candidates.map(friend => <View className='group-member-binding-row' key={friend.id} onClick={() => { void bind(friend) }}>
-            <FriendAvatar friend={friend} />
-            <View className='grow'><Text className='card-title'>{friend.name}</Text><Text>共同 {friend.jointMatches} 将</Text></View><Text className='card-arrow'>›</Text>
-          </View>)}
-        </ScrollView>
-      </View>}
+        {binding && <View className='master-member-binding'>
+          <View className='master-member-binding-head'><Text>选择历史牌友</Text><Text onClick={() => setBinding(false)}>收起</Text></View>
+          <ScrollView scrollY className='master-member-binding-list' showScrollbar={false}>
+            {friendsLoading && !friends.length && <Text className='master-member-binding-empty'>正在加载牌友…</Text>}
+            {!friendsLoading && !candidates.length && <Text className='master-member-binding-empty'>没有可关联的历史牌友</Text>}
+            {candidates.map(friend => <View className='master-member-binding-row' key={friend.id} onClick={() => { void bind(friend) }}>
+              <View className='master-member-link-avatar'><FriendAvatar friend={friend} /></View>
+              <View><Text>{friend.name}</Text><Text>共同 {friend.jointMatches} 将</Text></View><Text>›</Text>
+            </View>)}
+          </ScrollView>
+        </View>}
+      </View>
     </View>
-  </View>
   </>
 }
