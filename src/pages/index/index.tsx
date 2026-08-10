@@ -161,6 +161,7 @@ export default function Index() {
   const [dashboardSnapshot] = useState(() => readDashboardSnapshot())
   const [matchSnapshot] = useState(() => readMatchSnapshot())
   const [screen, setScreenState] = useState<Screen>('home')
+  const [screenMotion, setScreenMotion] = useState<'push' | 'pop' | 'replace' | 'tab'>('tab')
   const screenRef = useRef<Screen>('home')
   const screenHistory = useRef<Screen[]>(['home'])
   const [backTrapOpen, setBackTrapOpen] = useState(false)
@@ -342,7 +343,10 @@ export default function Index() {
 
   function setScreen(next: Screen) {
     const history = screenHistory.current
+    const current = screenRef.current
     const existingIndex = history.lastIndexOf(next)
+    const tabSwitch = bottomTabScreens.has(current) && bottomTabScreens.has(next)
+    setScreenMotion(tabSwitch ? 'tab' : existingIndex >= 0 ? 'pop' : 'push')
     if (existingIndex >= 0) history.splice(existingIndex + 1)
     else history.push(next)
     screenRef.current = next
@@ -352,7 +356,11 @@ export default function Index() {
 
   function replaceScreen(next: Screen) {
     const history = screenHistory.current
-    if (history.length > 1 && history[history.length - 2] === next) history.pop()
+    const current = screenRef.current
+    const returnsToPrevious = history.length > 1 && history[history.length - 2] === next
+    const tabSwitch = bottomTabScreens.has(current) && bottomTabScreens.has(next)
+    setScreenMotion(tabSwitch ? 'tab' : returnsToPrevious ? 'pop' : 'replace')
+    if (returnsToPrevious) history.pop()
     else if (history.length) history[history.length - 1] = next
     else history.push(next)
     screenRef.current = next
@@ -412,6 +420,7 @@ export default function Index() {
       if (shouldTrapNativeBack(screenRef.current)) {
         screenHistory.current = ['home']
         screenRef.current = 'home'
+        setScreenMotion('pop')
         setScreenState('home')
         if (updateBackTrap) setBackTrapOpen(false)
       }
@@ -427,6 +436,7 @@ export default function Index() {
       pendingPageScrollTop.current = groupListScrollTop.current
     }
     screenRef.current = previous
+    setScreenMotion(bottomTabScreens.has(current) && bottomTabScreens.has(previous) ? 'tab' : 'pop')
     setScreenState(previous)
     if (updateBackTrap) setBackTrapOpen(shouldTrapNativeBack(previous))
   }
@@ -1654,7 +1664,10 @@ export default function Index() {
   )
 
   return <View className='app'>
-    <View key={activeTab ? 'bottom-tabs' : screen} className={activeTab ? 'screen-transition tab-screen-transition' : 'screen-transition'}>
+    <View
+      key={activeTab ? 'bottom-tabs' : screen}
+      className={activeTab ? 'screen-transition tab-screen-transition' : `screen-transition screen-transition-${screenMotion}`}
+    >
     {screen === 'home' && <Home
       user={user}
       currentMatch={match?.status === 'active' ? match : null}

@@ -1,5 +1,6 @@
 .app {
   min-height: 100vh;
+  overflow-x: hidden;
   background: #F6F5F2;
   color: #171714;
   font-family: 'Noto Sans CJK SC', 'PingFang SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -20,6 +21,7 @@
   z-index: 260;
   inset: 0;
   background: rgba(20, 20, 19, .28);
+  animation: master-choice-backdrop-in .16s ease-out both;
 }
 .master-choice-sheet {
   position: absolute;
@@ -28,6 +30,7 @@
   bottom: calc(24rpx + env(safe-area-inset-bottom));
   max-height: 920rpx;
   padding: 24rpx;
+  animation: master-choice-sheet-in .24s cubic-bezier(.22,.76,.24,1) both;
   box-sizing: border-box;
   overflow: hidden;
   border-radius: 34rpx;
@@ -204,14 +207,40 @@
 
 .screen-transition {
   min-height: 100vh;
-  animation: screen-enter .3s cubic-bezier(.22,.8,.3,1) backwards;
-  will-change: opacity, transform;
+  background: #F6F5F2;
+  transform: translate3d(0,0,0);
+  backface-visibility: hidden;
+}
+.screen-transition-push {
+  animation: screen-push-in .28s cubic-bezier(.22,.76,.24,1) both;
+  will-change: transform;
+}
+.screen-transition-pop {
+  animation: screen-pop-in .24s cubic-bezier(.22,.76,.24,1) both;
+  will-change: transform;
+}
+.screen-transition-replace {
+  animation: screen-replace-in .18s cubic-bezier(.25,.75,.3,1) both;
+  will-change: transform;
 }
 .tab-screen-transition { animation: none; will-change: auto; }
 
-@keyframes screen-enter {
-  from { opacity: 0; transform: translate3d(0,14px,0) scale(.995); }
-  to { opacity: 1; transform: translate3d(0,0,0) scale(1); }
+@keyframes screen-push-in {
+  from { transform: translate3d(42rpx,0,0); }
+  to { transform: translate3d(0,0,0); }
+}
+@keyframes screen-pop-in {
+  from { transform: translate3d(-22rpx,0,0); }
+  to { transform: translate3d(0,0,0); }
+}
+@keyframes screen-replace-in {
+  from { transform: translate3d(14rpx,0,0); }
+  to { transform: translate3d(0,0,0); }
+}
+@keyframes master-choice-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes master-choice-sheet-in {
+  from { transform: translate3d(0,28rpx,0) scale(.99); }
+  to { transform: translate3d(0,0,0) scale(1); }
 }
 @keyframes backdrop-enter { from { opacity: 0; } to { opacity: 1; } }
 @keyframes backdrop-leave { from { opacity: 1; } to { opacity: 0; } }
@@ -225,5 +254,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .screen-transition { animation-duration: .01ms !important; animation-delay: 0s !important; }
+  .screen-transition,
+  .master-match-detail-transition { animation-duration: .01ms !important; animation-delay: 0s !important; }
 }

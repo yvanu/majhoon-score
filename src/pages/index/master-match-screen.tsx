@@ -252,6 +252,7 @@ export function MasterMatchScreen({ match, canEdit, loading, refreshing, undoNot
 }) {
   const [recordsOpen, setRecordsOpen] = useState(false)
   const [finishedView, setFinishedView] = useState<FinishedView>('summary')
+  const [detailMotion, setDetailMotion] = useState<'idle' | 'push' | 'pop'>('idle')
   const completed = match.hands.filter(hand => hand.result_type !== 'event').length
   const editable = canEdit && match.status === 'active'
   const windLabel = ({ east: '东', south: '南', west: '西', north: '北' } as const)[match.current_wind]
@@ -265,26 +266,47 @@ export function MasterMatchScreen({ match, canEdit, loading, refreshing, undoNot
 
   useEffect(() => {
     if (closeDetailRequest <= 0) return
+    setDetailMotion('pop')
     setRecordsOpen(false)
     setFinishedView('summary')
   }, [closeDetailRequest])
 
+  function openFinishedView(view: Exclude<FinishedView, 'summary'>) {
+    setDetailMotion('push')
+    setFinishedView(view)
+  }
+
+  function openRecords() {
+    setDetailMotion('push')
+    setRecordsOpen(true)
+  }
+
+  function closeDetail() {
+    setDetailMotion('pop')
+    setRecordsOpen(false)
+    setFinishedView('summary')
+  }
+
+  const detailMotionClass = detailMotion === 'idle' ? '' : ` master-match-detail-transition ${detailMotion}`
+
   if (match.status === 'finished' && finishedView === 'summary') {
-    return <FinishedSummary
-      match={match}
-      onBack={onBack}
-      onStatus={() => setFinishedView('status')}
-      onRecords={() => setFinishedView('records')}
-    />
+    return <View className={detailMotionClass.trim()}>
+      <FinishedSummary
+        match={match}
+        onBack={onBack}
+        onStatus={() => openFinishedView('status')}
+        onRecords={() => openFinishedView('records')}
+      />
+    </View>
   }
 
   if (match.status === 'finished') {
     const view = finishedView === 'records' ? 'records' : 'status'
-    return <View className='master-match-screen master-safe-top' style={masterSafeTopStyle(111.538)}>
+    return <View className={`master-match-screen master-safe-top${detailMotionClass}`} style={masterSafeTopStyle(111.538)}>
       <MatchHeader
         title={view === 'records' ? '牌局记录' : '牌局战况'}
         subtitle={view === 'records' ? '按时间查看每一局变化' : `${relativeMatchTitle(match.created_at)} · 已结束`}
-        onBack={() => setFinishedView('summary')}
+        onBack={closeDetail}
       />
       {view === 'records'
         ? <RecordsView match={match} editable={false} onEdit={onEdit} />
@@ -293,13 +315,13 @@ export function MasterMatchScreen({ match, canEdit, loading, refreshing, undoNot
   }
 
   if (recordsOpen) {
-    return <View className='master-match-screen master-safe-top' style={masterSafeTopStyle(111.538)}>
-      <MatchHeader title='全部记录' subtitle='按时间查看并纠正计分' onBack={() => setRecordsOpen(false)} />
+    return <View className={`master-match-screen master-safe-top${detailMotionClass}`} style={masterSafeTopStyle(111.538)}>
+      <MatchHeader title='全部记录' subtitle='按时间查看并纠正计分' onBack={closeDetail} />
       <RecordsView match={match} editable={editable} onEdit={onEdit} />
     </View>
   }
 
-  return <View className='master-match-screen master-safe-top' style={masterSafeTopStyle(111.538)}>
+  return <View className={`master-match-screen master-safe-top${detailMotionClass}`} style={masterSafeTopStyle(111.538)}>
     <MatchHeader title='正在记分' subtitle={`${windLabel}${match.current_hand}局 · 第 ${completed + 1} 局记录`} onBack={onBack} />
     <ActiveMatchView
       match={match}
@@ -308,7 +330,7 @@ export function MasterMatchScreen({ match, canEdit, loading, refreshing, undoNot
       undoNotice={undoNotice}
       onAdd={onAdd}
       onEdit={onEdit}
-      onOpenRecords={() => setRecordsOpen(true)}
+      onOpenRecords={openRecords}
       onUndo={onUndo}
       onFinish={onFinish}
     />

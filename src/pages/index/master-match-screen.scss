@@ -645,3 +645,24 @@
   height: 100rpx;
   margin: 0;
 }
+
+.master-match-detail-transition {
+  transform: translate3d(0,0,0);
+  backface-visibility: hidden;
+}
+.master-match-detail-transition.push {
+  animation: master-match-detail-push .26s cubic-bezier(.22,.76,.24,1) both;
+  will-change: transform;
+}
+.master-match-detail-transition.pop {
+  animation: master-match-detail-pop .22s cubic-bezier(.22,.76,.24,1) both;
+  will-change: transform;
+}
+@keyframes master-match-detail-push {
+  from { transform: translate3d(42rpx,0,0); }
+  to { transform: translate3d(0,0,0); }
+}
+@keyframes master-match-detail-pop {
+  from { transform: translate3d(-22rpx,0,0); }
+  to { transform: translate3d(0,0,0); }
+}
