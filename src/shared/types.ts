@@ -104,6 +104,7 @@ export interface MatchLobbyMember {
   avatarSeed: number
   avatarUrl: string | null
   gender: UserGender | null
+  seat: number | null
   joinedAt: string
 }
 

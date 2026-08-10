@@ -112,13 +112,13 @@ export const api = {
   unlinkFriend: (friendId: string) => request<{ ok: true }>(`/api/me/friends/${encodeURIComponent(friendId)}/link`, 'DELETE'),
   createMatchLobby: () => request<{ lobby: MatchLobby }>('/api/match-lobbies', 'POST'),
   getMatchLobby: (idOrCode: string) => request<{ lobby: MatchLobby }>(`/api/match-lobbies/${encodeURIComponent(idOrCode)}`),
-  joinMatchLobby: (idOrCode: string) => request<{ lobby: MatchLobby }>(`/api/match-lobbies/${encodeURIComponent(idOrCode)}/join`, 'POST'),
-  addMatchLobbyMember: (lobbyId: string, input: { source: 'self' | 'friend' | 'guest'; friendId?: string; name?: string }) =>
+  joinMatchLobby: (idOrCode: string, seat?: number) => request<{ lobby: MatchLobby }>(`/api/match-lobbies/${encodeURIComponent(idOrCode)}/join`, 'POST', seat === undefined ? undefined : { seat }),
+  addMatchLobbyMember: (lobbyId: string, input: { source: 'self' | 'friend' | 'guest'; friendId?: string; name?: string; seat?: number }) =>
     request<{ lobby: MatchLobby }>(`/api/match-lobbies/${encodeURIComponent(lobbyId)}/members`, 'POST', input),
   removeMatchLobbyMember: (lobbyId: string, memberId: string) =>
     request<{ lobby: MatchLobby }>(`/api/match-lobbies/${encodeURIComponent(lobbyId)}/members/${encodeURIComponent(memberId)}`, 'DELETE'),
   cancelMatchLobby: (lobbyId: string) => request<{ lobby: MatchLobby }>(`/api/match-lobbies/${encodeURIComponent(lobbyId)}/cancel`, 'POST'),
-  startMatchLobby: (lobbyId: string, memberIds: string[]) => request<{ lobby: MatchLobby; match: Match; adminToken: string }>(`/api/match-lobbies/${encodeURIComponent(lobbyId)}/start`, 'POST', { memberIds }),
+  startMatchLobby: (lobbyId: string) => request<{ lobby: MatchLobby; match: Match; adminToken: string }>(`/api/match-lobbies/${encodeURIComponent(lobbyId)}/start`, 'POST'),
   groupSessions: () => request<{ groups: GroupSessionSummary[] }>('/api/group-sessions'),
   createGroupSession: (input: GroupSessionInput) => request<{ group: GroupSession }>('/api/group-sessions', 'POST', input),
   getGroupSession: (idOrCode: string) => request<{ group: GroupSession }>(`/api/group-sessions/${encodeURIComponent(idOrCode)}`),

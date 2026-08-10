@@ -97,7 +97,7 @@ type MatchSnapshot = {
 }
 
 type SeatAssignmentState = {
-  source: 'lobby' | 'group'
+  source: 'group'
   sourceId: string
   sourceLabel: string
   participants: SeatParticipant[]
@@ -1027,34 +1027,34 @@ export default function Index() {
     setMatchLobby(current => current?.id === lobbyId ? result.lobby : current)
   }
 
-  async function joinMatchLobby() {
+  async function joinMatchLobby(seat?: number) {
     if (!matchLobby) return
     await run(async () => {
-      const result = await api.joinMatchLobby(matchLobby.id)
+      const result = await api.joinMatchLobby(matchLobby.id, seat)
       setMatchLobby(result.lobby)
     })
   }
 
-  async function addLobbySelf() {
+  async function addLobbySelf(seat: number) {
     if (!matchLobby) return
     await run(async () => {
-      const result = await api.addMatchLobbyMember(matchLobby.id, { source: 'self' })
+      const result = await api.addMatchLobbyMember(matchLobby.id, { source: 'self', seat })
       setMatchLobby(result.lobby)
     })
   }
 
-  async function addLobbyFriend(friendId: string) {
+  async function addLobbyFriend(friendId: string, seat: number) {
     if (!matchLobby) return
     await run(async () => {
-      const result = await api.addMatchLobbyMember(matchLobby.id, { source: 'friend', friendId })
+      const result = await api.addMatchLobbyMember(matchLobby.id, { source: 'friend', friendId, seat })
       setMatchLobby(result.lobby)
     })
   }
 
-  async function addLobbyGuest(name: string) {
+  async function addLobbyGuest(name: string, seat: number) {
     if (!matchLobby) return
     await run(async () => {
-      const result = await api.addMatchLobbyMember(matchLobby.id, { source: 'guest', name })
+      const result = await api.addMatchLobbyMember(matchLobby.id, { source: 'guest', name, seat })
       setMatchLobby(result.lobby)
       friendsLoadedAt.current = 0
     })
@@ -1084,22 +1084,16 @@ export default function Index() {
     })
   }
 
-  function beginLobbySeating() {
+  async function startLobbyMatch() {
     if (!matchLobby?.isOwner || matchLobby.status !== 'preparing' || matchLobby.members.length !== 4) return
-    setSeatAssignment({
-      source: 'lobby',
-      sourceId: matchLobby.id,
-      sourceLabel: '牌局开局',
-      returnScreen: 'lobby',
-      participants: matchLobby.members.map(member => ({
-        id: member.id,
-        name: member.name,
-        avatarUrl: member.avatarUrl,
-        gender: member.gender,
-        badge: member.userId === user?.id ? '我' : member.userId ? '微信' : '牌友',
-      })),
+    await run(async () => {
+      const result = await api.startMatchLobby(matchLobby.id)
+      setMatchLobby(result.lobby)
+      activateCreatedMatch(result, 'home')
+      friendsLoadedAt.current = 0
+      await Taro.showToast({ title: '牌局已创建', icon: 'success' })
+      void refreshDashboard().catch(error => console.error('Refresh dashboard after lobby start failed:', error))
     })
-    setScreen('seating')
   }
 
   function activateCreatedMatch(created: { match: Match; adminToken: string }, returnScreen: Screen) {
@@ -1117,16 +1111,6 @@ export default function Index() {
   async function confirmSeatAssignment(memberIds: string[]) {
     if (!seatAssignment) return
     await run(async () => {
-      if (seatAssignment.source === 'lobby') {
-        const result = await api.startMatchLobby(seatAssignment.sourceId, memberIds)
-        setMatchLobby(result.lobby)
-        activateCreatedMatch(result, 'home')
-        friendsLoadedAt.current = 0
-        await Taro.showToast({ title: '牌局已创建', icon: 'success' })
-        void refreshDashboard().catch(error => console.error('Refresh dashboard after lobby start failed:', error))
-        return
-      }
-
       const result = await api.startGroupSession(seatAssignment.sourceId, memberIds)
       updateGroupState(result.group)
       groupsLoadedAt.current = 0
@@ -1708,7 +1692,7 @@ export default function Index() {
       onAddGuest={addLobbyGuest}
       onAddNewFriend={showAddFriend}
       onRemoveMember={member => removeLobbyMember(member.id)}
-      onStartSeating={beginLobbySeating}
+      onStart={startLobbyMatch}
       onCancel={cancelMatchLobby}
       onEnsureFriends={() => loadFriends()}
       onFriendsChanged={async () => { friendsLoadedAt.current = 0; await loadFriends(true) }}

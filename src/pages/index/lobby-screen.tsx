@@ -6,14 +6,15 @@ import { IdentityAvatar } from './identity-avatar'
 import { FriendAvatar, MasterBackGlyph, masterSafeTopStyle } from './shared'
 import { GroupMemberInfoModal } from './group-member-info'
 
-const participantSpots = [
-  { spot: 'top', memberIndex: 3 },
-  { spot: 'right', memberIndex: 0 },
-  { spot: 'bottom', memberIndex: 1 },
-  { spot: 'left', memberIndex: 2 },
+const seatSpots = [
+  { seat: 3, spot: 'top', label: '北' },
+  { seat: 0, spot: 'right', label: '东' },
+  { seat: 1, spot: 'bottom', label: '南' },
+  { seat: 2, spot: 'left', label: '西' },
 ] as const
+type LobbySeat = typeof seatSpots[number]['seat']
 
-export function LobbyScreen({ lobby, user, friends, friendsLoading, loading, closeOverlayRequest, onOverlayOpenChange, onBack, onRefresh, onJoin, onAddSelf, onAddFriend, onAddGuest, onAddNewFriend, onRemoveMember, onStartSeating, onCancel, onEnsureFriends, onFriendsChanged, onOpenFriend }: {
+export function LobbyScreen({ lobby, user, friends, friendsLoading, loading, closeOverlayRequest, onOverlayOpenChange, onBack, onRefresh, onJoin, onAddSelf, onAddFriend, onAddGuest, onAddNewFriend, onRemoveMember, onStart, onCancel, onEnsureFriends, onFriendsChanged, onOpenFriend }: {
   lobby: MatchLobby
   user: AuthUser
   friends: Friend[]
@@ -23,13 +24,13 @@ export function LobbyScreen({ lobby, user, friends, friendsLoading, loading, clo
   onOverlayOpenChange: (open: boolean) => void
   onBack: () => void
   onRefresh: () => Promise<void>
-  onJoin: () => Promise<void>
-  onAddSelf: () => Promise<void>
-  onAddFriend: (friendId: string) => Promise<void>
-  onAddGuest: (name: string) => Promise<void>
+  onJoin: (seat?: LobbySeat) => Promise<void>
+  onAddSelf: (seat: LobbySeat) => Promise<void>
+  onAddFriend: (friendId: string, seat: LobbySeat) => Promise<void>
+  onAddGuest: (name: string, seat: LobbySeat) => Promise<void>
   onAddNewFriend: () => void
   onRemoveMember: (member: MatchLobbyMember) => Promise<void>
-  onStartSeating: () => void
+  onStart: () => Promise<void>
   onCancel: () => Promise<void>
   onEnsureFriends: () => Promise<void>
   onFriendsChanged: () => Promise<void>
@@ -41,7 +42,9 @@ export function LobbyScreen({ lobby, user, friends, friendsLoading, loading, clo
   const [selectedMember, setSelectedMember] = useState<MatchLobbyMember | null>(null)
   const [friendQuery, setFriendQuery] = useState('')
   const [guestName, setGuestName] = useState('')
-  const full = lobby.members.length === 4
+  const [targetSeat, setTargetSeat] = useState<LobbySeat | null>(null)
+  const membersBySeat = useMemo(() => new Map(lobby.members.filter(member => member.seat !== null).map(member => [member.seat as LobbySeat, member])), [lobby.members])
+  const full = seatSpots.every(({ seat }) => membersBySeat.has(seat))
   const overlayOpen = addOpen || friendPickerOpen || qrOpen || Boolean(selectedMember)
   const canEdit = lobby.isOwner && lobby.status === 'preparing'
   const visibleFriends = useMemo(() => {
@@ -49,8 +52,8 @@ export function LobbyScreen({ lobby, user, friends, friendsLoading, loading, clo
     const occupied = new Set(lobby.members.map(member => member.friendId).filter(Boolean))
     return friends.filter(friend => friend.source !== 'wechat' && !occupied.has(friend.id) && (!query || friend.name.toLocaleLowerCase().includes(query)))
   }, [friends, friendQuery, lobby.members])
-
   useEffect(() => { onOverlayOpenChange(overlayOpen) }, [onOverlayOpenChange, overlayOpen])
+  useEffect(() => { setTargetSeat(null) }, [lobby.id])
   useEffect(() => () => onOverlayOpenChange(false), [onOverlayOpenChange])
   useEffect(() => {
     if (closeOverlayRequest <= 0) return
@@ -73,80 +76,99 @@ export function LobbyScreen({ lobby, user, friends, friendsLoading, loading, clo
   }, [full, lobby.id, lobby.status, onRefresh])
 
   async function addSelf() {
+    if (targetSeat === null) return
+    const seat = targetSeat
     setAddOpen(false)
-    await onAddSelf()
+    await onAddSelf(seat)
+    setTargetSeat(null)
   }
 
   async function chooseFriend(friend: Friend) {
+    if (targetSeat === null) return
+    const seat = targetSeat
     setFriendPickerOpen(false)
-    await onAddFriend(friend.id)
+    await onAddFriend(friend.id, seat)
+    setTargetSeat(null)
   }
 
   async function addGuest() {
     const name = guestName.trim()
-    if (!name) return
+    if (!name || targetSeat === null) return
+    const seat = targetSeat
     setFriendPickerOpen(false)
     setGuestName('')
-    await onAddGuest(name)
+    await onAddGuest(name, seat)
+    setTargetSeat(null)
   }
 
-  function openPlayerEditor() {
+  function openPlayerEditor(seat: LobbySeat) {
     if (!canEdit) return
+    setTargetSeat(seat)
     setAddOpen(true)
+  }
+
+  function chooseEmptySeat(seat: LobbySeat) {
+    if (canEdit) {
+      openPlayerEditor(seat)
+      return
+    }
+    if (!lobby.isMember && lobby.status === 'preparing' && !loading) void onJoin(seat)
   }
 
   return <View className='master-start-screen master-safe-top' style={masterSafeTopStyle(113.462)}>
     <View className='master-start-nav'>
       <Button className='master-start-back' hoverClass='none' onClick={onBack}><MasterBackGlyph /></Button>
-      <View><Text>开始新牌局</Text><Text>先确认四位参与者，座位在下一步分配</Text></View>
+      <View><Text>开始新牌局</Text><Text>入座即确定东南西北，东家同时是庄家</Text></View>
     </View>
 
     <View className='master-start-table-card'>
       <View className='master-start-card-head'><Text>本场玩家</Text><Text>{lobby.members.length} / 4</Text></View>
       <View className='master-start-table-center'><Text>南京麻将</Text></View>
-      {participantSpots.map(({ spot, memberIndex }) => {
-        const member = lobby.members[memberIndex]
+      {seatSpots.map(({ seat, spot, label }) => {
+        const member = membersBySeat.get(seat)
         const isSelf = member?.userId === user.id
         return <View className={`master-start-seat ${spot}`} key={spot}>
+          <Text className='master-start-seat-chip'>{label}{seat === 0 ? ' · 庄' : ''}</Text>
           {member ? <View className='master-start-player' onClick={() => setSelectedMember(member)}>
             <View className={`master-start-avatar${isSelf ? ' self' : ''}`}><IdentityAvatar name={member.name} gender={member.gender} avatarUrl={member.avatarUrl} /></View>
+            {seat === 0 && <Text className='master-start-dealer'>庄</Text>}
             <Text className='master-start-player-name'>{isSelf ? '我' : member.name}</Text>
-          </View> : <View className='master-start-player empty' onClick={openPlayerEditor}>
+          </View> : <View className='master-start-player empty' onClick={() => chooseEmptySeat(seat)}>
             <View className='master-start-empty-avatar'><Text>＋</Text></View>
-            <Text className='master-start-player-name'>空位</Text>
+            <Text className='master-start-player-name'>{canEdit ? '选择玩家' : !lobby.isMember ? '点击入座' : '空位'}</Text>
           </View>}
         </View>
       })}
     </View>
 
     <View className='master-start-secondary-actions'>
-      <Button hoverClass='none' disabled={!canEdit} onClick={openPlayerEditor}>更换玩家</Button>
+      <Button hoverClass='none' openType='share'>邀请微信好友入座</Button>
     </View>
 
     <View className='master-start-rule-card'>
-      <View><Text>南京麻将 · 标准规则</Text><Text>当前只确认参与者，东南西北与庄家在下一步分配</Text></View>
-      <View className='master-start-rule-link'><Text>座位待确认</Text></View>
+      <View><Text>南京麻将 · 标准规则</Text><Text>座位就是本场方位，东家自动成为第一庄</Text></View>
+      <View className='master-start-rule-link'><Text>东家 · 庄</Text></View>
     </View>
 
-    {!lobby.isMember && lobby.status === 'preparing' && !full && <Button className='master-start-join' hoverClass='none' disabled={loading} onClick={() => { void onJoin() }}>{loading ? '加入中…' : '先加入这桌'}</Button>}
-    {lobby.isOwner && lobby.status === 'preparing' && <Button className='master-start-primary' hoverClass='none' disabled={!full || loading} onClick={() => { if (full) onStartSeating() }}>{loading ? '处理中…' : '确认座位并开始'}</Button>}
+    {!lobby.isMember && lobby.status === 'preparing' && !full && <Button className='master-start-join' hoverClass='none' disabled={loading} onClick={() => { void onJoin() }}>{loading ? '加入中…' : '快速入座'}</Button>}
+    {lobby.isOwner && lobby.status === 'preparing' && <Button className='master-start-primary' hoverClass='none' disabled={!full || loading} onClick={() => { if (full) void onStart() }}>{loading ? '创建牌局中…' : '开始记分'}</Button>}
     {!lobby.isOwner && lobby.isMember && lobby.status === 'preparing' && <Button className='master-start-primary muted' hoverClass='none' disabled>等待房主开始</Button>}
     {lobby.status !== 'preparing' && <Button className='master-start-primary muted' hoverClass='none' disabled>{lobby.status === 'started' ? '牌局已经开始' : '准备桌已关闭'}</Button>}
 
-    {addOpen && <View className='master-lobby-backdrop master-safe-overlay' onClick={() => setAddOpen(false)}><View className='master-lobby-modal actions' onClick={event => event.stopPropagation()}>
-      <View className='master-lobby-modal-head'><View><Text>更换玩家</Text><Text>选择本场四位参与者</Text></View><Button hoverClass='none' onClick={() => setAddOpen(false)}>×</Button></View>
+    {addOpen && <View className='master-lobby-backdrop master-safe-overlay' onClick={() => { setAddOpen(false); setTargetSeat(null) }}><View className='master-lobby-modal actions' onClick={event => event.stopPropagation()}>
+      <View className='master-lobby-modal-head'><View><Text>{targetSeat === 0 ? '选择东家 · 庄' : targetSeat === 1 ? '选择南家' : targetSeat === 2 ? '选择西家' : '选择北家'}</Text><Text>选中后直接坐到这个方位</Text></View><Button hoverClass='none' onClick={() => { setAddOpen(false); setTargetSeat(null) }}>×</Button></View>
       <View className='master-lobby-action-list'>
         {!lobby.members.some(member => member.userId === user.id) && <Button hoverClass='none' onClick={() => { void addSelf() }}><View><Text>选择我自己</Text><Text>使用当前微信身份加入本桌</Text></View><Text>›</Text></Button>}
         <Button hoverClass='none' onClick={() => { setAddOpen(false); setFriendPickerOpen(true) }}><View><Text>选择已有牌友</Text><Text>从你的牌友记录中选择</Text></View><Text>›</Text></Button>
-        <Button hoverClass='none' onClick={() => { setAddOpen(false); onAddNewFriend() }}><View><Text>添加新牌友</Text><Text>创建新的本地牌友身份</Text></View><Text>›</Text></Button>
+        <Button hoverClass='none' onClick={() => { setAddOpen(false); setTargetSeat(null); onAddNewFriend() }}><View><Text>添加新牌友</Text><Text>创建后回到本页再选择方位</Text></View><Text>›</Text></Button>
         <Button hoverClass='none' openType='share'><View><Text>邀请微信好友</Text><Text>发送当前准备桌邀请</Text></View><Text>›</Text></Button>
         <Button hoverClass='none' onClick={() => { setAddOpen(false); setQrOpen(true) }}><View><Text>让好友扫码加入</Text><Text>展示当前准备桌二维码</Text></View><Text>›</Text></Button>
         {canEdit && lobby.members.length > 0 && <Button className='danger' hoverClass='none' onClick={() => { setAddOpen(false); void onCancel() }}><View><Text>关闭准备桌</Text><Text>已加入的玩家将无法继续进入</Text></View><Text>›</Text></Button>}
       </View>
     </View></View>}
 
-    {friendPickerOpen && <View className='master-lobby-backdrop master-safe-overlay' onClick={() => setFriendPickerOpen(false)}><View className='master-lobby-modal friends' onClick={event => event.stopPropagation()}>
-      <View className='master-lobby-modal-head'><View><Text>选择牌友</Text><Text>从自己的牌友记录中选择</Text></View><Button hoverClass='none' onClick={() => setFriendPickerOpen(false)}>×</Button></View>
+    {friendPickerOpen && <View className='master-lobby-backdrop master-safe-overlay' onClick={() => { setFriendPickerOpen(false); setTargetSeat(null) }}><View className='master-lobby-modal friends' onClick={event => event.stopPropagation()}>
+      <View className='master-lobby-modal-head'><View><Text>选择牌友</Text><Text>选中后直接按当前方位入座</Text></View><Button hoverClass='none' onClick={() => { setFriendPickerOpen(false); setTargetSeat(null) }}>×</Button></View>
       <View className='master-lobby-search'><Input value={friendQuery} maxlength={20} placeholder='搜索牌友昵称' onInput={event => setFriendQuery(event.detail.value)} /></View>
       <ScrollView scrollY className='master-lobby-friend-list' showScrollbar={false}>
         {friendsLoading && <Text className='master-lobby-friend-empty'>正在加载牌友…</Text>}
