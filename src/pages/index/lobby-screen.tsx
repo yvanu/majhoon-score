@@ -3,7 +3,7 @@ import { Button, Image, Input, ScrollView, Text, View } from '@tarojs/components
 import type { AuthUser, Friend, GroupSessionMember, MatchLobby, MatchLobbyMember } from '@shared/types'
 import { matchLobbyQrUrl } from '../../services/api'
 import { IdentityAvatar } from './identity-avatar'
-import { MasterBackGlyph, getPageTopInset } from './shared'
+import { MasterBackGlyph, masterSafeTopStyle } from './shared'
 import { GroupMemberInfoModal } from './group-member-info'
 
 const participantSpots = [
@@ -95,7 +95,7 @@ export function LobbyScreen({ lobby, user, friends, friendsLoading, loading, clo
     setAddOpen(true)
   }
 
-  return <View className='master-start-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+  return <View className='master-start-screen master-safe-top' style={masterSafeTopStyle(113.462)}>
     <View className='master-start-nav'>
       <Button className='master-start-back' hoverClass='none' onClick={onBack}><MasterBackGlyph /></Button>
       <View><Text>开始新牌局</Text><Text>先确认四位参与者，座位在下一步分配</Text></View>
@@ -133,7 +133,7 @@ export function LobbyScreen({ lobby, user, friends, friendsLoading, loading, clo
     {!lobby.isOwner && lobby.isMember && lobby.status === 'preparing' && <Button className='master-start-primary muted' hoverClass='none' disabled>等待房主开始</Button>}
     {lobby.status !== 'preparing' && <Button className='master-start-primary muted' hoverClass='none' disabled>{lobby.status === 'started' ? '牌局已经开始' : '准备桌已关闭'}</Button>}
 
-    {addOpen && <View className='lobby-v4-backdrop' onClick={() => setAddOpen(false)}><View className='lobby-v4-modal add' onClick={event => event.stopPropagation()}>
+    {addOpen && <View className='lobby-v4-backdrop master-safe-overlay' onClick={() => setAddOpen(false)}><View className='lobby-v4-modal add' onClick={event => event.stopPropagation()}>
       <View className='lobby-v4-modal-head'><View><Text>更换玩家</Text><Text>选择本场四位玩家</Text></View><Button hoverClass='none' onClick={() => setAddOpen(false)}>×</Button></View>
       <View className='lobby-v4-option-list'>
         {!lobby.members.some(member => member.userId === user.id) && <Button hoverClass='none' onClick={() => { void addSelf() }}><Text>选择我自己</Text><Text>›</Text></Button>}
@@ -145,7 +145,7 @@ export function LobbyScreen({ lobby, user, friends, friendsLoading, loading, clo
       </View>
     </View></View>}
 
-    {friendPickerOpen && <View className='lobby-v4-backdrop' onClick={() => setFriendPickerOpen(false)}><View className='lobby-v4-modal friends' onClick={event => event.stopPropagation()}>
+    {friendPickerOpen && <View className='lobby-v4-backdrop master-safe-overlay' onClick={() => setFriendPickerOpen(false)}><View className='lobby-v4-modal friends' onClick={event => event.stopPropagation()}>
       <View className='lobby-v4-modal-head'><View><Text>选择牌友</Text><Text>从自己的牌友记录中选择</Text></View><Button hoverClass='none' onClick={() => setFriendPickerOpen(false)}>×</Button></View>
       <View className='lobby-v4-search'><Input value={friendQuery} maxlength={20} placeholder='搜索牌友昵称' onInput={event => setFriendQuery(event.detail.value)} /></View>
       <ScrollView scrollY className='lobby-v4-friend-list' showScrollbar={false}>
@@ -163,7 +163,7 @@ export function LobbyScreen({ lobby, user, friends, friendsLoading, loading, clo
       </View>
     </View></View>}
 
-    {qrOpen && <View className='lobby-v4-backdrop' onClick={() => setQrOpen(false)}><View className='lobby-v4-modal qr' onClick={event => event.stopPropagation()}>
+    {qrOpen && <View className='lobby-v4-backdrop master-safe-overlay' onClick={() => setQrOpen(false)}><View className='lobby-v4-modal qr' onClick={event => event.stopPropagation()}>
       <View className='lobby-v4-modal-head'><View><Text>扫码加入</Text><Text>让好友用微信扫一扫</Text></View><Button hoverClass='none' onClick={() => setQrOpen(false)}>×</Button></View>
       <Image className='lobby-v4-qr' src={matchLobbyQrUrl(lobby.shareCode)} mode='aspectFit' />
     </View></View>}

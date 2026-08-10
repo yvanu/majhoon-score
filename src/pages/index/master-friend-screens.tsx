@@ -2,7 +2,7 @@ import { useState } from 'react'
 import Taro from '@tarojs/taro'
 import { Button, Image, Input, ScrollView, Text, View } from '@tarojs/components'
 import type { Friend, FriendStatistics } from '@shared/types'
-import { FriendAvatar, MasterBackGlyph, MasterRightChevronGlyph, MasterSearchGlyph, getPageTopInset } from './shared'
+import { FriendAvatar, MasterBackGlyph, MasterRightChevronGlyph, MasterSearchGlyph, masterSafeTopStyle } from './shared'
 
 function relativeTime(value: string) {
   const date = new Date(value)
@@ -27,7 +27,7 @@ export function FriendsScreen({ friends, loading, query, onQueryChange, onOpen }
   const normalized = query.trim().toLocaleLowerCase()
   const visible = friends.filter(friend => !normalized || friend.name.toLocaleLowerCase().includes(normalized) || friend.wechatName?.toLocaleLowerCase().includes(normalized))
 
-  return <View className='master-friends-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+  return <View className='master-friends-screen master-safe-top' style={masterSafeTopStyle(125)}>
     <View className='master-friends-header'><Text>牌友</Text><Text>常一起打牌的人</Text></View>
     <View className='master-friends-search'><MasterSearchGlyph /><Input value={query} maxlength={20} placeholder='搜索牌友' onInput={event => onQueryChange(event.detail.value)} /></View>
     <ScrollView scrollY className='master-friends-scroll' showScrollbar={false}>
@@ -62,7 +62,7 @@ export function AddFriendScreen({ loading, onBack, onSave }: {
     }
   }
 
-  return <View className='master-add-friend-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+  return <View className='master-add-friend-screen master-safe-top' style={masterSafeTopStyle(107.692)}>
     <View className='master-friend-detail-nav'><View className='master-friend-back' onClick={onBack}><MasterBackGlyph /></View><View><Text>添加牌友</Text><Text>保存后开局时可直接选择</Text></View></View>
     <View className='master-add-friend-avatar-wrap'>
       <View className='master-add-friend-avatar' onClick={() => { void chooseAvatar() }}>
@@ -93,7 +93,7 @@ export function FriendStatisticsScreen({ statistics, onBack }: {
   const recent = [...statistics.trend].slice(-3).reverse()
 
   return <ScrollView scrollY className='master-friend-detail-scroll' showScrollbar={false}>
-    <View className='master-friend-detail-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+    <View className='master-friend-detail-screen master-safe-top' style={masterSafeTopStyle(113.462)}>
       <View className='master-friend-detail-nav'><View className='master-friend-back' onClick={onBack}><MasterBackGlyph /></View><View><Text>{displayName}</Text><Text>牌友详情</Text></View></View>
       <View className='master-friend-summary'>
         <View className='master-friend-detail-avatar'><FriendAvatar friend={friend} large masterFallback /></View>

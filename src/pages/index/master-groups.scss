@@ -47,10 +47,66 @@
   letter-spacing: 3rpx;
 }
 .master-groups-title-row > button::after { border: 0; }
-.master-groups-more-glyph { position: relative; width: 76.923rpx; height: 76.923rpx; }
-.master-groups-more-glyph > view { position: absolute; top: 30.769rpx; width: 7.692rpx; height: 7.692rpx; border-radius: 50%; background: #66635C; }
-.master-groups-more-glyph > view:first-child { left: 28.846rpx; }
-.master-groups-more-glyph > view:last-child { left: 59.615rpx; }
+.master-groups-title-row.menu-open { z-index: 92; }
+.master-groups-more-backdrop {
+  position: fixed;
+  z-index: 88;
+  inset: 0;
+  background: transparent;
+}
+.master-groups-more-menu {
+  position: absolute;
+  z-index: 94;
+  right: 0;
+  top: 92.308rpx;
+  width: 307.692rpx;
+  padding: 11.538rpx;
+  box-sizing: border-box;
+  overflow: hidden;
+  border: 1.923rpx solid rgba(30, 28, 24, .06);
+  border-radius: 30.769rpx;
+  background: rgba(255, 255, 255, .98);
+  box-shadow: 0 23.077rpx 57.692rpx rgba(38, 34, 27, .14), 0 3.846rpx 11.538rpx rgba(38, 34, 27, .06);
+}
+.master-groups-more-menu > view {
+  position: relative;
+  height: 84.615rpx;
+  padding: 0 26.923rpx;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  border-radius: 21.154rpx;
+  color: #24221E;
+  font-size: 26.923rpx;
+  font-weight: 600;
+}
+.master-groups-more-menu > view + view::before {
+  position: absolute;
+  top: 0;
+  left: 26.923rpx;
+  right: 26.923rpx;
+  height: 1.923rpx;
+  background: #EEECE7;
+  content: '';
+}
+.master-groups-more-menu > view:active { background: #F6F4EF; }
+.master-groups-more-menu > view.disabled { color: #B6B1A8; }
+.master-groups-more-menu > view.disabled:active { background: transparent; }
+.master-groups-more-glyph {
+  width: 76.923rpx;
+  height: 76.923rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7.692rpx;
+}
+.master-groups-more-glyph > view {
+  width: 7.692rpx;
+  height: 7.692rpx;
+  flex: 0 0 7.692rpx;
+  border-radius: 50%;
+  background: #66635C;
+}
 .master-groups-tabs {
   height: 57.692rpx;
   display: grid;

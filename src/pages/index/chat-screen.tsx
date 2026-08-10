@@ -3,7 +3,7 @@ import Taro from '@tarojs/taro'
 import { Button, Input, ScrollView, Text, View } from '@tarojs/components'
 import type { AuthUser, GroupChatMessage, GroupChatStatus, GroupSession } from '@shared/types'
 import { api, AUTH_KEY, groupChatSocketUrl } from '../../services/api'
-import { MasterBackGlyph, getPageTopInset } from './shared'
+import { MasterBackGlyph, getMasterSafeTopShift, getPageTopInset } from './shared'
 import { IdentityAvatar } from './identity-avatar'
 
 const quickMessages = ['我到了', '马上到', '晚到10分钟', '位置在哪？', '可以开始了', '临时有事']
@@ -306,18 +306,19 @@ export function GroupChatScreen({ group, user, loading: actionLoading, onBack, o
         ? { label: '已满员', tone: 'full' }
         : { label: '招募中', tone: 'open' }
   const masterChatTitle = `${formatGroupTime(group.start_at).split(' ')[0]}${group.location}麻将`
+  const masterTopShiftStyle = { transform: `translateY(${getMasterSafeTopShift(107.692)}px)` }
 
   return <View className='master-chat-screen'>
-    <View className='master-chat-main' style={{ paddingTop: `${getPageTopInset()}px` }}>
-      <View className='master-chat-nav'>
+    <View className='master-chat-main'>
+      <View className='master-chat-nav' style={masterTopShiftStyle}>
         <Button hoverClass='none' onClick={onBack}><MasterBackGlyph /></Button>
         <View><Text>{masterChatTitle}</Text><Text>{group.confirmed_count} 人 · {formatGroupTime(group.start_at)}</Text></View>
       </View>
 
-      {canStart && <View className='master-chat-ready'><Text>人已到齐，可以开局</Text><Button hoverClass='none' disabled={actionLoading} onClick={onStart}>{actionLoading ? '处理中…' : '开始记分'}</Button></View>}
-      {group.match_id && <View className='master-chat-ready'><Text>牌局已经开始</Text><Button hoverClass='none' onClick={() => onOpenMatch(group.match_id!)}>进入牌局</Button></View>}
+      {canStart && <View className='master-chat-ready' style={masterTopShiftStyle}><Text>人已到齐，可以开局</Text><Button hoverClass='none' disabled={actionLoading} onClick={onStart}>{actionLoading ? '处理中…' : '开始记分'}</Button></View>}
+      {group.match_id && <View className='master-chat-ready' style={masterTopShiftStyle}><Text>牌局已经开始</Text><Button hoverClass='none' onClick={() => onOpenMatch(group.match_id!)}>进入牌局</Button></View>}
 
-      <ScrollView scrollY className='master-chat-message-list' showScrollbar={false} scrollIntoView={lastMessageId} scrollWithAnimation>
+      <ScrollView scrollY className='master-chat-message-list' style={masterTopShiftStyle} showScrollbar={false} scrollIntoView={lastMessageId} scrollWithAnimation>
         {loading && <View className='master-chat-loading'><Text>正在加载消息…</Text></View>}
         {!loading && <Text className='master-chat-day-label'>今天 {messages.length ? formatChatTime(messages[0].created_at) : ''}</Text>}
         {messages.map(message => {

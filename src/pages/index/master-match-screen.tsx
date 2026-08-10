@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Button, ScrollView, Text, View } from '@tarojs/components'
 import type { Hand, HandOutcome, HandType, Match, Player } from '@shared/types'
-import { MasterBackGlyph, MasterRightChevronGlyph, bigHandOptions, getPageTopInset, typeName } from './shared'
+import { MasterBackGlyph, MasterRightChevronGlyph, bigHandOptions, masterSafeTopStyle, typeName } from './shared'
 import { IdentityAvatar } from './identity-avatar'
 
 type RecordFilter = 'all' | 'wins' | 'events'
@@ -203,7 +203,7 @@ function FinishedSummary({ match, onBack, onStatus, onRecords }: {
   const tsumoLeader = [...match.players].sort((first, second) => (tsumoCounts.get(second.id) || 0) - (tsumoCounts.get(first.id) || 0))[0]
   const bigCount = match.hands.flatMap(hand => outcomes(hand)).filter(outcome => (outcome.note?.split('、') || []).some(note => bigHandOptions.has(note))).length
 
-  return <View className='master-finished-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+  return <View className='master-finished-screen master-safe-top' style={masterSafeTopStyle(111.538)}>
     <View className='master-finished-nav'>
       <MasterBack onClick={onBack} />
       <View><Text>{relativeMatchTitle(match.created_at)}</Text><Text>{completed} 局 · 已结束</Text></View>
@@ -267,7 +267,7 @@ export function MasterMatchScreen({ match, canEdit, loading, refreshing, undoNot
 
   if (match.status === 'finished') {
     const view = finishedView === 'records' ? 'records' : 'status'
-    return <View className='master-match-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+    return <View className='master-match-screen master-safe-top' style={masterSafeTopStyle(111.538)}>
       <MatchHeader
         title={view === 'records' ? '牌局记录' : '牌局战况'}
         subtitle={view === 'records' ? '按时间查看每一局变化' : `${relativeMatchTitle(match.created_at)} · 已结束`}
@@ -280,13 +280,13 @@ export function MasterMatchScreen({ match, canEdit, loading, refreshing, undoNot
   }
 
   if (recordsOpen) {
-    return <View className='master-match-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+    return <View className='master-match-screen master-safe-top' style={masterSafeTopStyle(111.538)}>
       <MatchHeader title='全部记录' subtitle='按时间查看并纠正计分' onBack={() => setRecordsOpen(false)} />
       <RecordsView match={match} editable={editable} onEdit={onEdit} />
     </View>
   }
 
-  return <View className='master-match-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+  return <View className='master-match-screen master-safe-top' style={masterSafeTopStyle(111.538)}>
     <MatchHeader title='正在记分' subtitle={`${windLabel}${match.current_hand}局 · 第 ${completed + 1} 局记录`} onBack={onBack} />
     <ActiveMatchView
       match={match}

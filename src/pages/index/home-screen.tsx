@@ -1,6 +1,7 @@
+import { useState } from 'react'
 import { Button, Image, Text, View } from '@tarojs/components'
 import type { AuthUser, DailyStats, Match, MatchSummary } from '@shared/types'
-import { displayUserName } from './shared'
+import { displayUserName, masterSafeTopStyle } from './shared'
 import type { SyncStatus } from './shared'
 
 
@@ -60,9 +61,16 @@ export function Home({ user, currentMatch, recentMatches, dailyStats, syncStatus
   const recent = recentMatches.slice(0, 2)
   const todayScore = selfStats?.score || 0
   const subtitle = syncStatus === 'offline' ? '当前网络异常，恢复后继续同步' : '快速开局，也能随时回看最近牌局'
+  const [moreOpen, setMoreOpen] = useState(false)
 
-  return <View className='home-hf-screen'>
-    <View className='home-hf-more'><View /><View /></View>
+  return <View className='home-hf-screen master-safe-top' style={masterSafeTopStyle(111.538)}>
+    {moreOpen && <View className='home-hf-more-backdrop master-safe-overlay' onClick={() => setMoreOpen(false)} />}
+    <View className='home-hf-more' onClick={() => setMoreOpen(open => !open)}><View /><View /><View /></View>
+    {moreOpen && <View className='home-hf-more-menu' onClick={event => event.stopPropagation()}>
+      <View onClick={() => { setMoreOpen(false); onStart() }}><Text>开始新牌局</Text><Text>＋</Text></View>
+      <View onClick={() => { setMoreOpen(false); onDaily() }}><Text>今日战绩</Text><Text>›</Text></View>
+      <View onClick={() => { setMoreOpen(false); onHistory() }}><Text>牌局记录</Text><Text>›</Text></View>
+    </View>}
     <View className='home-hf-header'>
       <Text className='home-hf-title'>今天打几圈？</Text>
       <Text className='home-hf-subtitle'>{subtitle}</Text>

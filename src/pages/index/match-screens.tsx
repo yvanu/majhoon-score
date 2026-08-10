@@ -17,6 +17,7 @@ import type {
 import { MahjongTileFace } from './screens'
 import {
   Avatar,
+  MasterChoiceSheet,
   MasterCloseGlyph,
   bigHandOptions,
   cloneTileRecord,
@@ -771,6 +772,7 @@ export function ScoreScreen({ players, currentUserId, currentWind, currentHand, 
   const [tileEditorTarget, setTileEditorTarget] = useState<'tsumo' | string | null>(null)
   const [tileEditorDraft, setTileEditorDraft] = useState<HandTileRecord>(() => emptyTileRecord())
   const [showAdvanced, setShowAdvanced] = useState(Boolean(initialHand && (initialHand.note || initialHand.tile_record || initialOutcomes.some(outcome => outcome.note || outcome.tile_record))))
+  const [ronNotePicker, setRonNotePicker] = useState<{ playerId: string; stage: 'primary' | 'more' } | null>(null)
   const canSaveTsumo = Boolean(winner)
 
   useEffect(() => {
@@ -984,23 +986,33 @@ export function ScoreScreen({ players, currentUserId, currentWind, currentHand, 
     setRonSelectionRole(null)
   }
 
-  async function chooseRonPrimaryNote(playerId: string) {
-    const firstPage = ['无大胡', '对对胡', '七对', '清一色', '混一色', '更多']
-    try {
-      const first = await Taro.showActionSheet({ itemList: firstPage })
-      const chosen = firstPage[first.tapIndex]
-      if (!chosen) return
-      if (chosen !== '更多') {
-        updateRonDraft(playerId, draft => ({ ...draft, notes: chosen === '无大胡' ? [] : [chosen] }))
-        return
-      }
-      const secondPage = ['全球独钓', '龙七', '花开', '杠开', '抢杠', '压绝']
-      const second = await Taro.showActionSheet({ itemList: secondPage })
-      const secondChosen = secondPage[second.tapIndex]
-      if (secondChosen) updateRonDraft(playerId, draft => ({ ...draft, notes: [secondChosen] }))
-    } catch {
-      // 用户取消选择时保持当前牌型。
-    }
+  function chooseRonPrimaryNote(playerId: string) {
+    setRonNotePicker({ playerId, stage: 'primary' })
+  }
+
+  function renderRonNotePicker() {
+    if (!ronNotePicker) return null
+    const primary = ['无大胡', '对对胡', '七对', '清一色', '混一色']
+    const more = ['全球独钓', '龙七', '花开', '杠开', '抢杠', '压绝']
+    const draft = ronDrafts[ronNotePicker.playerId]
+    const selected = draft?.notes[0] || '无大胡'
+    const isMore = ronNotePicker.stage === 'more'
+    return <MasterChoiceSheet
+      open
+      title={isMore ? '更多大胡' : '选择大胡'}
+      subtitle={isMore ? '选择后会替换当前主胡型' : '常用胡型直接选择，更多胡型继续展开'}
+      selectedKey={selected}
+      options={(isMore ? more : [...primary, '更多']).map(label => ({ key: label, label }))}
+      onClose={() => setRonNotePicker(null)}
+      onSelect={key => {
+        if (key === '更多') {
+          setRonNotePicker(current => current ? { ...current, stage: 'more' } : null)
+          return
+        }
+        updateRonDraft(ronNotePicker.playerId, current => ({ ...current, notes: key === '无大胡' ? [] : [key] }))
+        setRonNotePicker(null)
+      }}
+    />
   }
 
   function adjustScore(current: string, delta: number, onChange: (value: string) => void) {
@@ -1275,7 +1287,7 @@ export function ScoreScreen({ players, currentUserId, currentWind, currentHand, 
         }}><Text>{option}</Text></View>
       })}<View className={displayedRonDraft?.notes.some(note => !masterRonNotes.includes(note)) ? 'selected' : ''} onClick={() => { if (displayedRonWinnerId) void chooseRonPrimaryNote(displayedRonWinnerId) }}><Text>更多</Text></View></View>
       <Button className='master-score-submit' hoverClass='none' disabled={loading || !canSaveRon} onClick={save}>{loading ? '保存中…' : '确认保存'}</Button>
-    </View></>
+    </View>{renderRonNotePicker()}</>
   }
 
   if (masterViewType === 'ron' && multiRonEnabled) {
@@ -1310,7 +1322,7 @@ export function ScoreScreen({ players, currentUserId, currentWind, currentHand, 
       </ScrollView>
       <View className={`master-score-settlement${preferences.showSettlementPreview && canSaveRon ? '' : ' placeholder'}`}><Text>结算预览</Text><Text>{preferences.showSettlementPreview && canSaveRon ? ronScores.filter(score => score.change !== 0).map(score => `${masterPlayerLabel(players.find(player => player.id === score.playerId)!)} ${score.change > 0 ? '+' : ''}${score.change}`).join(' · ') : '选择点炮者与胡牌者后显示结算'}</Text></View>
       <Button className='master-score-submit' hoverClass='none' disabled={loading || !canSaveRon} onClick={save}>{loading ? '保存中…' : '确认保存'}</Button>
-    </View></>
+    </View>{renderRonNotePicker()}</>
   }
 
   if (masterViewType === 'event') {

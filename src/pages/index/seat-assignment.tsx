@@ -1,9 +1,8 @@
 import { useMemo, useState } from 'react'
-import Taro from '@tarojs/taro'
 import { Button, Text, View } from '@tarojs/components'
 import type { UserGender } from '@shared/types'
 import { IdentityAvatar } from './identity-avatar'
-import { MasterBackGlyph, getPageTopInset } from './shared'
+import { MasterBackGlyph, MasterChoiceSheet, masterSafeTopStyle } from './shared'
 
 export type SeatParticipant = {
   id: string
@@ -29,31 +28,37 @@ export function SeatAssignmentScreen({ participants, loading, onBack, onConfirm 
   onConfirm: (memberIds: string[]) => Promise<void>
 }) {
   const [assignment, setAssignment] = useState<string[]>(() => participants.slice(0, 4).map(participant => participant.id))
+  const [choiceStage, setChoiceStage] = useState<'seat' | 'player' | null>(null)
+  const [editingSeatIndex, setEditingSeatIndex] = useState(0)
   const participantById = useMemo(() => new Map(participants.map(participant => [participant.id, participant])), [participants])
   const complete = assignment.length === 4 && new Set(assignment).size === 4
+  const currentEditingPlayerId = assignment[editingSeatIndex] || ''
+  const orderedParticipants = useMemo(() => [...participants].sort((first, second) => first.id === currentEditingPlayerId ? -1 : second.id === currentEditingPlayerId ? 1 : 0), [participants, currentEditingPlayerId])
 
-  async function adjustSeats() {
-    try {
-      const seatResult = await Taro.showActionSheet({ itemList: seats.map(seat => `${seat}家${seat === '东' ? ' · 庄' : ''}`) })
-      const seatIndex = seatResult.tapIndex
-      const currentId = assignment[seatIndex]
-      const ordered = [...participants].sort((first, second) => first.id === currentId ? -1 : second.id === currentId ? 1 : 0)
-      const playerResult = await Taro.showActionSheet({ itemList: ordered.map(participant => participant.badge === '我' ? `我（${participant.name}）` : participant.name) })
-      const nextPlayer = ordered[playerResult.tapIndex]
-      if (!nextPlayer) return
-      setAssignment(current => {
-        const next = [...current]
-        const otherIndex = next.indexOf(nextPlayer.id)
-        if (otherIndex >= 0) next[otherIndex] = next[seatIndex]
-        next[seatIndex] = nextPlayer.id
-        return next
-      })
-    } catch {
-      // 原生选择器取消时保持现有座位。
-    }
+  function adjustSeats() {
+    setChoiceStage('seat')
   }
 
-  return <View className='master-start-screen master-seat-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+  function chooseSeat(key: string) {
+    const index = Number(key)
+    if (!Number.isInteger(index) || index < 0 || index >= seats.length) return
+    setEditingSeatIndex(index)
+    setChoiceStage('player')
+  }
+
+  function choosePlayer(playerId: string) {
+    if (!participantById.has(playerId)) return
+    setAssignment(current => {
+      const next = [...current]
+      const otherIndex = next.indexOf(playerId)
+      if (otherIndex >= 0) next[otherIndex] = next[editingSeatIndex]
+      next[editingSeatIndex] = playerId
+      return next
+    })
+    setChoiceStage(null)
+  }
+
+  return <View className='master-start-screen master-seat-screen master-safe-top' style={masterSafeTopStyle(113.462)}>
     <View className='master-start-nav'>
       <Button className='master-start-back' hoverClass='none' onClick={onBack}><MasterBackGlyph /></Button>
       <View><Text>开始新牌局</Text><Text>确认本场玩家、座位与庄家</Text></View>
@@ -86,6 +91,25 @@ export function SeatAssignmentScreen({ participants, loading, onBack, onConfirm 
       <View><Text>南京麻将 · 标准规则</Text><Text>从组局进入时仅确认座位与庄家</Text></View>
       <Text>查看规则 ›</Text>
     </View>
+
+    <MasterChoiceSheet
+      open={choiceStage === 'seat'}
+      title='调整座位'
+      subtitle='先选择要调整的方位'
+      selectedKey={String(editingSeatIndex)}
+      options={seats.map((seat, index) => ({ key: String(index), label: `${seat}家${seat === '东' ? ' · 庄' : ''}` }))}
+      onClose={() => setChoiceStage(null)}
+      onSelect={chooseSeat}
+    />
+    <MasterChoiceSheet
+      open={choiceStage === 'player'}
+      title={`${seats[editingSeatIndex]}家换谁坐`}
+      subtitle={editingSeatIndex === 0 ? '东家同时是本场庄家' : '选择后会与原座位玩家互换'}
+      selectedKey={currentEditingPlayerId}
+      options={orderedParticipants.map(participant => ({ key: participant.id, label: participant.badge === '我' ? `我（${participant.name}）` : participant.name }))}
+      onClose={() => setChoiceStage(null)}
+      onSelect={choosePlayer}
+    />
 
     <Button className='master-start-primary' hoverClass='none' disabled={!complete || loading} onClick={() => { if (complete) void onConfirm(assignment) }}>
       {loading ? '创建牌局中…' : '开始记分'}

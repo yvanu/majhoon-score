@@ -9,7 +9,7 @@ import type {
   GroupSessionInput,
   GroupSessionSummary,
 } from '@shared/types'
-import { FriendAvatar, MasterBackGlyph, MasterRightChevronGlyph, getPageTopInset } from './shared'
+import { FriendAvatar, MasterBackGlyph, MasterRightChevronGlyph, masterSafeTopStyle } from './shared'
 import { IdentityAvatar } from './identity-avatar'
 
 function localDateValue(date: Date) {
@@ -60,18 +60,39 @@ function isClosed(group: GroupSessionSummary) {
   return group.status === 'finished' || group.status === 'cancelled'
 }
 
-function GroupHeaderTabs({ tab, onChange, onMore }: {
+function GroupHeaderTabs({ tab, onChange, onMore, topShiftPx, menuOpen, loading, onCreate, onCodeEntry, onRefresh, onCloseMenu }: {
   tab: 'open' | 'mine' | 'chats'
   onChange: (tab: 'open' | 'mine' | 'chats') => void
   onMore: () => void
+  topShiftPx: number
+  menuOpen: boolean
+  loading: boolean
+  onCreate: () => void
+  onCodeEntry: () => void
+  onRefresh: () => void
+  onCloseMenu: () => void
 }) {
   const title = tab === 'open' ? '正在组局' : tab === 'mine' ? '我的组局' : '群聊'
+  const shiftStyle = { transform: `translateY(${topShiftPx}px)` }
+  const selectTab = (nextTab: 'open' | 'mine' | 'chats') => {
+    onCloseMenu()
+    onChange(nextTab)
+  }
   return <>
-    <View className='master-groups-title-row'><Text>{title}</Text><Button hoverClass='none' onClick={onMore}><View className='master-groups-more-glyph'><View /><View /></View></Button></View>
-    <View className='master-groups-tabs'>
-      <View className={tab === 'open' ? 'active' : ''} onClick={() => onChange('open')}><Text>正在组局</Text></View>
-      <View className={tab === 'mine' ? 'active' : ''} onClick={() => onChange('mine')}><Text>我的组局</Text></View>
-      <View className={tab === 'chats' ? 'active' : ''} onClick={() => onChange('chats')}><Text>群聊</Text></View>
+    {menuOpen && <View className='master-groups-more-backdrop' onClick={onCloseMenu} />}
+    <View className={`master-groups-title-row${menuOpen ? ' menu-open' : ''}`} style={shiftStyle}>
+      <Text>{title}</Text>
+      <Button hoverClass='none' onClick={onMore}><View className='master-groups-more-glyph'><View /><View /><View /></View></Button>
+      {menuOpen && <View className='master-groups-more-menu' onClick={event => event.stopPropagation()}>
+        <View onClick={() => { onCloseMenu(); onCreate() }}><Text>发布组局</Text></View>
+        <View onClick={() => { onCloseMenu(); onCodeEntry() }}><Text>输入组局码</Text></View>
+        <View className={loading ? 'disabled' : ''} onClick={() => { if (!loading) { onCloseMenu(); onRefresh() } }}><Text>{loading ? '刷新中…' : '刷新列表'}</Text></View>
+      </View>}
+    </View>
+    <View className='master-groups-tabs' style={shiftStyle}>
+      <View className={tab === 'open' ? 'active' : ''} onClick={() => selectTab('open')}><Text>正在组局</Text></View>
+      <View className={tab === 'mine' ? 'active' : ''} onClick={() => selectTab('mine')}><Text>我的组局</Text></View>
+      <View className={tab === 'chats' ? 'active' : ''} onClick={() => selectTab('chats')}><Text>群聊</Text></View>
     </View>
   </>
 }
@@ -93,6 +114,7 @@ export function GroupSessionsScreen({ groups, loading, tab, code, showCodeEntry,
   onRefresh: () => void
 }) {
   const [mineFilter, setMineFilter] = useState<'active' | 'history'>('active')
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false)
   const openCutoff = Date.now() - 6 * 3_600_000
   const openGroups = groups
     .filter(group => (group.status === 'recruiting' || group.status === 'full') && Date.parse(group.start_at) >= openCutoff)
@@ -102,20 +124,33 @@ export function GroupSessionsScreen({ groups, loading, tab, code, showCodeEntry,
     .sort((left, right) => Date.parse(right.start_at) - Date.parse(left.start_at))
   const visibleMine = myGroups.filter(group => mineFilter === 'history' ? isClosed(group) : !isClosed(group))
   const conversations = myGroups.slice().sort((left, right) => Date.parse(right.chat_last_message_at || right.updated_at || right.created_at) - Date.parse(left.chat_last_message_at || left.updated_at || left.created_at))
-
-  async function more() {
-    try {
-      const result = await Taro.showActionSheet({ itemList: ['发布组局', '输入组局码', '刷新列表'] })
-      if (result.tapIndex === 0) onCreate()
-      if (result.tapIndex === 1) onShowCodeEntryChange(true)
-      if (result.tapIndex === 2 && !loading) onRefresh()
-    } catch {
-      // 取消菜单时保持当前页面。
+  let topShiftPx = 10
+  try {
+    const menuRect = Taro.getMenuButtonBoundingClientRect()
+    const system = Taro.getSystemInfoSync()
+    if (menuRect?.bottom && system.windowWidth) {
+      // 只做纵向避让：按钮保持 SVG 原始右侧位置，整套组局顶部结构下沉到微信胶囊下方。
+      const designTitleTopPx = system.windowWidth * (111.538 / 750)
+      topShiftPx = Math.max(10, Math.ceil(menuRect.bottom + 8 - designTitleTopPx))
     }
+  } catch {
+    topShiftPx = 10
   }
+  const shiftStyle = { transform: `translateY(${topShiftPx}px)` }
 
-  return <View className='master-groups-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
-    <GroupHeaderTabs tab={tab} onChange={onTabChange} onMore={() => { void more() }} />
+  return <View className='master-groups-screen'>
+    <GroupHeaderTabs
+      tab={tab}
+      onChange={onTabChange}
+      onMore={() => setMoreMenuOpen(open => !open)}
+      topShiftPx={topShiftPx}
+      menuOpen={moreMenuOpen}
+      loading={loading}
+      onCreate={onCreate}
+      onCodeEntry={() => onShowCodeEntryChange(true)}
+      onRefresh={onRefresh}
+      onCloseMenu={() => setMoreMenuOpen(false)}
+    />
 
     {showCodeEntry && <View className='master-groups-code-entry'>
       <Input value={code} maxlength={12} focus placeholder='输入组局码' onInput={event => onCodeChange(event.detail.value.trim().toUpperCase())} />
@@ -123,7 +158,7 @@ export function GroupSessionsScreen({ groups, loading, tab, code, showCodeEntry,
       <Text onClick={() => onShowCodeEntryChange(false)}>×</Text>
     </View>}
 
-    {tab === 'open' && <ScrollView scrollY className='master-groups-scroll' showScrollbar={false}>
+    {tab === 'open' && <ScrollView scrollY className='master-groups-scroll' style={shiftStyle} showScrollbar={false}>
       <View className='master-groups-card-list'>{openGroups.map(group => {
         const canJoin = !group.is_member && group.status === 'recruiting'
         return <View className='master-group-open-card' key={group.id} onClick={() => onOpen(group)}>
@@ -137,11 +172,11 @@ export function GroupSessionsScreen({ groups, loading, tab, code, showCodeEntry,
     </ScrollView>}
 
     {tab === 'mine' && <>
-      <View className='master-groups-mine-filter'>
+      <View className='master-groups-mine-filter' style={shiftStyle}>
         <View className={mineFilter === 'active' ? 'active' : ''} onClick={() => setMineFilter('active')}><Text>进行中</Text></View>
         <View className={mineFilter === 'history' ? 'active' : ''} onClick={() => setMineFilter('history')}><Text>历史</Text></View>
       </View>
-      <ScrollView scrollY className='master-groups-scroll mine' showScrollbar={false}>
+      <ScrollView scrollY className='master-groups-scroll mine' style={shiftStyle} showScrollbar={false}>
         <View className='master-my-group-list'>{visibleMine.map(group => {
           const missing = Math.max(0, group.capacity - group.confirmed_count)
           const badge = group.status === 'full' ? '已满员' : group.status === 'finished' ? '已结束' : group.status === 'cancelled' ? '已取消' : missing ? `等待${missing}人` : '已满员'
@@ -155,7 +190,7 @@ export function GroupSessionsScreen({ groups, loading, tab, code, showCodeEntry,
       </ScrollView>
     </>}
 
-    {tab === 'chats' && <ScrollView scrollY className='master-groups-scroll chats' showScrollbar={false}>
+    {tab === 'chats' && <ScrollView scrollY className='master-groups-scroll chats' style={shiftStyle} showScrollbar={false}>
       <View className='master-chat-list'>{conversations.map(group => <View className='master-chat-row' key={group.id} onClick={() => onOpenChat(group)}>
         <View className='master-chat-avatar'><Text /></View>
         <View className='master-chat-copy'>
@@ -205,7 +240,7 @@ export function GroupCreateScreen({ user, friends, loading, friendPickerOpen, de
       : current.length >= 3 ? current : [...current, friendId])
   }
 
-  return <View className='master-group-create-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+  return <View className='master-group-create-screen master-safe-top' style={masterSafeTopStyle(107.692)}>
     <View className='master-detail-nav'>
       <Button hoverClass='none' onClick={onBack}><MasterBackGlyph /></Button>
       <View><Text>发布组局</Text><Text>先确定时间和地点，再邀请牌友</Text></View>
@@ -242,7 +277,7 @@ export function GroupCreateScreen({ user, friends, loading, friendPickerOpen, de
 
     <Button className='master-create-submit' hoverClass='none' disabled={!valid || loading} onClick={() => onCreate({ startAt: startAt.toISOString(), location: location.trim(), note: note.trim(), friendIds })}>{loading ? '发布中…' : '发布组局'}</Button>
 
-    {friendPickerOpen && <View className='master-picker-backdrop' onClick={() => onFriendPickerOpenChange(false)}><View className='master-picker-modal' onClick={event => event.stopPropagation()}>
+    {friendPickerOpen && <View className='master-picker-backdrop master-safe-overlay' onClick={() => onFriendPickerOpenChange(false)}><View className='master-picker-modal' onClick={event => event.stopPropagation()}>
       <View className='master-picker-head'><Text>邀请牌友</Text><Button hoverClass='none' onClick={() => onFriendPickerOpenChange(false)}>×</Button></View>
       <Input className='master-picker-search' value={friendQuery} maxlength={20} placeholder='搜索牌友' onInput={event => setFriendQuery(event.detail.value)} />
       <ScrollView scrollY className='master-picker-list' showScrollbar={false}>{visibleFriends.map(friend => {
@@ -294,7 +329,7 @@ export function GroupDetailScreen({ group, currentUserId, friends, friendsLoadin
   const ready = group.confirmed_count === group.capacity
 
   return <ScrollView scrollY className='master-group-detail-scroll' showScrollbar={false}>
-    <View className='master-group-detail-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+    <View className='master-group-detail-screen master-safe-top' style={masterSafeTopStyle(113.462)}>
       <View className='master-detail-nav'>
         <Button hoverClass='none' onClick={onBack}><MasterBackGlyph /></Button>
         <View><Text>组局详情</Text><Text>南京麻将 · {group.location}</Text></View>

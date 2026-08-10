@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import Taro from '@tarojs/taro'
 import { Button, ScrollView, Text, View } from '@tarojs/components'
 import type {
@@ -8,7 +8,7 @@ import type {
   StatisticsDimension,
   UserPreferences,
 } from '@shared/types'
-import { MasterBackGlyph, MasterRightChevronGlyph, getPageTopInset } from './shared'
+import { MasterBackGlyph, MasterChoiceSheet, MasterRightChevronGlyph, masterSafeTopStyle } from './shared'
 import type { SyncStatus } from './shared'
 import { IdentityAvatar } from './identity-avatar'
 import { ScoreTrendChart } from './score-trend-chart'
@@ -100,12 +100,12 @@ export function ProfileScreen({ user, statistics, statisticsLoading, onSettings,
   const matches = statistics?.trend.length || 0
   const score = statistics?.netScore || 0
 
-  if (!user) return <View className='master-profile-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+  if (!user) return <View className='master-profile-screen master-safe-top' style={masterSafeTopStyle(125)}>
     <View className='master-profile-header'><Text>我的</Text><Text>个人数据与偏好</Text></View>
     <View className='master-profile-login'><Text>登录后查看自己的牌风与战绩</Text><Button hoverClass='none' onClick={onLogin}>微信登录</Button></View>
   </View>
 
-  return <View className='master-profile-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+  return <View className='master-profile-screen master-safe-top' style={masterSafeTopStyle(125)}>
     <View className='master-profile-header'><Text>我的</Text><Text>个人数据与偏好</Text></View>
     <View className='master-profile-user-card'>
       <View className='master-profile-avatar'><IdentityAvatar name={user.display_name || user.username} gender={user.gender} avatarUrl={user.avatar_url} fallback='smile' /></View>
@@ -164,7 +164,7 @@ export function PersonalStatisticsScreen({ statistics, loading, onBack, onChange
   }
 
   return <ScrollView scrollY className='master-stats-scroll' showScrollbar={false}>
-    <View className='master-stats-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+    <View className='master-stats-screen master-safe-top' style={masterSafeTopStyle(107.692)}>
       <BackTitle title='我的战绩' subtitle='按日 / 月 / 年查看' onBack={onBack} />
       <View className='master-stats-period'>{dimensions.map(item => <View className={statistics.dimension === item.value ? 'active' : ''} key={item.value} onClick={() => changeDimension(item.value)}><Text>{item.label}</Text></View>)}</View>
       <View className='master-stats-today'>
@@ -191,7 +191,7 @@ export function PersonalStatisticsScreen({ statistics, loading, onBack, onChange
 
 export function MyStyleScreen({ statistics, onBack }: { statistics: PersonalStatistics | null; onBack: () => void }) {
   const style = deriveMasterPlayStyle(statistics)
-  return <View className='master-style-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+  return <View className='master-style-screen master-safe-top' style={masterSafeTopStyle(111.538)}>
     <BackTitle title='我的牌风' subtitle='近 90 天数据生成' onBack={onBack} />
     <View className='master-style-summary'><Text>{style.title}</Text><Text>综合牌风标签</Text><View><View><Text>进攻</Text><Text>{style.attack}</Text></View><View><Text>稳定</Text><Text>{style.stability}</Text></View><View><Text>冒险</Text><Text>{style.risk}</Text></View></View></View>
     <Text className='master-style-section-title'>特征</Text>
@@ -204,28 +204,43 @@ export function PreferencesScreen({ preferences, onChange, onBack }: {
   onChange: (preferences: UserPreferences) => void
   onBack: () => void
 }) {
-  async function chooseScores() {
-    try {
-      const options: Array<[number, number]> = [[50, 70], [50, 100], [70, 100], [100, 200]]
-      const result = await Taro.showActionSheet({ itemList: options.map(item => `${item[0]} / ${item[1]}`) })
-      onChange({ ...preferences, quickScores: options[result.tapIndex] })
-    } catch {}
-  }
-  async function chooseStep() {
-    try {
-      const options = [5, 10, 20]
-      const result = await Taro.showActionSheet({ itemList: options.map(value => `±${value}`) })
-      onChange({ ...preferences, quickAdjustStep: options[result.tapIndex] })
-    } catch {}
-  }
-  return <View className='master-preferences-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+  const [choice, setChoice] = useState<'scores' | 'step' | null>(null)
+  const scoreOptions: Array<[number, number]> = [[50, 70], [50, 100], [70, 100], [100, 200]]
+  const stepOptions = [5, 10, 20]
+  return <View className='master-preferences-screen master-safe-top' style={masterSafeTopStyle(111.538)}>
     <BackTitle title='个人偏好' subtitle='只保留高频配置' onBack={onBack} />
     <View className='master-pref-list'>
-      <View onClick={() => { void chooseScores() }}><Text>推荐分数</Text><Text>{preferences.quickScores[0]} / {preferences.quickScores[1]}</Text></View>
-      <View onClick={() => { void chooseStep() }}><Text>快捷调整步长</Text><Text>±{preferences.quickAdjustStep}</Text></View>
+      <View onClick={() => setChoice('scores')}><Text>推荐分数</Text><Text>{preferences.quickScores[0]} / {preferences.quickScores[1]}</Text></View>
+      <View onClick={() => setChoice('step')}><Text>快捷调整步长</Text><Text>±{preferences.quickAdjustStep}</Text></View>
       <View onClick={() => onChange({ ...preferences, clearScoreStateAfterSave: !preferences.clearScoreStateAfterSave })}><Text>录分后清空状态</Text><Text>{preferences.clearScoreStateAfterSave ? '开启' : '关闭'}</Text></View>
       <View onClick={() => onChange({ ...preferences, showSettlementPreview: !preferences.showSettlementPreview })}><Text>显示结算预览</Text><Text>{preferences.showSettlementPreview ? '开启' : '关闭'}</Text></View>
     </View>
+    <MasterChoiceSheet
+      open={choice === 'scores'}
+      title='推荐分数'
+      subtitle='选择录分弹窗中的两个快捷分值'
+      selectedKey={`${preferences.quickScores[0]}-${preferences.quickScores[1]}`}
+      options={scoreOptions.map(([low, high]) => ({ key: `${low}-${high}`, label: `${low} / ${high}` }))}
+      onClose={() => setChoice(null)}
+      onSelect={key => {
+        const selected = scoreOptions.find(([low, high]) => `${low}-${high}` === key)
+        if (selected) onChange({ ...preferences, quickScores: selected })
+        setChoice(null)
+      }}
+    />
+    <MasterChoiceSheet
+      open={choice === 'step'}
+      title='快捷调整步长'
+      subtitle='用于录分时的 + / - 快捷按钮'
+      selectedKey={String(preferences.quickAdjustStep)}
+      options={stepOptions.map(value => ({ key: String(value), label: `±${value}` }))}
+      onClose={() => setChoice(null)}
+      onSelect={key => {
+        const selected = Number(key)
+        if (stepOptions.includes(selected)) onChange({ ...preferences, quickAdjustStep: selected })
+        setChoice(null)
+      }}
+    />
   </View>
 }
 
@@ -238,7 +253,7 @@ export function ScoringSettingsScreen({ preferences, onBack, onPreferences }: { 
     { name: '被跟圈', copy: '被跟圈者直接扣分', value: '-30' },
   ]
   return <ScrollView scrollY className='master-scoring-scroll' showScrollbar={false}>
-    <View className='master-scoring-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+    <View className='master-scoring-screen master-safe-top' style={masterSafeTopStyle(107.692)}>
       <BackTitle title='南京麻将规则' subtitle='当前产品默认记分规则' onBack={onBack} />
       <Text className='master-scoring-section-title'>录分习惯入口</Text>
       <View className='master-scoring-pref-link' onClick={onPreferences}><View><Text>个人偏好</Text><Text>推荐分、步长与录分习惯</Text></View><View className='master-scoring-enter'><Text>进入</Text><MasterRightChevronGlyph /></View></View>
@@ -266,7 +281,7 @@ export function SettingsScreen({ onBack, onEditProfile, onScoringSettings, onLog
     { title: '记分设置', subtitle: '默认分值与快捷操作', action: onScoringSettings },
     { title: '隐私与协议', subtitle: '数据使用与授权说明', action: () => onInfo('隐私与协议') },
   ]
-  return <View className='master-settings-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+  return <View className='master-settings-screen master-safe-top' style={masterSafeTopStyle(111.538)}>
     <BackTitle title='设置' onBack={onBack} />
     <View className='master-settings-list'>{rows.map(row => <View key={row.title} onClick={row.action}><View><Text>{row.title}</Text><Text>{row.subtitle}</Text></View><MasterRightChevronGlyph /></View>)}</View>
     <Button className='master-settings-logout' hoverClass='none' onClick={onLogout}>退出登录</Button>
@@ -285,7 +300,7 @@ export function BigHandsScreen({ statistics, onBack }: { statistics: PersonalSta
     await Taro.showModal({ title: record.note || '大胡牌谱', content: `本次得分 ${record.score > 0 ? '+' : ''}${record.score}，已保存牌谱。`, showCancel: false })
   }
   return <ScrollView scrollY className='master-big-hands-scroll' showScrollbar={false}>
-    <View className='master-big-hands-screen' style={{ paddingTop: `${getPageTopInset()}px` }}>
+    <View className='master-big-hands-screen master-safe-top' style={masterSafeTopStyle(113.462)}>
       <BackTitle title='我的大胡' subtitle={`近 30 天共 ${statistics.bigHands} 次`} onBack={onBack} />
       <View className='master-big-summary'><Text>本月大胡</Text><Text>{statistics.bigHands} 次</Text><Text>{mostRecent ? `最近一次 ${mostRecent.score > 0 ? '+' : ''}${mostRecent.score}` : '暂无记录'}</Text></View>
       <Text className='master-big-section-title'>胡型统计</Text>

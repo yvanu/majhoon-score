@@ -9,23 +9,56 @@
 /* 01_home: all major blocks use the master SVG 390×844 coordinates directly. */
 .home-hf-more {
   position: absolute;
+  z-index: 92;
   left: 634.615rpx;
   top: 111.538rpx;
   width: 76.923rpx;
   height: 76.923rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7.692rpx;
   border-radius: 38.462rpx;
   background: #FFFFFF;
 }
 .home-hf-more > view {
-  position: absolute;
-  top: 30.523rpx;
-  width: 7.877rpx;
-  height: 7.877rpx;
+  width: 7.692rpx;
+  height: 7.692rpx;
+  flex: 0 0 7.692rpx;
   border-radius: 50%;
   background: #66635C;
 }
-.home-hf-more > view:first-child { left: 28.754rpx; }
-.home-hf-more > view:last-child { left: 59.523rpx; }
+.home-hf-more-backdrop {
+  position: fixed;
+  z-index: 90;
+  inset: 0;
+  background: transparent;
+}
+.home-hf-more-menu {
+  position: absolute;
+  z-index: 93;
+  right: 38.462rpx;
+  top: 203.846rpx;
+  width: 300rpx;
+  padding: 10rpx 14rpx;
+  box-sizing: border-box;
+  border: 1rpx solid rgba(224, 218, 209, .9);
+  border-radius: 26rpx;
+  background: #FFFFFF;
+  box-shadow: 0 18rpx 50rpx rgba(37, 33, 25, .14);
+}
+.home-hf-more-menu > view {
+  height: 78rpx;
+  padding: 0 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+  border-bottom: 1rpx solid #EEEAE4;
+}
+.home-hf-more-menu > view:last-child { border-bottom: 0; }
+.home-hf-more-menu > view > text:first-child { color: #171714; font-size: 22rpx; font-weight: 760; }
+.home-hf-more-menu > view > text:last-child { color: #9B958C; font-size: 25rpx; font-weight: 700; }
 .home-hf-header {
   position: absolute;
   left: 38.462rpx;

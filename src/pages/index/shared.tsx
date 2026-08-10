@@ -1,5 +1,5 @@
 import Taro from '@tarojs/taro'
-import { Button, Image, Text, View } from '@tarojs/components'
+import { Button, Image, ScrollView, Text, View } from '@tarojs/components'
 import type {
   AuthUser,
   Friend,
@@ -190,6 +190,54 @@ export function ConfirmDialog({ dialog, onConfirm, onCancel }: {
       </View>
     </View>
   </View>
+}
+
+export function MasterChoiceSheet({ open, title, subtitle, options, selectedKey, onSelect, onClose }: {
+  open: boolean
+  title: string
+  subtitle?: string
+  options: Array<{ key: string; label: string; detail?: string; disabled?: boolean }>
+  selectedKey?: string
+  onSelect: (key: string) => void
+  onClose: () => void
+}) {
+  if (!open) return null
+  return <View className='master-choice-backdrop master-safe-overlay' onClick={onClose}>
+    <View className='master-choice-sheet' onClick={event => event.stopPropagation()}>
+      <View className='master-choice-head'>
+        <View><Text>{title}</Text>{subtitle && <Text>{subtitle}</Text>}</View>
+        <Button hoverClass='none' onClick={onClose}>×</Button>
+      </View>
+      <ScrollView scrollY className='master-choice-list' showScrollbar={false}>
+        {options.map(option => <View
+          className={`master-choice-row${selectedKey === option.key ? ' selected' : ''}${option.disabled ? ' disabled' : ''}`}
+          key={option.key}
+          onClick={() => { if (!option.disabled) onSelect(option.key) }}
+        >
+          <View><Text>{option.label}</Text>{option.detail && <Text>{option.detail}</Text>}</View>
+          {selectedKey === option.key && <Text>✓</Text>}
+        </View>)}
+      </ScrollView>
+    </View>
+  </View>
+}
+
+export function getMasterSafeTopShift(designTopRpx = 111.538, minimumShiftPx = 10, gapPx = 8) {
+  try {
+    const rect = Taro.getMenuButtonBoundingClientRect()
+    const windowWidth = Taro.getSystemInfoSync().windowWidth
+    if (rect?.bottom && windowWidth) {
+      const designTopPx = windowWidth * (designTopRpx / 750)
+      return Math.max(minimumShiftPx, Math.ceil(rect.bottom + gapPx - designTopPx))
+    }
+  } catch (error) {
+    console.warn('Unable to read WeChat menu button position:', error)
+  }
+  return minimumShiftPx
+}
+
+export function masterSafeTopStyle(designTopRpx = 111.538) {
+  return { '--master-safe-top-shift': `${getMasterSafeTopShift(designTopRpx)}px` } as any
 }
 
 let cachedPageTopInset: number | null = null
