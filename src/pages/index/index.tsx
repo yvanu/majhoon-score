@@ -162,7 +162,7 @@ export default function Index() {
   const [matchSnapshot] = useState(() => readMatchSnapshot())
   const [screen, setScreenState] = useState<Screen>('home')
   const [layerScreens, setLayerScreens] = useState<[Screen | null, Screen | null]>(['home', null])
-  const [activeLayer, setActiveLayer] = useState<0 | 1>(0)
+  const layerScreensRef = useRef<[Screen | null, Screen | null]>(['home', null])
   const [screenTransition, setScreenTransition] = useState<{ from: 0 | 1; to: 0 | 1; motion: 'push' | 'pop' | 'replace' } | null>(null)
   const activeLayerRef = useRef<0 | 1>(0)
   const screenTransitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -350,32 +350,31 @@ export default function Index() {
       clearTimeout(screenTransitionTimer.current)
       screenTransitionTimer.current = null
       setScreenTransition(null)
-      setActiveLayer(activeLayerRef.current)
     }
 
-    const from = activeLayerRef.current
+    const currentScreen = screenRef.current
+    const renderedCurrentLayer = layerScreensRef.current.findIndex(item => item === currentScreen)
+    const from = (renderedCurrentLayer === 0 || renderedCurrentLayer === 1 ? renderedCurrentLayer : activeLayerRef.current) as 0 | 1
+    activeLayerRef.current = from
+
     if (motion === 'tab') {
       const other = from === 0 ? 1 : 0
-      setLayerScreens(current => {
-        const updated: [Screen | null, Screen | null] = [...current]
-        updated[from] = next
-        updated[other] = null
-        return updated
-      })
+      const updated: [Screen | null, Screen | null] = [...layerScreensRef.current]
+      updated[from] = next
+      updated[other] = null
+      layerScreensRef.current = updated
+      setLayerScreens(updated)
       return
     }
 
     const to = (from === 0 ? 1 : 0) as 0 | 1
-    setLayerScreens(current => {
-      if (current[to] === next) return current
-      const updated: [Screen | null, Screen | null] = [...current]
-      updated[to] = next
-      return updated
-    })
+    const updated: [Screen | null, Screen | null] = [...layerScreensRef.current]
+    updated[to] = next
+    layerScreensRef.current = updated
+    setLayerScreens(updated)
     activeLayerRef.current = to
     setScreenTransition({ from, to, motion })
     screenTransitionTimer.current = setTimeout(() => {
-      setActiveLayer(to)
       setScreenTransition(null)
       screenTransitionTimer.current = null
     }, motion === 'pop' ? 330 : 350)
@@ -384,6 +383,7 @@ export default function Index() {
   function setScreen(next: Screen) {
     const history = screenHistory.current
     const current = screenRef.current
+    if (next === current) return
     const existingIndex = history.lastIndexOf(next)
     const tabSwitch = bottomTabScreens.has(current) && bottomTabScreens.has(next)
     const motion = tabSwitch ? 'tab' : existingIndex >= 0 ? 'pop' : 'push'
@@ -1718,16 +1718,19 @@ export default function Index() {
     0,
   )
 
+  const currentScreen = screen
+
   return <View className='app'>
     <View className='screen-stack'>
-    {layerScreens.map((screen, layerIndex) => {
-      if (!screen) return null
+    {layerScreens.map((layerScreen, layerIndex) => {
+      if (!layerScreen) return null
       const index = layerIndex as 0 | 1
-      let role = index === activeLayer ? 'screen-layer-active' : 'screen-layer-cached'
+      let role = layerScreen === currentScreen ? 'screen-layer-active' : 'screen-layer-cached'
       if (screenTransition) {
         if (index === screenTransition.from) role = `screen-layer-${screenTransition.motion}-from`
         else if (index === screenTransition.to) role = `screen-layer-${screenTransition.motion}-to`
       }
+      const screen = layerScreen
       return <View key={`${layerIndex}:${screen}`} className={`screen-layer ${role}${bottomTabScreens.has(screen) ? ' tab-screen-layer' : ''}`}>
     {screen === 'home' && <Home
       user={user}
