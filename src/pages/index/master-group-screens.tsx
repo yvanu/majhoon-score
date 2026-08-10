@@ -172,12 +172,12 @@ export function GroupSessionsScreen({ groups, loading, tab, code, showCodeEntry,
     {tab === 'open' && <ScrollView scrollY className='master-groups-scroll' style={shiftStyle} showScrollbar={false}>
       <View className='master-groups-card-list'>{openGroups.map(group => {
         const canJoin = !group.is_member && group.status === 'recruiting'
-        return <View className='master-group-open-card' key={group.id} onClick={() => onOpen(group)}>
+        return <Button hoverClass='none' className='master-group-open-card' key={group.id} onClick={() => onOpen(group)}>
           <Text className='master-group-card-title'>{sessionTitle(group)}</Text>
           <Text className='master-group-tag'>南京麻将</Text>
           <Text className='master-group-count'>{group.confirmed_count}/{group.capacity} 人</Text>
-          <Button hoverClass='none' onClick={event => { event.stopPropagation(); if (canJoin) onJoin(group); else onOpen(group) }}>{canJoin ? '加入' : group.is_owner ? '管理' : '查看'}</Button>
-        </View>
+          <View className='master-group-card-action' onClick={event => { event.stopPropagation(); if (canJoin) onJoin(group); else onOpen(group) }}>{canJoin ? '加入' : group.is_owner ? '管理' : '查看'}</View>
+        </Button>
       })}</View>
       {!loading && !openGroups.length && <View className='master-groups-empty'><Text>暂无正在组局</Text><Text>点击右上角发布第一场组局</Text></View>}
     </ScrollView>}
@@ -191,25 +191,25 @@ export function GroupSessionsScreen({ groups, loading, tab, code, showCodeEntry,
         <View className='master-my-group-list'>{visibleMine.map(group => {
           const missing = Math.max(0, group.capacity - group.confirmed_count)
           const badge = group.status === 'full' ? '已满员' : group.status === 'finished' ? '已结束' : group.status === 'cancelled' ? '已取消' : missing ? `等待${missing}人` : '已满员'
-          return <View className='master-my-group-card' key={group.id} onClick={() => onOpen(group)}>
+          return <Button hoverClass='none' className='master-my-group-card' key={group.id} onClick={() => onOpen(group)}>
             <Text>{sessionTitle(group)}</Text>
             <Text>{group.is_owner ? '我发起' : '已加入'} · {group.confirmed_count}/{group.capacity} 人</Text>
             <Text className={`master-my-group-badge ${group.status}`}>{badge}</Text>
-          </View>
+          </Button>
         })}</View>
         {!loading && !visibleMine.length && <View className='master-groups-empty'><Text>{mineFilter === 'active' ? '没有进行中的组局' : '暂无历史组局'}</Text></View>}
       </ScrollView>
     </>}
 
     {tab === 'chats' && <ScrollView scrollY className='master-groups-scroll chats' style={shiftStyle} showScrollbar={false}>
-      <View className='master-chat-list'>{conversations.map(group => <View className='master-chat-row' key={group.id} onClick={() => onOpenChat(group)}>
+      <View className='master-chat-list'>{conversations.map(group => <Button hoverClass='none' className='master-chat-row' key={group.id} onClick={() => onOpenChat(group)}>
         <View className='master-chat-avatar'><Text /></View>
         <View className='master-chat-copy'>
           <View><Text>{`${formatGroupTime(group.start_at).split(' ')[0]}${group.location}麻将局`}</Text><Text>{shortTime(group.chat_last_message_at)}</Text></View>
           <Text>{group.chat_last_message_preview || '暂无消息'}</Text>
         </View>
         {group.chat_unread_count > 0 && <Text className='master-chat-unread'>{group.chat_unread_count > 99 ? '99+' : group.chat_unread_count}</Text>}
-      </View>)}</View>
+      </Button>)}</View>
       {!loading && !conversations.length && <View className='master-groups-empty'><Text>还没有群聊</Text><Text>发起或加入组局后会显示在这里</Text></View>}
     </ScrollView>}
   </View>

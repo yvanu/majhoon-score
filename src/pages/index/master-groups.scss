@@ -184,12 +184,19 @@
 }
 .master-group-open-card {
   position: relative;
+  width: 100%;
   height: 261.538rpx;
+  min-height: 261.538rpx;
+  margin: 0;
   padding: 34.615rpx;
   box-sizing: border-box;
+  border: 0;
   border-radius: 46.154rpx;
   background: #FFFFFF;
+  text-align: left;
+  line-height: normal;
 }
+.master-group-open-card::after { border: 0; }
 .master-group-card-title {
   display: block;
   max-width: 475rpx;
@@ -221,25 +228,23 @@
   color: #858077;
   font-size: 21.154rpx;
 }
-.master-group-open-card > button {
+.master-group-card-action {
   position: absolute;
+  z-index: 2;
   right: 38.462rpx;
   bottom: 30.769rpx;
   width: 153.846rpx;
   height: 76.923rpx;
-  min-height: 76.923rpx;
-  margin: 0;
-  padding: 0;
-  border: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 28.846rpx;
   background: #F3B43F;
   color: #171714;
-  box-shadow: none;
   font-size: 26.923rpx;
   font-weight: 800;
-  line-height: 76.923rpx;
+  line-height: 1;
 }
-.master-group-open-card > button::after { border: 0; }
 .master-groups-empty { padding: 100rpx 20rpx; text-align: center; color: #99938A; }
 .master-groups-empty text { display: block; font-size: 22rpx; }
 .master-groups-empty text:first-child { color: #5E5952; font-size: 27rpx; font-weight: 800; }
@@ -260,12 +265,19 @@
 .master-my-group-list { gap: 34.615rpx; }
 .master-my-group-card {
   position: relative;
+  width: 100%;
   height: 238.462rpx;
+  min-height: 238.462rpx;
+  margin: 0;
   padding: 34.615rpx;
   box-sizing: border-box;
+  border: 0;
   border-radius: 46.154rpx;
   background: #FFFFFF;
+  text-align: left;
+  line-height: normal;
 }
+.master-my-group-card::after { border: 0; }
 .master-my-group-card > text { display: block; }
 .master-my-group-card > text:first-child { color: #171714; font-size: 31rpx; font-weight: 800; line-height: 1.2; }
 .master-my-group-card > text:nth-child(2) { margin-top: 22rpx; color: #858077; font-size: 21.154rpx; }
@@ -289,14 +301,21 @@
 .master-chat-list { gap: 30.769rpx; }
 .master-chat-row {
   position: relative;
+  width: 100%;
   height: 169.231rpx;
+  min-height: 169.231rpx;
+  margin: 0;
   padding: 28.846rpx 34.615rpx 28.846rpx 26.923rpx;
   display: flex;
   align-items: center;
   box-sizing: border-box;
+  border: 0;
   border-radius: 42.308rpx;
   background: #FFFFFF;
+  text-align: left;
+  line-height: normal;
 }
+.master-chat-row::after { border: 0; }
 .master-chat-avatar {
   width: 92.308rpx;
   height: 92.308rpx;
