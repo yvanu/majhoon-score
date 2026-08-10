@@ -113,20 +113,27 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: end;
 }
-.master-groups-tabs > view {
+.master-groups-tabs > button {
   position: relative;
   height: 57.692rpx;
+  min-height: 57.692rpx;
+  margin: 0;
+  padding: 0 0 15.385rpx;
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding-bottom: 15.385rpx;
   box-sizing: border-box;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: #9A958D;
   font-size: 19.231rpx;
   font-weight: 500;
+  line-height: 1;
 }
-.master-groups-tabs > view.active { color: #171714; font-weight: 800; }
-.master-groups-tabs > view.active::after {
+.master-groups-tabs > button::after { border: 0; }
+.master-groups-tabs > button.active { color: #171714; font-weight: 800; }
+.master-groups-tabs > button.active::before {
   position: absolute;
   bottom: 0;
   left: 50%;
@@ -575,7 +582,7 @@
   width: 673.077rpx;
   height: 65.385rpx;
 }
-.master-groups-tabs > view { height: 65.385rpx; }
+.master-groups-tabs > button { height: 65.385rpx; min-height: 65.385rpx; }
 .master-groups-scroll {
   position: absolute;
   left: 38.462rpx;

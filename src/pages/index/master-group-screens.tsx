@@ -73,7 +73,7 @@ function GroupHeaderTabs({ tab, onChange, onMore, topShiftPx, menuOpen, loading,
   onCloseMenu: () => void
 }) {
   const title = tab === 'open' ? '正在组局' : tab === 'mine' ? '我的组局' : '群聊'
-  const shiftStyle = { transform: `translateY(${topShiftPx}px)` }
+  const shiftStyle = { marginTop: `${topShiftPx}px` }
   const selectTab = (nextTab: 'open' | 'mine' | 'chats') => {
     onCloseMenu()
     onChange(nextTab)
@@ -90,9 +90,9 @@ function GroupHeaderTabs({ tab, onChange, onMore, topShiftPx, menuOpen, loading,
       </View>}
     </View>
     <View className='master-groups-tabs' style={shiftStyle}>
-      <View className={tab === 'open' ? 'active' : ''} onClick={() => selectTab('open')}><Text>正在组局</Text></View>
-      <View className={tab === 'mine' ? 'active' : ''} onClick={() => selectTab('mine')}><Text>我的组局</Text></View>
-      <View className={tab === 'chats' ? 'active' : ''} onClick={() => selectTab('chats')}><Text>群聊</Text></View>
+      <Button hoverClass='none' className={tab === 'open' ? 'active' : ''} onClick={() => selectTab('open')}><Text>正在组局</Text></Button>
+      <Button hoverClass='none' className={tab === 'mine' ? 'active' : ''} onClick={() => selectTab('mine')}><Text>我的组局</Text></Button>
+      <Button hoverClass='none' className={tab === 'chats' ? 'active' : ''} onClick={() => selectTab('chats')}><Text>群聊</Text></Button>
     </View>
   </>
 }
@@ -147,7 +147,7 @@ export function GroupSessionsScreen({ groups, loading, tab, code, showCodeEntry,
   } catch {
     topShiftPx = 10
   }
-  const shiftStyle = { transform: `translateY(${topShiftPx}px)` }
+  const shiftStyle = { marginTop: `${topShiftPx}px` }
 
   return <View className='master-groups-screen'>
     <GroupHeaderTabs

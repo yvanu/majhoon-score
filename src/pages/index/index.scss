@@ -205,6 +205,10 @@
 }
 .record-tile.compact .mahjong-white-dragon { border-width: 3px; }
 
+.screen-current {
+  min-height: 100vh;
+  background: #F6F5F2;
+}
 .screen-stack {
   position: relative;
   min-height: 100vh;
@@ -217,6 +221,14 @@
   background: #F6F5F2;
   transform: translate3d(0,0,0);
   backface-visibility: hidden;
+}
+.screen-stack-direct {
+  overflow: visible;
+}
+.screen-layer-direct {
+  transform: none;
+  backface-visibility: visible;
+  will-change: auto;
 }
 .screen-layer-active {
   position: relative;
