@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button, ScrollView, Text, View } from '@tarojs/components'
 import type { Hand, HandOutcome, HandType, Match, Player } from '@shared/types'
 import { MasterBackGlyph, MasterRightChevronGlyph, bigHandOptions, masterSafeTopStyle, typeName } from './shared'
@@ -253,6 +253,7 @@ export function MasterMatchScreen({ match, canEdit, loading, refreshing, undoNot
   const [recordsOpen, setRecordsOpen] = useState(false)
   const [finishedView, setFinishedView] = useState<FinishedView>('summary')
   const [detailMotion, setDetailMotion] = useState<'idle' | 'push' | 'pop'>('idle')
+  const detailCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const completed = match.hands.filter(hand => hand.result_type !== 'event').length
   const editable = canEdit && match.status === 'active'
   const windLabel = ({ east: '东', south: '南', west: '西', north: '北' } as const)[match.current_wind]
@@ -262,77 +263,87 @@ export function MasterMatchScreen({ match, canEdit, loading, refreshing, undoNot
     onDetailOpenChange(detailOpen)
   }, [detailOpen, onDetailOpenChange])
 
-  useEffect(() => () => onDetailOpenChange(false), [onDetailOpenChange])
+  useEffect(() => () => {
+    if (detailCloseTimer.current) clearTimeout(detailCloseTimer.current)
+    onDetailOpenChange(false)
+  }, [onDetailOpenChange])
 
   useEffect(() => {
     if (closeDetailRequest <= 0) return
-    setDetailMotion('pop')
-    setRecordsOpen(false)
-    setFinishedView('summary')
+    closeDetail()
   }, [closeDetailRequest])
 
   function openFinishedView(view: Exclude<FinishedView, 'summary'>) {
+    if (detailCloseTimer.current) {
+      clearTimeout(detailCloseTimer.current)
+      detailCloseTimer.current = null
+    }
     setDetailMotion('push')
     setFinishedView(view)
   }
 
   function openRecords() {
+    if (detailCloseTimer.current) {
+      clearTimeout(detailCloseTimer.current)
+      detailCloseTimer.current = null
+    }
     setDetailMotion('push')
     setRecordsOpen(true)
   }
 
   function closeDetail() {
+    if (!detailOpen || detailMotion === 'pop') return
     setDetailMotion('pop')
-    setRecordsOpen(false)
-    setFinishedView('summary')
+    if (detailCloseTimer.current) clearTimeout(detailCloseTimer.current)
+    detailCloseTimer.current = setTimeout(() => {
+      setRecordsOpen(false)
+      setFinishedView('summary')
+      setDetailMotion('idle')
+      detailCloseTimer.current = null
+    }, 320)
   }
 
-  const detailMotionClass = detailMotion === 'idle' ? '' : ` master-match-detail-transition ${detailMotion}`
+  const finished = match.status === 'finished'
+  const detailView: 'records' | 'status' | null = finished
+    ? finishedView === 'summary' ? null : finishedView
+    : recordsOpen ? 'records' : null
+  const layerMotion = detailMotion === 'pop' ? 'pop' : 'push'
 
-  if (match.status === 'finished' && finishedView === 'summary') {
-    return <View className={detailMotionClass.trim()}>
-      <FinishedSummary
+  return <View className='master-match-stack'>
+    <View className={`master-match-base-layer${detailView ? ` ${layerMotion}` : ''}`}>
+      {finished ? <FinishedSummary
         match={match}
         onBack={onBack}
         onStatus={() => openFinishedView('status')}
         onRecords={() => openFinishedView('records')}
-      />
+      /> : <View className='master-match-screen master-safe-top' style={masterSafeTopStyle(111.538)}>
+        <MatchHeader title='正在记分' subtitle={`${windLabel}${match.current_hand}局 · 第 ${completed + 1} 局记录`} onBack={onBack} />
+        <ActiveMatchView
+          match={match}
+          loading={loading}
+          refreshing={refreshing}
+          undoNotice={undoNotice}
+          onAdd={onAdd}
+          onEdit={onEdit}
+          onOpenRecords={openRecords}
+          onUndo={onUndo}
+          onFinish={onFinish}
+        />
+      </View>}
     </View>
-  }
-
-  if (match.status === 'finished') {
-    const view = finishedView === 'records' ? 'records' : 'status'
-    return <View className={`master-match-screen master-safe-top${detailMotionClass}`} style={masterSafeTopStyle(111.538)}>
-      <MatchHeader
-        title={view === 'records' ? '牌局记录' : '牌局战况'}
-        subtitle={view === 'records' ? '按时间查看每一局变化' : `${relativeMatchTitle(match.created_at)} · 已结束`}
-        onBack={closeDetail}
-      />
-      {view === 'records'
-        ? <RecordsView match={match} editable={false} onEdit={onEdit} />
-        : <ScoreBoard players={match.players} currentHand={match.current_hand} title='最终总分' />}
-    </View>
-  }
-
-  if (recordsOpen) {
-    return <View className={`master-match-screen master-safe-top${detailMotionClass}`} style={masterSafeTopStyle(111.538)}>
-      <MatchHeader title='全部记录' subtitle='按时间查看并纠正计分' onBack={closeDetail} />
-      <RecordsView match={match} editable={editable} onEdit={onEdit} />
-    </View>
-  }
-
-  return <View className={`master-match-screen master-safe-top${detailMotionClass}`} style={masterSafeTopStyle(111.538)}>
-    <MatchHeader title='正在记分' subtitle={`${windLabel}${match.current_hand}局 · 第 ${completed + 1} 局记录`} onBack={onBack} />
-    <ActiveMatchView
-      match={match}
-      loading={loading}
-      refreshing={refreshing}
-      undoNotice={undoNotice}
-      onAdd={onAdd}
-      onEdit={onEdit}
-      onOpenRecords={openRecords}
-      onUndo={onUndo}
-      onFinish={onFinish}
-    />
+    {detailView && <View className={`master-match-detail-layer ${layerMotion}`}>
+      <View className='master-match-screen master-safe-top' style={masterSafeTopStyle(111.538)}>
+        <MatchHeader
+          title={finished ? detailView === 'records' ? '牌局记录' : '牌局战况' : '全部记录'}
+          subtitle={finished
+            ? detailView === 'records' ? '按时间查看每一局变化' : `${relativeMatchTitle(match.created_at)} · 已结束`
+            : '按时间查看并纠正计分'}
+          onBack={closeDetail}
+        />
+        {detailView === 'records'
+          ? <RecordsView match={match} editable={!finished && editable} onEdit={onEdit} />
+          : <ScoreBoard players={match.players} currentHand={match.current_hand} title='最终总分' />}
+      </View>
+    </View>}
   </View>
 }

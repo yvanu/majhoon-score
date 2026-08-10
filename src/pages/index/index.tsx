@@ -161,7 +161,11 @@ export default function Index() {
   const [dashboardSnapshot] = useState(() => readDashboardSnapshot())
   const [matchSnapshot] = useState(() => readMatchSnapshot())
   const [screen, setScreenState] = useState<Screen>('home')
-  const [screenMotion, setScreenMotion] = useState<'push' | 'pop' | 'replace' | 'tab'>('tab')
+  const [layerScreens, setLayerScreens] = useState<[Screen | null, Screen | null]>(['home', null])
+  const [activeLayer, setActiveLayer] = useState<0 | 1>(0)
+  const [screenTransition, setScreenTransition] = useState<{ from: 0 | 1; to: 0 | 1; motion: 'push' | 'pop' | 'replace' } | null>(null)
+  const activeLayerRef = useRef<0 | 1>(0)
+  const screenTransitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const screenRef = useRef<Screen>('home')
   const screenHistory = useRef<Screen[]>(['home'])
   const [backTrapOpen, setBackTrapOpen] = useState(false)
@@ -341,14 +345,51 @@ export default function Index() {
     })
   }, [screen])
 
+  function transitionScreen(next: Screen, motion: 'push' | 'pop' | 'replace' | 'tab') {
+    if (screenTransitionTimer.current) {
+      clearTimeout(screenTransitionTimer.current)
+      screenTransitionTimer.current = null
+      setScreenTransition(null)
+      setActiveLayer(activeLayerRef.current)
+    }
+
+    const from = activeLayerRef.current
+    if (motion === 'tab') {
+      const other = from === 0 ? 1 : 0
+      setLayerScreens(current => {
+        const updated: [Screen | null, Screen | null] = [...current]
+        updated[from] = next
+        updated[other] = null
+        return updated
+      })
+      return
+    }
+
+    const to = (from === 0 ? 1 : 0) as 0 | 1
+    setLayerScreens(current => {
+      if (current[to] === next) return current
+      const updated: [Screen | null, Screen | null] = [...current]
+      updated[to] = next
+      return updated
+    })
+    activeLayerRef.current = to
+    setScreenTransition({ from, to, motion })
+    screenTransitionTimer.current = setTimeout(() => {
+      setActiveLayer(to)
+      setScreenTransition(null)
+      screenTransitionTimer.current = null
+    }, motion === 'pop' ? 330 : 350)
+  }
+
   function setScreen(next: Screen) {
     const history = screenHistory.current
     const current = screenRef.current
     const existingIndex = history.lastIndexOf(next)
     const tabSwitch = bottomTabScreens.has(current) && bottomTabScreens.has(next)
-    setScreenMotion(tabSwitch ? 'tab' : existingIndex >= 0 ? 'pop' : 'push')
+    const motion = tabSwitch ? 'tab' : existingIndex >= 0 ? 'pop' : 'push'
     if (existingIndex >= 0) history.splice(existingIndex + 1)
     else history.push(next)
+    transitionScreen(next, motion)
     screenRef.current = next
     setScreenState(next)
     setBackTrapOpen(shouldTrapNativeBack(next) && pendingPageScrollTop.current === null)
@@ -359,10 +400,11 @@ export default function Index() {
     const current = screenRef.current
     const returnsToPrevious = history.length > 1 && history[history.length - 2] === next
     const tabSwitch = bottomTabScreens.has(current) && bottomTabScreens.has(next)
-    setScreenMotion(tabSwitch ? 'tab' : returnsToPrevious ? 'pop' : 'replace')
+    const motion = tabSwitch ? 'tab' : returnsToPrevious ? 'pop' : 'replace'
     if (returnsToPrevious) history.pop()
     else if (history.length) history[history.length - 1] = next
     else history.push(next)
+    transitionScreen(next, motion)
     screenRef.current = next
     setScreenState(next)
     setBackTrapOpen(shouldTrapNativeBack(next) && pendingPageScrollTop.current === null)
@@ -419,8 +461,8 @@ export default function Index() {
     if (history.length <= 1) {
       if (shouldTrapNativeBack(screenRef.current)) {
         screenHistory.current = ['home']
+        transitionScreen('home', 'pop')
         screenRef.current = 'home'
-        setScreenMotion('pop')
         setScreenState('home')
         if (updateBackTrap) setBackTrapOpen(false)
       }
@@ -435,8 +477,8 @@ export default function Index() {
     if ((current === 'group-detail' || current === 'group-create' || current === 'group-chat') && previous === 'groups') {
       pendingPageScrollTop.current = groupListScrollTop.current
     }
+    transitionScreen(previous, bottomTabScreens.has(current) && bottomTabScreens.has(previous) ? 'tab' : 'pop')
     screenRef.current = previous
-    setScreenMotion(bottomTabScreens.has(current) && bottomTabScreens.has(previous) ? 'tab' : 'pop')
     setScreenState(previous)
     if (updateBackTrap) setBackTrapOpen(shouldTrapNativeBack(previous))
   }
@@ -1664,10 +1706,16 @@ export default function Index() {
   )
 
   return <View className='app'>
-    <View
-      key={activeTab ? 'bottom-tabs' : screen}
-      className={activeTab ? 'screen-transition tab-screen-transition' : `screen-transition screen-transition-${screenMotion}`}
-    >
+    <View className='screen-stack'>
+    {layerScreens.map((screen, layerIndex) => {
+      if (!screen) return null
+      const index = layerIndex as 0 | 1
+      let role = index === activeLayer ? 'screen-layer-active' : 'screen-layer-cached'
+      if (screenTransition) {
+        if (index === screenTransition.from) role = `screen-layer-${screenTransition.motion}-from`
+        else if (index === screenTransition.to) role = `screen-layer-${screenTransition.motion}-to`
+      }
+      return <View key={`${layerIndex}:${screen}`} className={`screen-layer ${role}${bottomTabScreens.has(screen) ? ' tab-screen-layer' : ''}`}>
     {screen === 'home' && <Home
       user={user}
       currentMatch={match?.status === 'active' ? match : null}
@@ -1902,6 +1950,8 @@ export default function Index() {
       onCloseReview={closeMatchReview}
       reviewReturnLabel={reviewReturnLabel()}
     /> : <LoadingScreen title='牌局详情' message='正在加载战况与逐局记录…' onBack={goBack} />)}
+    </View>
+    })}
     </View>
     {activeTab && <BottomNav
       active={activeTab}

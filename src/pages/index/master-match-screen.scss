@@ -646,23 +646,53 @@
   margin: 0;
 }
 
-.master-match-detail-transition {
+.master-match-stack {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background: #F6F5F2;
+}
+.master-match-base-layer,
+.master-match-detail-layer {
+  min-height: 100vh;
+  background: #F6F5F2;
   transform: translate3d(0,0,0);
   backface-visibility: hidden;
 }
-.master-match-detail-transition.push {
-  animation: master-match-detail-push .26s cubic-bezier(.22,.76,.24,1) both;
-  will-change: transform;
+.master-match-base-layer.push {
+  animation: master-match-underlay-push .34s cubic-bezier(.32,.72,0,1) both;
+  will-change: transform, opacity;
 }
-.master-match-detail-transition.pop {
-  animation: master-match-detail-pop .22s cubic-bezier(.22,.76,.24,1) both;
-  will-change: transform;
+.master-match-base-layer.pop {
+  animation: master-match-underlay-pop .32s cubic-bezier(.32,.72,0,1) both;
+  will-change: transform, opacity;
 }
-@keyframes master-match-detail-push {
-  from { transform: translate3d(42rpx,0,0); }
+.master-match-detail-layer {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  overflow: hidden;
+  box-shadow: -18rpx 0 38rpx rgba(0,0,0,.10);
+}
+.master-match-detail-layer.push {
+  animation: master-match-page-push .34s cubic-bezier(.32,.72,0,1) both;
+}
+.master-match-detail-layer.pop {
+  animation: master-match-page-pop .32s cubic-bezier(.32,.72,0,1) both;
+}
+@keyframes master-match-page-push {
+  from { transform: translate3d(100%,0,0); }
   to { transform: translate3d(0,0,0); }
 }
-@keyframes master-match-detail-pop {
-  from { transform: translate3d(-22rpx,0,0); }
-  to { transform: translate3d(0,0,0); }
+@keyframes master-match-underlay-push {
+  from { transform: translate3d(0,0,0); opacity: 1; }
+  to { transform: translate3d(-26%,0,0); opacity: .94; }
+}
+@keyframes master-match-page-pop {
+  from { transform: translate3d(0,0,0); }
+  to { transform: translate3d(100%,0,0); }
+}
+@keyframes master-match-underlay-pop {
+  from { transform: translate3d(-26%,0,0); opacity: .94; }
+  to { transform: translate3d(0,0,0); opacity: 1; }
 }

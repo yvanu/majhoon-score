@@ -205,37 +205,93 @@
 }
 .record-tile.compact .mahjong-white-dragon { border-width: 3px; }
 
-.screen-transition {
+.screen-stack {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background: #F6F5F2;
+}
+.screen-layer {
+  width: 100%;
   min-height: 100vh;
   background: #F6F5F2;
   transform: translate3d(0,0,0);
   backface-visibility: hidden;
 }
-.screen-transition-push {
-  animation: screen-push-in .28s cubic-bezier(.22,.76,.24,1) both;
-  will-change: transform;
+.screen-layer-active {
+  position: relative;
+  z-index: 2;
 }
-.screen-transition-pop {
-  animation: screen-pop-in .24s cubic-bezier(.22,.76,.24,1) both;
-  will-change: transform;
+.screen-layer-cached {
+  position: fixed;
+  z-index: 0;
+  inset: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
-.screen-transition-replace {
-  animation: screen-replace-in .18s cubic-bezier(.25,.75,.3,1) both;
-  will-change: transform;
+.screen-layer-push-from,
+.screen-layer-push-to,
+.screen-layer-pop-from,
+.screen-layer-pop-to,
+.screen-layer-replace-from,
+.screen-layer-replace-to {
+  position: fixed;
+  inset: 0;
+  visibility: visible;
+  pointer-events: none;
+  will-change: transform, opacity;
 }
-.tab-screen-transition { animation: none; will-change: auto; }
+.screen-layer-push-from {
+  z-index: 1;
+  animation: ios-underlay-push .34s cubic-bezier(.32,.72,0,1) both;
+}
+.screen-layer-push-to {
+  z-index: 3;
+  box-shadow: -18rpx 0 38rpx rgba(0,0,0,.10);
+  animation: ios-page-push .34s cubic-bezier(.32,.72,0,1) both;
+}
+.screen-layer-pop-from {
+  z-index: 3;
+  box-shadow: -18rpx 0 38rpx rgba(0,0,0,.10);
+  animation: ios-page-pop .32s cubic-bezier(.32,.72,0,1) both;
+}
+.screen-layer-pop-to {
+  z-index: 1;
+  animation: ios-underlay-pop .32s cubic-bezier(.32,.72,0,1) both;
+}
+.screen-layer-replace-from {
+  z-index: 1;
+  animation: ios-underlay-replace .30s cubic-bezier(.32,.72,0,1) both;
+}
+.screen-layer-replace-to {
+  z-index: 3;
+  box-shadow: -14rpx 0 30rpx rgba(0,0,0,.08);
+  animation: ios-page-replace .30s cubic-bezier(.32,.72,0,1) both;
+}
 
-@keyframes screen-push-in {
-  from { transform: translate3d(42rpx,0,0); }
+@keyframes ios-page-push {
+  from { transform: translate3d(100%,0,0); }
   to { transform: translate3d(0,0,0); }
 }
-@keyframes screen-pop-in {
-  from { transform: translate3d(-22rpx,0,0); }
+@keyframes ios-underlay-push {
+  from { transform: translate3d(0,0,0); opacity: 1; }
+  to { transform: translate3d(-26%,0,0); opacity: .94; }
+}
+@keyframes ios-page-pop {
+  from { transform: translate3d(0,0,0); }
+  to { transform: translate3d(100%,0,0); }
+}
+@keyframes ios-underlay-pop {
+  from { transform: translate3d(-26%,0,0); opacity: .94; }
+  to { transform: translate3d(0,0,0); opacity: 1; }
+}
+@keyframes ios-page-replace {
+  from { transform: translate3d(100%,0,0); }
   to { transform: translate3d(0,0,0); }
 }
-@keyframes screen-replace-in {
-  from { transform: translate3d(14rpx,0,0); }
-  to { transform: translate3d(0,0,0); }
+@keyframes ios-underlay-replace {
+  from { transform: translate3d(0,0,0); opacity: 1; }
+  to { transform: translate3d(-18%,0,0); opacity: .96; }
 }
 @keyframes master-choice-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes master-choice-sheet-in {
@@ -254,6 +310,14 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .screen-transition,
-  .master-match-detail-transition { animation-duration: .01ms !important; animation-delay: 0s !important; }
+  .screen-layer-push-from,
+  .screen-layer-push-to,
+  .screen-layer-pop-from,
+  .screen-layer-pop-to,
+  .screen-layer-replace-from,
+  .screen-layer-replace-to,
+  .master-match-base-layer.push,
+  .master-match-base-layer.pop,
+  .master-match-detail-layer.push,
+  .master-match-detail-layer.pop { animation-duration: .01ms !important; animation-delay: 0s !important; }
 }
