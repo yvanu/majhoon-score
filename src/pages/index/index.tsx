@@ -387,7 +387,8 @@ export default function Index() {
     const existingIndex = history.lastIndexOf(next)
     const tabSwitch = bottomTabScreens.has(current) && bottomTabScreens.has(next)
     const motion = tabSwitch ? 'tab' : existingIndex >= 0 ? 'pop' : 'push'
-    if (existingIndex >= 0) history.splice(existingIndex + 1)
+    if (tabSwitch) history.splice(0, history.length, next)
+    else if (existingIndex >= 0) history.splice(existingIndex + 1)
     else history.push(next)
     transitionScreen(next, motion)
     screenRef.current = next
@@ -499,6 +500,13 @@ export default function Index() {
   }
 
   function handleNativeBack() {
+    const hasOpenOverlay = Boolean(dialog) || auxiliaryOverlayOpen || scoreTileEditorOpen || matchDetailOpen
+    // PageContainer 的 onBeforeLeave 不只由微信左滑触发；当底部 Tab 上的菜单/弹窗被代码主动关闭时也会触发。
+    // 这种情况下不能把“容器收起”误判成一次页面返回，否则会把 groups/profile 等根页面弹回前一个 Tab。
+    if (!hasOpenOverlay && !shouldTrapNativeBack(screenRef.current)) {
+      setBackTrapOpen(false)
+      return
+    }
     setBackTrapOpen(false)
     navigateBack(false)
     scheduleBackTrapRearm()

@@ -84,7 +84,7 @@ function GroupHeaderTabs({ tab, onChange, onMore, topShiftPx, menuOpen, loading,
       <Text>{title}</Text>
       <Button hoverClass='none' onClick={onMore}><View className='master-groups-more-glyph'><View /><View /><View /></View></Button>
       {menuOpen && <View className='master-groups-more-menu' onClick={event => event.stopPropagation()}>
-        <View onClick={() => { onCloseMenu(); Taro.nextTick(onCreate) }}><Text>发布组局</Text></View>
+        <View onClick={() => { onCloseMenu(); onCreate() }}><Text>发布组局</Text></View>
         <View onClick={() => { onCloseMenu(); onCodeEntry() }}><Text>输入组局码</Text></View>
         <View className={loading ? 'disabled' : ''} onClick={() => { if (!loading) { onCloseMenu(); onRefresh() } }}><Text>{loading ? '刷新中…' : '刷新列表'}</Text></View>
       </View>}
