@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Button, ScrollView, Text, View } from '@tarojs/components'
 import type { Hand, HandOutcome, HandType, Match, Player } from '@shared/types'
 import { MasterBackGlyph, MasterRightChevronGlyph, bigHandOptions, masterSafeTopStyle, typeName } from './shared'
@@ -232,7 +232,7 @@ function FinishedSummary({ match, onBack, onStatus, onRecords }: {
   </View>
 }
 
-export function MasterMatchScreen({ match, canEdit, loading, refreshing, undoNotice, onBack, onAdd, onEdit, onUndo, onFinish }: {
+export function MasterMatchScreen({ match, canEdit, loading, refreshing, undoNotice, closeDetailRequest, onDetailOpenChange, onBack, onAdd, onEdit, onUndo, onFinish }: {
   match: Match
   currentUserId: string | null
   canEdit: boolean
@@ -255,6 +255,19 @@ export function MasterMatchScreen({ match, canEdit, loading, refreshing, undoNot
   const completed = match.hands.filter(hand => hand.result_type !== 'event').length
   const editable = canEdit && match.status === 'active'
   const windLabel = ({ east: '东', south: '南', west: '西', north: '北' } as const)[match.current_wind]
+  const detailOpen = recordsOpen || (match.status === 'finished' && finishedView !== 'summary')
+
+  useEffect(() => {
+    onDetailOpenChange(detailOpen)
+  }, [detailOpen, onDetailOpenChange])
+
+  useEffect(() => () => onDetailOpenChange(false), [onDetailOpenChange])
+
+  useEffect(() => {
+    if (closeDetailRequest <= 0) return
+    setRecordsOpen(false)
+    setFinishedView('summary')
+  }, [closeDetailRequest])
 
   if (match.status === 'finished' && finishedView === 'summary') {
     return <FinishedSummary

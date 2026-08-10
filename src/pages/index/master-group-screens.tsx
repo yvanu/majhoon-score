@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Taro from '@tarojs/taro'
 import { Button, Input, Picker, ScrollView, Text, Textarea, View } from '@tarojs/components'
 import type {
@@ -97,12 +97,14 @@ function GroupHeaderTabs({ tab, onChange, onMore, topShiftPx, menuOpen, loading,
   </>
 }
 
-export function GroupSessionsScreen({ groups, loading, tab, code, showCodeEntry, onTabChange, onCodeChange, onShowCodeEntryChange, onCreate, onOpen, onOpenChat, onJoin, onOpenCode, onRefresh }: {
+export function GroupSessionsScreen({ groups, loading, tab, code, showCodeEntry, closeOverlayRequest, onOverlayOpenChange, onTabChange, onCodeChange, onShowCodeEntryChange, onCreate, onOpen, onOpenChat, onJoin, onOpenCode, onRefresh }: {
   groups: GroupSessionSummary[]
   loading: boolean
   tab: 'open' | 'mine' | 'chats'
   code: string
   showCodeEntry: boolean
+  closeOverlayRequest: number
+  onOverlayOpenChange: (open: boolean) => void
   onTabChange: (tab: 'open' | 'mine' | 'chats') => void
   onCodeChange: (code: string) => void
   onShowCodeEntryChange: (show: boolean) => void
@@ -115,6 +117,15 @@ export function GroupSessionsScreen({ groups, loading, tab, code, showCodeEntry,
 }) {
   const [mineFilter, setMineFilter] = useState<'active' | 'history'>('active')
   const [moreMenuOpen, setMoreMenuOpen] = useState(false)
+
+  useEffect(() => { onOverlayOpenChange(moreMenuOpen || showCodeEntry) }, [moreMenuOpen, onOverlayOpenChange, showCodeEntry])
+  useEffect(() => () => onOverlayOpenChange(false), [onOverlayOpenChange])
+  useEffect(() => {
+    if (closeOverlayRequest <= 0) return
+    setMoreMenuOpen(false)
+    onShowCodeEntryChange(false)
+  }, [closeOverlayRequest, onShowCodeEntryChange])
+
   const openCutoff = Date.now() - 6 * 3_600_000
   const openGroups = groups
     .filter(group => (group.status === 'recruiting' || group.status === 'full') && Date.parse(group.start_at) >= openCutoff)

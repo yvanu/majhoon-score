@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button, Image, Text, View } from '@tarojs/components'
 import type { AuthUser, DailyStats, Match, MatchSummary } from '@shared/types'
 import { displayUserName, masterSafeTopStyle } from './shared'
@@ -27,12 +27,14 @@ function recentMatchTitle(value: string) {
   return `${weekdays[date.getDay()]}${date.getHours() >= 18 ? '夜场' : '牌局'}`
 }
 
-export function Home({ user, currentMatch, recentMatches, dailyStats, syncStatus, onContinue, onStart, onOpen, onHistory, onDaily, onLogin }: {
+export function Home({ user, currentMatch, recentMatches, dailyStats, syncStatus, closeOverlayRequest, onOverlayOpenChange, onContinue, onStart, onOpen, onHistory, onDaily, onLogin }: {
   user: AuthUser | null
   currentMatch: Match | null
   recentMatches: MatchSummary[]
   dailyStats: DailyStats | null
   syncStatus: SyncStatus
+  closeOverlayRequest: number
+  onOverlayOpenChange: (open: boolean) => void
   onContinue: () => void
   onStart: () => void
   onOpen: (code: string, statusHint?: MatchSummary['status']) => void
@@ -62,6 +64,12 @@ export function Home({ user, currentMatch, recentMatches, dailyStats, syncStatus
   const todayScore = selfStats?.score || 0
   const subtitle = syncStatus === 'offline' ? '当前网络异常，恢复后继续同步' : '快速开局，也能随时回看最近牌局'
   const [moreOpen, setMoreOpen] = useState(false)
+
+  useEffect(() => { onOverlayOpenChange(moreOpen) }, [moreOpen, onOverlayOpenChange])
+  useEffect(() => () => onOverlayOpenChange(false), [onOverlayOpenChange])
+  useEffect(() => {
+    if (closeOverlayRequest > 0) setMoreOpen(false)
+  }, [closeOverlayRequest])
 
   return <View className='home-hf-screen master-safe-top' style={masterSafeTopStyle(111.538)}>
     {moreOpen && <View className='home-hf-more-backdrop master-safe-overlay' onClick={() => setMoreOpen(false)} />}

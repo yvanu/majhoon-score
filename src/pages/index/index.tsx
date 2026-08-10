@@ -448,7 +448,6 @@ export default function Index() {
 
   function handleNativeBack() {
     setBackTrapOpen(false)
-    if (bottomTabScreens.has(screenRef.current)) return
     navigateBack(false)
     scheduleBackTrapRearm()
   }
@@ -1662,6 +1661,8 @@ export default function Index() {
       recentMatches={history}
       dailyStats={dailyStats}
       syncStatus={syncStatus}
+      closeOverlayRequest={auxiliaryOverlayCloseRequest}
+      onOverlayOpenChange={setAuxiliaryOverlayOpen}
       onContinue={() => { matchReturnScreen.current = 'home'; setScreen('match') }}
       onStart={showCreate}
       onOpen={(code, statusHint) => openMatch(code, statusHint)}
@@ -1673,6 +1674,8 @@ export default function Index() {
       participants={seatAssignment.participants}
       loading={loading}
       sourceLabel={seatAssignment.sourceLabel}
+      closeOverlayRequest={auxiliaryOverlayCloseRequest}
+      onOverlayOpenChange={setAuxiliaryOverlayOpen}
       onBack={closeSeatAssignment}
       onConfirm={confirmSeatAssignment}
     />}
@@ -1724,6 +1727,8 @@ export default function Index() {
       tab={groupListTab}
       code={groupCodeInput}
       showCodeEntry={groupCodeEntryOpen}
+      closeOverlayRequest={auxiliaryOverlayCloseRequest}
+      onOverlayOpenChange={setAuxiliaryOverlayOpen}
       onTabChange={setGroupListTab}
       onCodeChange={setGroupCodeInput}
       onShowCodeEntryChange={setGroupCodeEntryOpen}
@@ -1817,6 +1822,8 @@ export default function Index() {
       : <LoadingScreen title='我的牌风' message='正在生成牌风分析…' onBack={goBack} />)}
     {screen === 'preferences' && user && <PreferencesScreen
       preferences={preferences}
+      closeOverlayRequest={auxiliaryOverlayCloseRequest}
+      onOverlayOpenChange={setAuxiliaryOverlayOpen}
       onChange={updatePreferences}
       onBack={goBack}
     />}
@@ -1916,7 +1923,7 @@ export default function Index() {
       onConfirm={() => closeDialog(true)}
     />}
     <PageContainer
-      show={Boolean(dialog) || (backTrapOpen && !activeTab)}
+      show={Boolean(dialog) || auxiliaryOverlayOpen || scoreTileEditorOpen || matchDetailOpen || (backTrapOpen && !activeTab)}
       duration={0}
       zIndex={0}
       overlay={false}

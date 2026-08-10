@@ -280,13 +280,15 @@ export function ScoreScreen({ players, currentUserId, currentWind, currentHand, 
   const canSaveTsumo = Boolean(winner)
 
   useEffect(() => {
-    onTileEditorOpenChange(Boolean(tileEditorTarget))
-  }, [onTileEditorOpenChange, tileEditorTarget])
+    onTileEditorOpenChange(Boolean(tileEditorTarget || ronNotePicker))
+  }, [onTileEditorOpenChange, ronNotePicker, tileEditorTarget])
 
   useEffect(() => () => onTileEditorOpenChange(false), [onTileEditorOpenChange])
 
   useEffect(() => {
-    if (closeTileEditorRequest > 0) setTileEditorTarget(null)
+    if (closeTileEditorRequest <= 0) return
+    if (ronNotePicker) setRonNotePicker(null)
+    else setTileEditorTarget(null)
   }, [closeTileEditorRequest])
   const showTsumoTileEntry = type === 'tsumo' && Boolean(winner) && winner === loggedPlayerId
   const canRecordTsumoTiles = showTsumoTileEntry && notes.some(note => bigHandOptions.has(note))

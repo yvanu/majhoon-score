@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Taro from '@tarojs/taro'
 import { Button, ScrollView, Text, View } from '@tarojs/components'
 import type {
@@ -199,13 +199,21 @@ export function MyStyleScreen({ statistics, onBack }: { statistics: PersonalStat
   </View>
 }
 
-export function PreferencesScreen({ preferences, onChange, onBack }: {
+export function PreferencesScreen({ preferences, closeOverlayRequest, onOverlayOpenChange, onChange, onBack }: {
   preferences: UserPreferences
+  closeOverlayRequest: number
+  onOverlayOpenChange: (open: boolean) => void
   onChange: (preferences: UserPreferences) => void
   onBack: () => void
 }) {
   const [choice, setChoice] = useState<'scores' | 'step' | null>(null)
   const scoreOptions: Array<[number, number]> = [[50, 70], [50, 100], [70, 100], [100, 200]]
+
+  useEffect(() => { onOverlayOpenChange(choice !== null) }, [choice, onOverlayOpenChange])
+  useEffect(() => () => onOverlayOpenChange(false), [onOverlayOpenChange])
+  useEffect(() => {
+    if (closeOverlayRequest > 0) setChoice(null)
+  }, [closeOverlayRequest])
   const stepOptions = [5, 10, 20]
   return <View className='master-preferences-screen master-safe-top' style={masterSafeTopStyle(111.538)}>
     <BackTitle title='个人偏好' subtitle='只保留高频配置' onBack={onBack} />

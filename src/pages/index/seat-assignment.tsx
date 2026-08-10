@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Button, Text, View } from '@tarojs/components'
 import type { UserGender } from '@shared/types'
 import { IdentityAvatar } from './identity-avatar'
@@ -20,10 +20,12 @@ const visualSeats = [
   { seatIndex: 2, spot: 'left' },
 ] as const
 
-export function SeatAssignmentScreen({ participants, loading, onBack, onConfirm }: {
+export function SeatAssignmentScreen({ participants, loading, closeOverlayRequest, onOverlayOpenChange, onBack, onConfirm }: {
   participants: SeatParticipant[]
   loading: boolean
   sourceLabel: string
+  closeOverlayRequest: number
+  onOverlayOpenChange: (open: boolean) => void
   onBack: () => void
   onConfirm: (memberIds: string[]) => Promise<void>
 }) {
@@ -34,6 +36,12 @@ export function SeatAssignmentScreen({ participants, loading, onBack, onConfirm 
   const complete = assignment.length === 4 && new Set(assignment).size === 4
   const currentEditingPlayerId = assignment[editingSeatIndex] || ''
   const orderedParticipants = useMemo(() => [...participants].sort((first, second) => first.id === currentEditingPlayerId ? -1 : second.id === currentEditingPlayerId ? 1 : 0), [participants, currentEditingPlayerId])
+
+  useEffect(() => { onOverlayOpenChange(choiceStage !== null) }, [choiceStage, onOverlayOpenChange])
+  useEffect(() => () => onOverlayOpenChange(false), [onOverlayOpenChange])
+  useEffect(() => {
+    if (closeOverlayRequest > 0) setChoiceStage(null)
+  }, [closeOverlayRequest])
 
   function adjustSeats() {
     setChoiceStage('seat')
