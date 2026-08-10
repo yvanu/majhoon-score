@@ -84,7 +84,7 @@ function GroupHeaderTabs({ tab, onChange, onMore, topShiftPx, menuOpen, loading,
       <Text>{title}</Text>
       <Button hoverClass='none' onClick={onMore}><View className='master-groups-more-glyph'><View /><View /><View /></View></Button>
       {menuOpen && <View className='master-groups-more-menu' onClick={event => event.stopPropagation()}>
-        <View onClick={() => { onCloseMenu(); onCreate() }}><Text>发布组局</Text></View>
+        <View onClick={() => { onCloseMenu(); Taro.nextTick(onCreate) }}><Text>发布组局</Text></View>
         <View onClick={() => { onCloseMenu(); onCodeEntry() }}><Text>输入组局码</Text></View>
         <View className={loading ? 'disabled' : ''} onClick={() => { if (!loading) { onCloseMenu(); onRefresh() } }}><Text>{loading ? '刷新中…' : '刷新列表'}</Text></View>
       </View>}
@@ -236,6 +236,19 @@ export function GroupCreateScreen({ user, friends, loading, friendPickerOpen, de
   const [draftFriendIds, setDraftFriendIds] = useState<string[]>([])
   const startAt = new Date(`${date}T${time}:00`)
   const valid = location.trim().length > 0 && Number.isFinite(startAt.getTime())
+
+  function publishGroup() {
+    if (loading) return
+    if (!location.trim()) {
+      void Taro.showToast({ title: '请先填写组局地点', icon: 'none' })
+      return
+    }
+    if (!Number.isFinite(startAt.getTime())) {
+      void Taro.showToast({ title: '请选择有效的组局时间', icon: 'none' })
+      return
+    }
+    onCreate({ startAt: startAt.toISOString(), location: location.trim(), note: note.trim(), friendIds })
+  }
   const selectedFriends = friendIds.map(id => friends.find(friend => friend.id === id)).filter((friend): friend is Friend => Boolean(friend))
   const visibleFriends = friends.filter(friend => friend.source !== 'wechat' && (!friendQuery.trim() || friend.name.toLowerCase().includes(friendQuery.trim().toLowerCase())))
 
@@ -286,7 +299,7 @@ export function GroupCreateScreen({ user, friends, loading, friendPickerOpen, de
     <Text className='master-create-section-label'>备注</Text>
     <View className='master-create-note'><Textarea value={note} maxlength={160} placeholder='例如：地铁站附近，预计打到 12 点' onInput={event => setNote(event.detail.value)} /></View>
 
-    <Button className='master-create-submit' hoverClass='none' disabled={!valid || loading} onClick={() => onCreate({ startAt: startAt.toISOString(), location: location.trim(), note: note.trim(), friendIds })}>{loading ? '发布中…' : '发布组局'}</Button>
+    <Button className='master-create-submit' hoverClass='none' disabled={loading} onClick={publishGroup}>{loading ? '发布中…' : '发布组局'}</Button>
 
     {friendPickerOpen && <View className='master-picker-backdrop master-safe-overlay' onClick={() => onFriendPickerOpenChange(false)}><View className='master-picker-modal' onClick={event => event.stopPropagation()}>
       <View className='master-picker-head'><Text>邀请牌友</Text><Button hoverClass='none' onClick={() => onFriendPickerOpenChange(false)}>×</Button></View>

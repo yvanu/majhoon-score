@@ -303,6 +303,9 @@ export function GroupChatScreen({ group, user, loading: actionLoading, onBack, o
         {messages.map(message => {
           const mine = message.sender_user_id === user.id
           const member = group.members.find(item => item.user_id === message.sender_user_id)
+          const senderName = mine ? (user.display_name || user.username) : (member?.name || message.sender_name || '牌友')
+          const senderGender = mine ? user.gender : (member?.gender || null)
+          const senderAvatarUrl = mine ? user.avatar_url : (member?.avatar_url || null)
           const startedMatchId = message.event_type === 'match_started' && typeof message.payload?.matchId === 'string' ? message.payload.matchId : ''
           if (message.message_type === 'system') {
             const fullReady = message.event_type === 'group_full'
@@ -311,12 +314,12 @@ export function GroupChatScreen({ group, user, loading: actionLoading, onBack, o
             </View>
           }
           return <View id={`chat-message-${message.id}`} className={`master-chat-message${mine ? ' mine' : ''}`} key={message.id}>
-            {!mine && <View className='master-chat-message-avatar'><IdentityAvatar name={message.sender_name || '牌友'} gender={member?.gender || null} avatarUrl={member?.avatar_url || null} size='small' /></View>}
+            {!mine && <View className='master-chat-message-avatar'><IdentityAvatar name={senderName} gender={senderGender} avatarUrl={senderAvatarUrl} size='small' /></View>}
             <View className='master-chat-message-body'>
               <View className='master-chat-bubble'><Text>{message.content}</Text></View>
               <Text className='master-chat-time'>{formatChatTime(message.created_at)}</Text>
             </View>
-            {mine && <View className='master-chat-self-dot' />}
+            {mine && <View className='master-chat-message-avatar mine'><IdentityAvatar name={senderName} gender={senderGender} avatarUrl={senderAvatarUrl} size='small' /></View>}
           </View>
         })}
         <View className='master-chat-list-space' />

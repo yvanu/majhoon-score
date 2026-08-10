@@ -890,6 +890,11 @@ export default function Index() {
     pendingPageScrollTop.current = 0
     setActiveGroup(group)
     setScreen('group-chat')
+    void api.getGroupSession(group.id).then(result => {
+      if (screenRef.current === 'group-chat' && result.group.id === group.id) updateGroupState(result.group)
+    }).catch(error => {
+      console.error('Refresh group members for chat failed:', error)
+    })
   }
 
   function markActiveGroupChatRead() {

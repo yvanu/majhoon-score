@@ -247,6 +247,7 @@
 }
 .screen-layer-push-to {
   z-index: 3;
+  pointer-events: auto;
   box-shadow: -18rpx 0 38rpx rgba(0,0,0,.10);
   animation: ios-page-push .34s cubic-bezier(.32,.72,0,1) both;
 }
@@ -257,6 +258,7 @@
 }
 .screen-layer-pop-to {
   z-index: 1;
+  pointer-events: auto;
   animation: ios-underlay-pop .32s cubic-bezier(.32,.72,0,1) both;
 }
 .screen-layer-replace-from {
@@ -265,6 +267,7 @@
 }
 .screen-layer-replace-to {
   z-index: 3;
+  pointer-events: auto;
   box-shadow: -14rpx 0 30rpx rgba(0,0,0,.08);
   animation: ios-page-replace .30s cubic-bezier(.32,.72,0,1) both;
 }
