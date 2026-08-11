@@ -281,7 +281,7 @@ export function GroupCreateScreen({ friends, loading, friendPickerOpen, defaultL
     </View>
     <View className='master-create-row location'>
       <View><Text>地点</Text><Text>填写大致地点</Text></View>
-      <Input value={location} maxlength={60} placeholder='新街口' onInput={event => setLocation(event.detail.value)} />
+      <Input value={location} maxlength={60} placeholder='请输入地点' onInput={event => setLocation(event.detail.value)} />
       <MasterRightChevronGlyph />
     </View>
 
