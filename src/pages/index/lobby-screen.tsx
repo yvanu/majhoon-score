@@ -114,7 +114,7 @@ export function LobbyScreen({ lobby, user, friends, friendsLoading, loading, clo
     if (!lobby.isMember && lobby.status === 'preparing' && !loading) void onJoin(seat)
   }
 
-  return <View className='master-start-screen master-safe-top' style={masterSafeTopStyle(113.462)}>
+  return <View className='master-start-screen master-lobby-start-screen master-safe-top' style={masterSafeTopStyle(113.462)}>
     <View className='master-start-nav'>
       <Button className='master-start-back' hoverClass='none' onClick={onBack}><MasterBackGlyph /></Button>
       <View><Text>开始新牌局</Text><Text>入座即确定东南西北，东家同时是庄家</Text></View>
@@ -122,7 +122,7 @@ export function LobbyScreen({ lobby, user, friends, friendsLoading, loading, clo
 
     <View className='master-start-table-card'>
       <View className='master-start-card-head'><Text>本场玩家</Text><Text>{lobby.members.length} / 4</Text></View>
-      <View className='master-start-table-center'><Text>南京麻将</Text></View>
+      <View className='master-start-table-center'><Text>南京麻将</Text><Text>东家首庄</Text></View>
       {seatSpots.map(({ seat, spot, label }) => {
         const member = membersBySeat.get(seat)
         const isSelf = member?.userId === user.id
@@ -141,16 +141,21 @@ export function LobbyScreen({ lobby, user, friends, friendsLoading, loading, clo
     </View>
 
     <View className='master-start-secondary-actions'>
-      <Button hoverClass='none' openType='share'>邀请微信好友入座</Button>
+      <Button hoverClass='master-start-action-pressed' openType='share'>
+        <View className='master-start-action-icon'><Text>＋</Text></View>
+        <View className='master-start-action-copy'><Text>邀请微信好友入座</Text><Text>发送本桌邀请，好友打开即可加入</Text></View>
+        <Text className='master-start-action-chevron'>›</Text>
+      </Button>
     </View>
 
     <View className='master-start-rule-card'>
-      <View><Text>南京麻将 · 标准规则</Text><Text>座位就是本场方位，东家自动成为第一庄</Text></View>
-      <View className='master-start-rule-link'><Text>东家 · 庄</Text></View>
+      <View className='master-start-rule-icon'><Text>东</Text></View>
+      <View className='master-start-rule-copy'><Text>南京麻将 · 标准规则</Text><Text>座位即本场方位，东家自动成为第一庄</Text></View>
+      <Text className='master-start-rule-badge'>东家首庄</Text>
     </View>
 
     {!lobby.isMember && lobby.status === 'preparing' && !full && <Button className='master-start-join' hoverClass='none' disabled={loading} onClick={() => { void onJoin() }}>{loading ? '加入中…' : '快速入座'}</Button>}
-    {lobby.isOwner && lobby.status === 'preparing' && <Button className='master-start-primary' hoverClass='none' disabled={!full || loading} onClick={() => { if (full) void onStart() }}>{loading ? '创建牌局中…' : '开始记分'}</Button>}
+    {lobby.isOwner && lobby.status === 'preparing' && <Button className='master-start-primary' hoverClass='master-start-primary-pressed' disabled={!full || loading} onClick={() => { if (full) void onStart() }}>{loading ? '创建牌局中…' : '开始记分'}</Button>}
     {!lobby.isOwner && lobby.isMember && lobby.status === 'preparing' && <Button className='master-start-primary muted' hoverClass='none' disabled>等待房主开始</Button>}
     {lobby.status !== 'preparing' && <Button className='master-start-primary muted' hoverClass='none' disabled>{lobby.status === 'started' ? '牌局已经开始' : '准备桌已关闭'}</Button>}
 
