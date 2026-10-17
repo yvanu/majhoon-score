@@ -45,7 +45,15 @@ jobs:
         run: node --experimental-strip-types scripts/engine-test.mjs
       - name: Build H5 on GitHub runner
         run: |
-          npx taro build --type h5
+          if ! npx taro build --type h5 > /tmp/mahjong-h5.log 2>&1; then
+            tail -n 18 /tmp/mahjong-h5.log | while IFS= read -r line; do
+              line=${line//'%'/'%25'}
+              line=${line//$'\r'/'%0D'}
+              line=${line//$'\n'/'%0A'}
+              echo "::error file=.github/workflows/mahjong-helper.yml,line=1::$line"
+            done
+            exit 1
+          fi
           test -f dist/index.html
           mv dist dist-h5
       - name: Save H5 output
