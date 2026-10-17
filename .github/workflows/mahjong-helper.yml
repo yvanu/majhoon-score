@@ -1,0 +1,150 @@
+name: Mahjong Helper - Cloud Builds
+
+on:
+  push:
+    branches: [mahjong-helper-actions]
+    paths:
+      - '.github/workflows/mahjong-helper.yml'
+      - 'wrangler.mahjong-pages.jsonc'
+      - 'src/**'
+      - 'config/**'
+      - 'scripts/**'
+      - 'project.config.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mahjong-helper-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      CI: 'true'
+      NODE_OPTIONS: '--max-old-space-size=4096'
+      TARO_APP_ID: wx20c3e07df7656e03
+      TARO_APP_API_BASE: https://wx.score.majhoon.site
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies on GitHub runner
+        run: npm ci --no-audit --no-fund
+      - name: Check frontend types
+        run: npm run typecheck:weapp
+      - name: Test Mahjong calculation
+        run: node --experimental-strip-types scripts/engine-test.mjs
+      - name: Build H5 on GitHub runner
+        run: |
+          npx taro build --type h5
+          test -f dist/index.html
+          mv dist dist-h5
+      - name: Save H5 output
+        uses: actions/upload-artifact@v4
+        with:
+          name: mahjong-helper-h5
+          path: dist-h5/
+          retention-days: 14
+      - name: Build WeChat on GitHub runner
+        run: |
+          npx taro build --type weapp
+          test -f dist/app.json
+      - name: Save WeChat output
+        uses: actions/upload-artifact@v4
+        with:
+          name: mahjong-helper-weapp
+          path: dist/
+          retention-days: 14
+
+  publish-pages:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Check release credentials
+        id: ready
+        shell: bash
+        run: |
+          if [[ -n "$CLOUDFLARE_API_TOKEN" && -n "$CLOUDFLARE_ACCOUNT_ID" ]]; then
+            echo 'value=true' >> "$GITHUB_OUTPUT"
+          else
+            echo '::warning::Pages not published. Set CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID repository secrets.'
+            echo 'value=false' >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.ready.outputs.value == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.ready.outputs.value == 'true'
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/download-artifact@v4
+        if: steps.ready.outputs.value == 'true'
+        with:
+          name: mahjong-helper-h5
+          path: dist-h5/
+      - name: Install Wrangler on runner
+        if: steps.ready.outputs.value == 'true'
+        run: npm ci --no-audit --no-fund
+      - name: Publish to separate Cloudflare Pages project
+        if: steps.ready.outputs.value == 'true'
+        shell: bash
+        run: |
+          if ! npx wrangler pages project list --json | grep -Fq '"mahjong-helper"'; then
+            npx wrangler pages project create mahjong-helper --production-branch mahjong-helper-actions
+          fi
+          npx wrangler pages deploy dist-h5 --config wrangler.mahjong-pages.jsonc --project-name mahjong-helper --branch mahjong-helper-actions --commit-hash "$GITHUB_SHA"
+
+  upload-existing-weapp:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      WEAPP_PRIVATE_KEY_B64: ${{ secrets.WEAPP_PRIVATE_KEY_B64 }}
+      WEAPP_APP_ID: wx20c3e07df7656e03
+      WEAPP_VERSION: '2.0.0'
+      WEAPP_DESC: '牌路：新手手牌与向听分析'
+    steps:
+      - name: Check upload credential
+        id: ready
+        shell: bash
+        run: |
+          if [[ -n "$WEAPP_PRIVATE_KEY_B64" ]]; then
+            echo 'value=true' >> "$GITHUB_OUTPUT"
+          else
+            echo '::warning::WeChat upload skipped. Set WEAPP_PRIVATE_KEY_B64 repository secret.'
+            echo 'value=false' >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.ready.outputs.value == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.ready.outputs.value == 'true'
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/download-artifact@v4
+        if: steps.ready.outputs.value == 'true'
+        with:
+          name: mahjong-helper-weapp
+          path: dist/
+      - name: Upload to original WeChat AppID
+        if: steps.ready.outputs.value == 'true'
+        shell: bash
+        run: |
+          npm ci --no-audit --no-fund
+          printf '%s' "$WEAPP_PRIVATE_KEY_B64" | base64 --decode > "private.${WEAPP_APP_ID}.key"
+          chmod 600 "private.${WEAPP_APP_ID}.key"
+          trap 'rm -f "private.${WEAPP_APP_ID}.key"' EXIT
+          node scripts/upload-weapp.cjs

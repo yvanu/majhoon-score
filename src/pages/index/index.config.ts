@@ -1,8 +1,8 @@
 export default definePageConfig({
   navigationStyle: 'custom',
-  navigationBarBackgroundColor: '#fbfaf7',
-  navigationBarTextStyle: 'black',
-  backgroundColor: '#fbfaf7',
+  navigationBarBackgroundColor: '#113d33',
+  navigationBarTextStyle: 'white',
+  backgroundColor: '#f7f8f3',
   backgroundTextStyle: 'dark',
   disableScroll: false,
 })

@@ -1,7 +1,13 @@
 page {
   min-height: 100%;
-  background: #0b1220;
-  color: #eef2ff;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #f7f8f3;
+  color: #182d29;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", Arial, sans-serif;
 }
-button, input { box-sizing: border-box; }
+
+button,
+input,
+textarea,
+view {
+  box-sizing: border-box;
+}
