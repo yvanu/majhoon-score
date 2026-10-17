@@ -88,16 +88,16 @@ jobs:
     timeout-minutes: 12
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_ACCOUNT_ID: abcc14412cc26ac8c0063ebda73aa924
     steps:
       - name: Check release credentials
         id: ready
         shell: bash
         run: |
-          if [[ -n "$CLOUDFLARE_API_TOKEN" && -n "$CLOUDFLARE_ACCOUNT_ID" ]]; then
+          if [[ -n "$CLOUDFLARE_API_TOKEN" ]]; then
             echo 'value=true' >> "$GITHUB_OUTPUT"
           else
-            echo '::warning::Pages not published. Set CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID repository secrets.'
+            echo '::warning::Pages not published. Local Cloudflare token was found but GitHub Actions cannot read local credentials. Add CLOUDFLARE_API_TOKEN as a GitHub Actions repository secret.'
             echo 'value=false' >> "$GITHUB_OUTPUT"
           fi
       - uses: actions/checkout@v4
