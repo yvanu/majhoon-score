@@ -21,10 +21,11 @@ async function main() {
     project,
     version,
     desc,
+    threads: 1,
     setting: { useProjectConfig: true },
     onProgressUpdate(progress) {
       const message = progress?._msg || progress?.message || progress?.status
-      if (message) console.log(`[upload] ${message}`)
+      if (message) console.log(`[upload ${new Date().toISOString()}] ${message}`)
     },
   })
 
