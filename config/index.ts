@@ -29,6 +29,10 @@ const config = async () => ({
   } : {},
   h5: {
     publicPath: '/',
+    htmlPluginOption: {
+      template: require('path').resolve(__dirname, '..', 'src', 'index.html'),
+      inject: 'body',
+    },
     staticDirectory: 'static',
     devServer: {
       proxy: {
