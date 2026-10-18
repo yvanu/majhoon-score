@@ -57,9 +57,15 @@ jobs:
             exit 1
           fi
       - name: Bundle Worker on GitHub runner
+        shell: bash
         run: |
-          ./node_modules/.bin/esbuild worker/index.ts --bundle --format=esm --platform=browser --target=es2022 --outfile=dist-worker/index.mjs
-          test -s dist-worker/index.mjs
+          if ! npx wrangler deploy --dry-run --outfile dist-worker/index.js --config wrangler.jsonc > /tmp/mahjong-worker-bundle.log 2>&1; then
+            tail -n 20 /tmp/mahjong-worker-bundle.log | while IFS= read -r line; do
+              echo "::error::$line"
+            done
+            exit 1
+          fi
+          test -s dist-worker/index.js
       - name: Test Mahjong calculation
         run: node --experimental-strip-types scripts/engine-test.mjs
       - name: Build H5 on GitHub runner
