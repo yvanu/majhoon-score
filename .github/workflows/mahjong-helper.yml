@@ -44,7 +44,16 @@ jobs:
       - name: Check frontend types
         run: npm run typecheck:weapp
       - name: Check Worker types
-        run: npm run typecheck:worker
+        shell: bash
+        run: |
+          if ! npm run typecheck:worker > /tmp/mahjong-worker-ts.log 2>&1; then
+            grep 'error TS' /tmp/mahjong-worker-ts.log | head -n 20 | while IFS= read -r line; do
+              line=${line//'%'/'%25'}
+              line=${line//$'\r'/'%0D'}
+              echo "::error file=worker/routes/recognize.ts::$line"
+            done
+            exit 1
+          fi
       - name: Test Mahjong calculation
         run: node --experimental-strip-types scripts/engine-test.mjs
       - name: Build H5 on GitHub runner
