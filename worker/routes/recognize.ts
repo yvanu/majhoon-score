@@ -34,6 +34,18 @@ function base64(bytes: Uint8Array): string {
   return btoa(result)
 }
 
+function modelText(raw: unknown): string {
+  if (typeof raw === 'string') return raw
+  if (Array.isArray(raw)) return raw.map(modelText).filter(Boolean).join('')
+  if (raw && typeof raw === 'object') {
+    const data = raw as Record<string, unknown>
+    if (Array.isArray(data.tiles)) return JSON.stringify(data)
+    return modelText(data.content) || modelText(data.text) ||
+      modelText(data.response) || modelText(data.output)
+  }
+  return ''
+}
+
 function parseTiles(raw: string) {
   const match = raw.match(/\{[\s\S]*\}/)
   if (!match) throw new Error('视觉模型未返回 JSON')
@@ -140,8 +152,8 @@ export function registerRecognizeRoutes(app: Hono<Env>) {
             stream: false,
             max_tokens: 350,
             temperature: 0.2,
-          }) as { response?: string; choices?: Array<{ message?: { content?: string } }> }
-          content = fallback.response || fallback.choices?.[0]?.message?.content || ''
+          }) as { response?: unknown; choices?: Array<{ message?: { content?: unknown } }> }
+          content = modelText(fallback.response) || modelText(fallback.choices?.[0]?.message?.content)
           model = '@cf/meta/llama-4-scout-17b-16e-instruct'
         } catch (cause) {
           console.error('workers_ai_recognize_error', cause instanceof Error ? cause.name : 'unknown')
