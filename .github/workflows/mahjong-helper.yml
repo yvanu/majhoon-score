@@ -56,6 +56,10 @@ jobs:
             done
             exit 1
           fi
+      - name: Bundle Worker on GitHub runner
+        run: |
+          ./node_modules/.bin/esbuild worker/index.ts --bundle --format=esm --platform=browser --target=es2022 --outfile=dist-worker/index.mjs
+          test -s dist-worker/index.mjs
       - name: Test Mahjong calculation
         run: node --experimental-strip-types scripts/engine-test.mjs
       - name: Build H5 on GitHub runner
@@ -102,13 +106,15 @@ jobs:
           mkdir -p /tmp/mahjong-built
           cp -a dist-h5 /tmp/mahjong-built/h5
           cp -a dist /tmp/mahjong-built/weapp
+          cp -a dist-worker /tmp/mahjong-built/worker
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git switch --orphan mahjong-helper-dist
-          mkdir -p h5 weapp
+          mkdir -p h5 weapp worker
           cp -a /tmp/mahjong-built/h5/. h5/
           cp -a /tmp/mahjong-built/weapp/. weapp/
-          git add -f h5 weapp
+          cp -a /tmp/mahjong-built/worker/. worker/
+          git add -f h5 weapp worker
           git -c commit.gpgsign=false commit -m "build: mahjong helper from ${GITHUB_SHA}"
           git push -f origin HEAD:mahjong-helper-dist
 
