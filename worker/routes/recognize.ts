@@ -47,9 +47,32 @@ function modelText(raw: unknown): string {
 }
 
 function parseTiles(raw: string) {
-  const match = raw.match(/\{[\s\S]*\}/)
-  if (!match) throw new Error('视觉模型未返回 JSON')
-  const value: unknown = JSON.parse(match[0])
+  // 视觉模型可能在 JSON 前后添加说明，或连续返回多个 JSON 对象。
+  // 按引号/转义状态提取首个完整对象，避免贪婪正则把多个对象拼起来。
+  let value: unknown
+  for (let start = raw.indexOf('{'); start >= 0; start = raw.indexOf('{', start + 1)) {
+    let depth = 0
+    let quoted = false
+    let escaped = false
+    for (let end = start; end < raw.length; end++) {
+      const char = raw[end]
+      if (quoted) {
+        if (escaped) escaped = false
+        else if (char === '\\') escaped = true
+        else if (char === '"') quoted = false
+      } else if (char === '"') quoted = true
+      else if (char === '{') depth++
+      else if (char === '}' && --depth === 0) {
+        try {
+          const candidate: unknown = JSON.parse(raw.slice(start, end + 1))
+          if (candidate && typeof candidate === 'object' && 'tiles' in candidate) value = candidate
+        } catch { /* ignore incomplete or unrelated JSON */ }
+        break
+      }
+    }
+    if (value) break
+  }
+  if (!value) throw new Error('视觉模型未返回有效手牌 JSON')
   if (!value || typeof value !== 'object' || !('tiles' in value) || !Array.isArray(value.tiles)) {
     throw new Error('视觉模型未返回手牌列表')
   }
