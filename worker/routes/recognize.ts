@@ -135,14 +135,14 @@ export function registerRecognizeRoutes(app: Hono<Env>) {
       }
       if (!content && c.env.AI) {
         try {
-          const fallback = await c.env.AI.run('@cf/qwen/qwen3.8-27b', {
+          const fallback = await c.env.AI.run('@cf/meta/llama-4-scout-17b-16e-instruct', {
             messages: payload.messages,
             stream: false,
-            max_tokens: 500,
-            temperature: 0,
+            max_tokens: 350,
+            temperature: 0.2,
           }) as { response?: string; choices?: Array<{ message?: { content?: string } }> }
           content = fallback.response || fallback.choices?.[0]?.message?.content || ''
-          model = '@cf/qwen/qwen3.8-27b'
+          model = '@cf/meta/llama-4-scout-17b-16e-instruct'
         } catch (cause) {
           console.error('workers_ai_recognize_error', cause instanceof Error ? cause.name : 'unknown')
           return error('当前识别额度不足或服务繁忙，请稍后重试', 503)
