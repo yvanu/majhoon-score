@@ -9,6 +9,7 @@ import { registerLobbyRoutes } from './routes/lobbies'
 import { registerMatchRoutes } from './routes/matches'
 import { registerMeRoutes } from './routes/me'
 import { registerProfileRoutes } from './routes/profile'
+import { registerRecognizeRoutes } from './routes/recognize'
 
 const app = new Hono<Env>()
 
@@ -47,6 +48,7 @@ registerMeRoutes(app)
 registerGroupRoutes(app)
 registerChatRoutes(app)
 registerMatchRoutes(app)
+registerRecognizeRoutes(app)
 
 app.notFound(c => jsonError(c, '接口不存在', 404))
 app.onError((error, c) => {

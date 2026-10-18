@@ -5,6 +5,7 @@ export type Bindings = {
   GROUP_CHAT: DurableObjectNamespace<GroupChatRoom>
   WECHAT_APP_ID: string
   WECHAT_APP_SECRET: string
+  SILICONFLOW_API_KEY?: string
 }
 
 export type Env = { Bindings: Bindings }

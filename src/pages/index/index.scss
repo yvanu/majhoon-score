@@ -181,6 +181,14 @@ button.mg-example-button { border: 0; background: #e7f1e4; color: #256449; borde
 .mg-photo-close { font-size: 40px; color: #a4b3a5; align-self: flex-start; }
 .mg-notice { border-radius: 17px; background: #f8edd8; color: #897449; font-size: 19px; padding: 18px; display: flex; justify-content: space-between; gap: 15px; margin-bottom: 24px; }
 .mg-notice text:last-child { white-space: nowrap; font-weight: 800; }
+.mg-recognition-review { margin-bottom: 24px; padding: 22px; background: #eff7ee; border: 1px solid #b8d5c0; border-radius: 22px; }
+.mg-review-title { display: block; color: #164e40; font-size: 25px; font-weight: 800; margin-bottom: 12px; }
+.mg-review-tiles { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 9px; }
+.mg-review-warning { display: block; font-size: 19px; color: #995a31; margin-top: 11px; }
+.mg-review-foot { display: block; color: #617b6c; font-size: 19px; line-height: 1.5; margin-top: 14px; }
+.mg-review-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px; color: #236148; font-size: 21px; }
+button.mg-review-confirm { background: #164e40; color: white; border-radius: 18px; font-size: 21px; font-weight: 700; margin: 0; line-height: 1.6; padding: 13px 18px; }
+button.mg-review-confirm::after { border: none; }
 .mg-guide-content { padding-top: 39px; }
 .mg-guide-card { padding: 32px; margin-bottom: 19px; font-size: 24px; line-height: 1.8; color: #718374; }
 .mg-guide-no { display: block; font-size: 19px; letter-spacing: 2px; color: #43845f; font-weight: 800; }

@@ -4,6 +4,10 @@ import { Button, Image, Text, View } from '@tarojs/components'
 import { TILE_GROUPS, TILE_NAMES, rankDiscards, shantenLabel, standardShanten, usefulDraws, afterDraw, type Draw, type Tile } from '../../mahjong/engine'
 import './index.scss'
 
+const RECOGNIZE_URL = 'https://wx.score.majhoon.site/api/recognize'
+
+type RecognitionResult = { tiles: number[]; warnings?: string[]; error?: string }
+
 const SAMPLE: Tile[] = [0, 1, 2, 3, 4, 5, 9, 10, 11, 18, 19, 20, 27, 33]
 const TILE_STYLE = ['man', 'pin', 'sou', 'honor']
 const CN = ['一', '二', '三', '四', '五', '六', '七', '八', '九']
@@ -37,7 +41,9 @@ export default function Index() {
   const [group, setGroup] = useState(0)
   const [page, setPage] = useState<'analyze' | 'guide'>('analyze')
   const [photo, setPhoto] = useState('')
-  const [photoNotice, setPhotoNotice] = useState(false)
+  const [photoError, setPhotoError] = useState('')
+  const [recognizing, setRecognizing] = useState(false)
+  const [recognized, setRecognized] = useState<{ tiles: Tile[]; warnings: string[] } | null>(null)
   const [selectedDraw, setSelectedDraw] = useState<Tile | null>(null)
   const counts = useMemo(() => {
     const result = Array(34).fill(0) as number[]
@@ -65,15 +71,43 @@ export default function Index() {
     setHand(list => list.filter((_, i) => i !== index))
   }
   async function choosePhoto() {
+    if (recognizing) return
     try {
       const selected = await Taro.chooseImage({ count: 1, sizeType: ['compressed'], sourceType: ['camera', 'album'] })
       const filepath = selected.tempFilePaths[0]
       if (!filepath) return
       setPhoto(filepath)
-      setPhotoNotice(true)
+      setPhotoError('')
+      setRecognized(null)
+      setRecognizing(true)
+      let uploadPath = filepath
+      try {
+        const compressed = await Taro.compressImage({ src: filepath, quality: 65 })
+        if (compressed.tempFilePath) uploadPath = compressed.tempFilePath
+      } catch { /* H5 或低版本微信不支持时使用原图 */ }
+      const response = await Taro.uploadFile({
+        url: RECOGNIZE_URL,
+        filePath: uploadPath,
+        name: 'image',
+        timeout: 45000,
+      })
+      let result: RecognitionResult
+      try {
+        result = JSON.parse(response.data) as RecognitionResult
+      } catch {
+        throw new Error('识别接口返回数据异常')
+      }
+      if (response.statusCode !== 200) throw new Error(result.error || '识别失败，请重试')
+      if (!Array.isArray(result.tiles) || result.tiles.length > 14 ||
+          !result.tiles.every(tile => Number.isInteger(tile) && tile >= 0 && tile < 34)) {
+        throw new Error('识别数据不完整，请重新拍摄')
+      }
+      setRecognized({ tiles: result.tiles, warnings: result.warnings || [] })
     } catch (error) {
-      const message = error instanceof Error ? error.message : ''
-      if (message && !/cancel/i.test(message)) void Taro.showToast({ title: '打开相机失败，请手动选牌', icon: 'none' })
+      const message = error instanceof Error ? error.message : '拍照或识别失败，请稍后再试'
+      if (!/cancel/i.test(message)) setPhotoError(message)
+    } finally {
+      setRecognizing(false)
     }
   }
 
@@ -98,10 +132,10 @@ export default function Index() {
           <View className='mg-deco-tile d2'><Text>一</Text><Text className='mg-deco-small'>萬</Text></View>
           <View className='mg-deco-tile d3'><Text>中</Text></View>
         </View>
-        <Button className='mg-camera-button' onClick={() => { void choosePhoto() }}>
-          <Text className='mg-camera-icon'>◎</Text><Text>拍张手牌</Text><Text className='mg-camera-arrow'>↗</Text>
+        <Button className='mg-camera-button' disabled={recognizing} onClick={() => { void choosePhoto() }}>
+          <Text className='mg-camera-icon'>◎</Text><Text>{recognizing ? '正在识别…' : '拍照识别手牌'}</Text><Text className='mg-camera-arrow'>↗</Text>
         </Button>
-        <Text className='mg-hero-hint'>拍照留档后可对照照片选牌 · 自动图像识别正在开发</Text>
+        <Text className='mg-hero-hint'>只拍自己的一排手牌 · 图片将发送至硅基流动进行识别，不主动保存</Text>
       </View> : <View className='mg-guide-hero'>
         <Text className='mg-hero-kicker'>A LITTLE GUIDE</Text>
         <Text className='mg-hero-title'>少一点摸索，<Text>多一点把握。</Text></Text>
@@ -121,12 +155,28 @@ export default function Index() {
       {photo && <View className='mg-photo-panel'>
         <Image className='mg-photo-thumb' src={photo} mode='aspectFill' onClick={() => { void Taro.previewImage({ urls: [photo] }) }} />
         <View className='mg-photo-copy'>
-          <Text className='mg-photo-title'>手牌照片已保存</Text>
-          <Text>对照照片点击下方牌面录入。照片仅保存在本次页面中。</Text>
+          <Text className='mg-photo-title'>{recognizing ? '正在识别照片…' : recognized ? '识别完成，请确认' : '手牌照片'}</Text>
+          <Text>只拍自己的13或14张手牌。模型可能识错，请以照片为准核对。</Text>
         </View>
-        <Text className='mg-photo-close' onClick={() => { setPhoto(''); setPhotoNotice(false) }}>×</Text>
+        <Text className='mg-photo-close' onClick={() => { if (!recognizing) { setPhoto(''); setRecognized(null); setPhotoError('') } }}>×</Text>
       </View>}
-      {photoNotice && <View className='mg-notice'><Text>识别模型尚未接入，目前请手动核对并录入牌面。</Text><Text onClick={() => setPhotoNotice(false)}>知道了</Text></View>}
+      {photoError && <View className='mg-notice'><Text>{photoError}。也可以手动选牌。</Text><Text onClick={() => setPhotoError('')}>知道了</Text></View>}
+      {recognized && <View className='mg-recognition-review'>
+        <Text className='mg-review-title'>AI 已识别 {recognized.tiles.length} 张 · 请核对</Text>
+        <View className='mg-review-tiles'>
+          {recognized.tiles.map((tile, index) => <TileFace key={index} tile={tile} small />)}
+        </View>
+        {recognized.warnings.map((message, i) => <Text key={i} className='mg-review-warning'>{message}</Text>)}
+        <Text className='mg-review-foot'>请确认与照片相符；确认后可点击牌面删除错误的牌，再从下方补充。</Text>
+        <View className='mg-review-actions'>
+          <Button className='mg-review-confirm' onClick={() => {
+            setHand([...recognized.tiles].sort((a, b) => a - b))
+            setRecognized(null)
+            setSelectedDraw(null)
+          }}>使用识别结果并校正</Button>
+          <Text onClick={() => { void choosePhoto() }}>重新拍照</Text>
+        </View>
+      </View>}
 
       <View className='mg-section-header'>
         <View>

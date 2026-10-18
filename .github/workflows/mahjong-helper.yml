@@ -7,6 +7,8 @@ on:
       - '.github/workflows/mahjong-helper.yml'
       - 'wrangler.mahjong-pages.jsonc'
       - 'src/**'
+      - 'worker/**'
+      - 'wrangler.jsonc'
       - 'config/**'
       - 'scripts/**'
       - 'project.config.json'
@@ -41,6 +43,8 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: Check frontend types
         run: npm run typecheck:weapp
+      - name: Check Worker types
+        run: npm run typecheck:worker
       - name: Test Mahjong calculation
         run: node --experimental-strip-types scripts/engine-test.mjs
       - name: Build H5 on GitHub runner
