@@ -59,7 +59,7 @@ jobs:
       - name: Bundle Worker on GitHub runner
         shell: bash
         run: |
-          if ! npx wrangler deploy --dry-run --outfile dist-worker/index.js --config wrangler.jsonc > /tmp/mahjong-worker-bundle.log 2>&1; then
+          if ! npx wrangler deploy --dry-run --outdir dist-worker --config wrangler.jsonc > /tmp/mahjong-worker-bundle.log 2>&1; then
             tail -n 20 /tmp/mahjong-worker-bundle.log | while IFS= read -r line; do
               echo "::error::$line"
             done
