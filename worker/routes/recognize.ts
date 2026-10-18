@@ -22,7 +22,7 @@ function allowOrigin(origin: string | undefined): string | null {
   return null
 }
 
-function responseHeaders(origin: string | null) {
+function responseHeaders(origin: string | null): Record<string, string> {
   return origin ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' } : {}
 }
 
@@ -46,7 +46,8 @@ function parseTiles(raw: string) {
   const tiles: number[] = []
   const uncertain: number[] = []
   for (let i = 0; i < given.length; i++) {
-    const name = typeof given[i] === 'string' ? given[i].trim().replace(/發/g, '发').replace(/萬/g, '万').replace(/索/g, '条') : ''
+    const rawName = given[i]
+    const name = typeof rawName === 'string' ? rawName.trim().replace(/發/g, '发').replace(/萬/g, '万').replace(/索/g, '条') : ''
     const tile = TILE_NAMES.indexOf(name)
     if (tile < 0) uncertain.push(i + 1)
     else tiles.push(tile)
@@ -59,11 +60,14 @@ export function registerRecognizeRoutes(app: Hono<Env>) {
   app.options('/api/recognize', c => {
     const origin = allowOrigin(c.req.header('origin'))
     if (!origin) return c.body(null, 403)
-    return c.body(null, 204, {
-      ...responseHeaders(origin),
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-      'Access-Control-Max-Age': '600',
+    return new Response(null, {
+      status: 204,
+      headers: {
+        ...responseHeaders(origin),
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Max-Age': '600',
+      },
     })
   })
 
