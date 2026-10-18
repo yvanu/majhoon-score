@@ -6,6 +6,7 @@ export type Bindings = {
   WECHAT_APP_ID: string
   WECHAT_APP_SECRET: string
   SILICONFLOW_API_KEY?: string
+  AI?: { run(model: string, inputs: Record<string, unknown>): Promise<unknown> }
 }
 
 export type Env = { Bindings: Bindings }

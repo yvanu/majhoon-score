@@ -77,7 +77,10 @@ export function registerRecognizeRoutes(app: Hono<Env>) {
       c.json({ error: message }, status, headers)
 
     const secret = c.env.SILICONFLOW_API_KEY
-    if (!secret) return error('识别服务尚未配置，请稍后重试', 503)
+    if (!secret && !c.env.AI) return error('识别服务尚未配置，请稍后重试', 503)
+    if (!(c.req.header('content-type') || '').startsWith('multipart/form-data')) {
+      return error('请上传手牌图片', 400)
+    }
 
     const size = Number(c.req.header('content-length') || 0)
     if (size > MAX_IMAGE_BYTES + 3000) return error('图片超过2MB，请压缩或裁剪后重试', 400)
@@ -90,37 +93,61 @@ export function registerRecognizeRoutes(app: Hono<Env>) {
     try {
       const form = await c.req.formData()
       const image = form.get('image')
-      if (!(image instanceof File) || !['image/jpeg', 'image/png', 'image/webp'].includes(image.type) ||
-          image.size <= 0 || image.size > MAX_IMAGE_BYTES) {
+      if (!(image instanceof File) || image.size <= 0 || image.size > MAX_IMAGE_BYTES) {
         return error('请上传2MB以内的 JPG、PNG 或 WebP 图片', 400)
       }
       recentRequests.set(ip, now)
       const bytes = new Uint8Array(await image.arrayBuffer())
+      const mime = bytes[0] === 0xff && bytes[1] === 0xd8 ? 'image/jpeg'
+        : bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47 ? 'image/png'
+          : String.fromCharCode(...bytes.slice(0, 4)) === 'RIFF' &&
+            String.fromCharCode(...bytes.slice(8, 12)) === 'WEBP' ? 'image/webp' : null
+      if (!mime) return error('图片格式错误，请使用 JPG、PNG 或 WebP', 400)
       const payload = {
         model: MODEL,
         messages: [{
           role: 'user',
           content: [
             { type: 'text', text: PROMPT },
-            { type: 'image_url', image_url: { url: `data:${image.type};base64,${base64(bytes)}`, detail: 'high' } },
+            { type: 'image_url', image_url: { url: `data:${mime};base64,${base64(bytes)}`, detail: 'high' } },
           ],
         }],
         temperature: 0,
         max_tokens: 350,
         stream: false,
       }
-      const result = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(35000),
-      })
-      if (!result.ok) {
-        console.error('siliconflow_recognize_error', result.status)
-        return error(result.status === 429 ? '识别服务繁忙，请稍后再试' : '识别服务暂不可用', result.status === 429 ? 429 : 502)
+      let content = ''
+      let model = MODEL
+      if (secret) {
+        const result = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(30000),
+        })
+        if (result.ok) {
+          const data: { choices?: Array<{ message?: { content?: string } }> } = await result.json()
+          content = data.choices?.[0]?.message?.content || ''
+        } else if (result.status !== 402) {
+          console.error('siliconflow_recognize_error', result.status)
+          if (!c.env.AI) return error('识别服务暂不可用', result.status === 429 ? 429 : 502)
+        }
       }
-      const data: { choices?: Array<{ message?: { content?: string } }> } = await result.json()
-      const content = data.choices?.[0]?.message?.content
+      if (!content && c.env.AI) {
+        try {
+          const fallback = await c.env.AI.run('@cf/qwen/qwen3.8-27b', {
+            messages: payload.messages,
+            stream: false,
+            max_tokens: 500,
+            temperature: 0,
+          }) as { response?: string; choices?: Array<{ message?: { content?: string } }> }
+          content = fallback.response || fallback.choices?.[0]?.message?.content || ''
+          model = '@cf/qwen/qwen3.8-27b'
+        } catch (cause) {
+          console.error('workers_ai_recognize_error', cause instanceof Error ? cause.name : 'unknown')
+          return error('当前识别额度不足或服务繁忙，请稍后重试', 503)
+        }
+      }
       if (!content) return error('识别模型没有返回结果，请重试', 502)
       let parsed: ReturnType<typeof parseTiles>
       try {
@@ -132,7 +159,7 @@ export function registerRecognizeRoutes(app: Hono<Env>) {
       const warnings: string[] = []
       if (parsed.uncertain.length) warnings.push(`第${parsed.uncertain.join('、')}张牌未看清，请手动补充`)
       if (parsed.detected !== 13 && parsed.detected !== 14) warnings.push(`检测到${parsed.detected}张牌，请核对手牌数量`)
-      return c.json({ ...parsed, warnings, model: MODEL, needConfirmation: true }, 200, headers)
+      return c.json({ ...parsed, warnings, model, needConfirmation: true }, 200, headers)
     } catch (cause) {
       if (cause instanceof Error && (cause.name === 'TimeoutError' || cause.name === 'AbortError')) {
         return error('模型响应超时，请重试', 504)

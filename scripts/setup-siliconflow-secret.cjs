@@ -14,7 +14,7 @@ if (!process.env.CLOUDFLARE_API_TOKEN) throw Error('Set CLOUDFLARE_API_TOKEN in 
 const wrangler = '/root/gpt/mahjong-score/node_modules/wrangler/bin/wrangler.js'
 if (!fs.existsSync(wrangler)) throw Error('Existing wrangler installation not found')
 const result = spawnSync(process.execPath, [
-  wrangler, 'secret', 'put', 'SILICONFLOW_API_KEY', '--config', 'wrangler.jsonc',
+  wrangler, 'versions', 'secret', 'put', 'SILICONFLOW_API_KEY', '--config', 'wrangler.jsonc',
 ], {
   cwd: path.resolve(__dirname, '..'),
   input: key + '\n',
@@ -23,7 +23,11 @@ const result = spawnSync(process.execPath, [
   timeout: 45000,
 })
 if (result.error || result.status !== 0) {
-  console.error('Failed to bind Cloudflare Worker secret. Check Cloudflare token permissions.')
+  const diagnostic = String(result.stderr || result.error?.message || 'No diagnostic available')
+    .replaceAll(key, '[REDACTED]')
+    .replaceAll(process.env.CLOUDFLARE_API_TOKEN || '[unknown]', '[REDACTED]')
+    .replace(/sk-[A-Za-z0-9]{16,}/g, '[REDACTED]')
+  console.error('Cloudflare secret binding failed:', diagnostic.slice(0, 1200))
   process.exit(1)
 }
 console.log('SILICONFLOW_API_KEY bound to Cloudflare Worker (value not displayed).')
