@@ -26,6 +26,8 @@ concurrency:
 
 jobs:
   build:
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
@@ -94,6 +96,22 @@ jobs:
           name: mahjong-helper-weapp
           path: dist/
           retention-days: 14
+      - name: Publish compiled files to isolated Git branch
+        shell: bash
+        run: |
+          mkdir -p /tmp/mahjong-built
+          cp -a dist-h5 /tmp/mahjong-built/h5
+          cp -a dist /tmp/mahjong-built/weapp
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch --orphan mahjong-helper-dist
+          git rm -rf -q .
+          mkdir -p h5 weapp
+          cp -a /tmp/mahjong-built/h5/. h5/
+          cp -a /tmp/mahjong-built/weapp/. weapp/
+          git add -f h5 weapp
+          git -c commit.gpgsign=false commit -m "build: mahjong helper from ${GITHUB_SHA}"
+          git push -f origin HEAD:mahjong-helper-dist
 
   publish-pages:
     needs: build
