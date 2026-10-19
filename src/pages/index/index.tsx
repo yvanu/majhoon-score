@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import Taro from '@tarojs/taro'
 import { Button, Canvas, Image, Text, View } from '@tarojs/components'
 import { TILE_GROUPS, TILE_NAMES, rankDiscards, shantenLabel, standardShanten, usefulDraws, afterDraw, type Draw, type Tile } from '../../mahjong/engine'
+import { detectTileBorders } from '../../mahjong/detectTileBorders'
 import './index.scss'
 
 const RECOGNIZE_URL = 'https://wx.score.majhoon.site/api/recognize'
@@ -19,6 +20,36 @@ async function cropHandStrip(path: string): Promise<string> {
     new Promise<void>(resolve => ctx.draw(false, () => resolve())),
     new Promise<void>((_, reject) => setTimeout(() => reject(new Error('画布裁剪超时')), 5000)),
   ])
+  // 仅当牌顶的接缝足够清晰、且恰好形成 13/14 张牌时，才加辅助分界线与序号。
+  // 不确定时保持原图，不做可能切坏牌面的等宽分割。
+  try {
+    const pixels = await Taro.canvasGetImageData({
+      canvasId: HAND_CANVAS, x: 0, y: 0, width: 1280, height: 234,
+    })
+    const borders = detectTileBorders(pixels.data, 1280, 234)
+    if (borders.length) {
+      const markings = Taro.createCanvasContext(HAND_CANVAS)
+      markings.setStrokeStyle('#d74b2f')
+      markings.setLineWidth(2)
+      markings.setFillStyle('#bd4228')
+      markings.setFontSize(21)
+      for (let i = 0; i < borders.length; i++) {
+        const x = borders[i]
+        markings.beginPath()
+        markings.moveTo(x, 0)
+        markings.lineTo(x, 50)
+        markings.stroke()
+        if (i < borders.length - 1) {
+          markings.fillText(String(i + 1), Math.round((x + borders[i + 1]) / 2) - 9, 30)
+        }
+      }
+      await Promise.race([
+        new Promise<void>(resolve => markings.draw(true, () => resolve())),
+        new Promise<void>((_, reject) => setTimeout(() => reject(new Error('分界标注超时')), 5000)),
+      ])
+    }
+  } catch { /* 无法取得图像像素时继续使用完整横带，保证旧设备可用 */ }
+
   const result = await Taro.canvasToTempFilePath({
     canvasId: HAND_CANVAS,
     x: 0, y: 0, width: 1280, height: 234,
@@ -189,7 +220,7 @@ export default function Index() {
         <Button className='mg-camera-button' disabled={recognizing} onClick={() => { void choosePhoto() }}>
           <Text className='mg-camera-icon'>◎</Text><Text>{recognizing ? '正在识别…' : '拍照识别手牌'}</Text><Text className='mg-camera-arrow'>↗</Text>
         </Button>
-        <Text className='mg-hero-hint'>裁剪时把自己的横排手牌放在画面正中央、左右尽量铺满；将提取中间窄带上传 AI</Text>
+        <Text className='mg-hero-hint'>将自己的13或14张手牌放在裁剪区中央并尽量铺满左右；牌面接缝清晰时会自动编号辅助识别</Text>
       </View> : <View className='mg-guide-hero'>
         <Text className='mg-hero-kicker'>A LITTLE GUIDE</Text>
         <Text className='mg-hero-title'>少一点摸索，<Text>多一点把握。</Text></Text>

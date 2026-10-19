@@ -66,8 +66,10 @@ jobs:
             exit 1
           fi
           test -s dist-worker/index.js
-      - name: Test Mahjong calculation
-        run: node --experimental-strip-types scripts/engine-test.mjs
+      - name: Test Mahjong calculation and seam detection
+        run: |
+          node --experimental-strip-types scripts/engine-test.mjs
+          node --experimental-strip-types scripts/hand-seam-test.mjs
       - name: Build H5 on GitHub runner
         run: |
           if ! npx taro build --type h5 > /tmp/mahjong-h5.log 2>&1; then
