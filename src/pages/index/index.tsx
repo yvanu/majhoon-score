@@ -100,12 +100,12 @@ export default function Index() {
       } catch { /* 压缩不可用则尝试上传裁剪原图 */ }
       try {
         const info = await Taro.getFileInfo({ filePath: uploadPath })
-        if (info.size > 2 * 1024 * 1024) {
+        if ('size' in info && info.size > 2 * 1024 * 1024) {
           const smaller = await Taro.compressImage({ src: uploadPath, quality: 60 })
           if (smaller.tempFilePath) uploadPath = smaller.tempFilePath
         }
         const finalInfo = await Taro.getFileInfo({ filePath: uploadPath })
-        if (finalInfo.size > 2 * 1024 * 1024) throw new Error('图片仍超过2MB，请先裁剪手牌范围')
+        if ('size' in finalInfo && finalInfo.size > 2 * 1024 * 1024) throw new Error('图片仍超过2MB，请先裁剪手牌范围')
       } catch (error) {
         if (error instanceof Error && error.message.includes('2MB')) throw error
         // H5 或少数微信版本不提供 getFileInfo；仍由服务端验证图片大小。
