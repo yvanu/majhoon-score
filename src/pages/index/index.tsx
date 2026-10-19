@@ -73,18 +73,43 @@ export default function Index() {
   async function choosePhoto() {
     if (recognizing) return
     try {
-      const selected = await Taro.chooseImage({ count: 1, sizeType: ['compressed'], sourceType: ['camera', 'album'] })
+      const selected = await Taro.chooseImage({ count: 1, sizeType: ['original'], sourceType: ['camera', 'album'] })
       const filepath = selected.tempFilePaths[0]
       if (!filepath) return
-      setPhoto(filepath)
       setPhotoError('')
+
+      // 先由玩家框选自己的手牌，避免把牌墙、其他玩家及弃牌一同交给视觉模型。
+      // 微信低版本不支持 cropImage 时才回退原图；主动取消裁剪不能继续上传原图。
+      let uploadPath = filepath
+      if (Taro.getEnv() === Taro.ENV_TYPE.WEAPP) {
+        try {
+          const cropped = await Taro.cropImage({ src: filepath, cropScale: '16:9' })
+          if (cropped.tempFilePath) uploadPath = cropped.tempFilePath
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : String(error)
+          if (/cancel/i.test(reason)) return
+          setPhotoError('当前微信版本不支持裁剪，建议先在相册里裁剪至仅剩自己的手牌')
+        }
+      }
+      setPhoto(uploadPath)
       setRecognized(null)
       setRecognizing(true)
-      let uploadPath = filepath
       try {
-        const compressed = await Taro.compressImage({ src: filepath, quality: 65 })
+        const compressed = await Taro.compressImage({ src: uploadPath, quality: 82 })
         if (compressed.tempFilePath) uploadPath = compressed.tempFilePath
-      } catch { /* H5 或低版本微信不支持时使用原图 */ }
+      } catch { /* 压缩不可用则尝试上传裁剪原图 */ }
+      try {
+        const info = await Taro.getFileInfo({ filePath: uploadPath })
+        if (info.size > 2 * 1024 * 1024) {
+          const smaller = await Taro.compressImage({ src: uploadPath, quality: 60 })
+          if (smaller.tempFilePath) uploadPath = smaller.tempFilePath
+        }
+        const finalInfo = await Taro.getFileInfo({ filePath: uploadPath })
+        if (finalInfo.size > 2 * 1024 * 1024) throw new Error('图片仍超过2MB，请先裁剪手牌范围')
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('2MB')) throw error
+        // H5 或少数微信版本不提供 getFileInfo；仍由服务端验证图片大小。
+      }
       const response = await Taro.uploadFile({
         url: RECOGNIZE_URL,
         filePath: uploadPath,
@@ -135,7 +160,7 @@ export default function Index() {
         <Button className='mg-camera-button' disabled={recognizing} onClick={() => { void choosePhoto() }}>
           <Text className='mg-camera-icon'>◎</Text><Text>{recognizing ? '正在识别…' : '拍照识别手牌'}</Text><Text className='mg-camera-arrow'>↗</Text>
         </Button>
-        <Text className='mg-hero-hint'>只拍自己的一排手牌 · 图片将发送至硅基流动进行识别，不主动保存</Text>
+        <Text className='mg-hero-hint'>拍摄后请裁剪至自己的13或14张手牌；照片经云端视觉模型识别，不主动保存</Text>
       </View> : <View className='mg-guide-hero'>
         <Text className='mg-hero-kicker'>A LITTLE GUIDE</Text>
         <Text className='mg-hero-title'>少一点摸索，<Text>多一点把握。</Text></Text>
@@ -156,7 +181,7 @@ export default function Index() {
         <Image className='mg-photo-thumb' src={photo} mode='aspectFill' onClick={() => { void Taro.previewImage({ urls: [photo] }) }} />
         <View className='mg-photo-copy'>
           <Text className='mg-photo-title'>{recognizing ? '正在识别照片…' : recognized ? '识别完成，请确认' : '手牌照片'}</Text>
-          <Text>只拍自己的13或14张手牌。模型可能识错，请以照片为准核对。</Text>
+          <Text>只保留自己的一排正面手牌，避免带入弃牌和牌墙；请逐张核对。</Text>
         </View>
         <Text className='mg-photo-close' onClick={() => { if (!recognizing) { setPhoto(''); setRecognized(null); setPhotoError('') } }}>×</Text>
       </View>}
