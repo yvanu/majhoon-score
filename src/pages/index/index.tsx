@@ -1,10 +1,32 @@
 import { useMemo, useState } from 'react'
 import Taro from '@tarojs/taro'
-import { Button, Image, Text, View } from '@tarojs/components'
+import { Button, Canvas, Image, Text, View } from '@tarojs/components'
 import { TILE_GROUPS, TILE_NAMES, rankDiscards, shantenLabel, standardShanten, usefulDraws, afterDraw, type Draw, type Tile } from '../../mahjong/engine'
 import './index.scss'
 
 const RECOGNIZE_URL = 'https://wx.score.majhoon.site/api/recognize'
+const HAND_CANVAS = 'mahjongHandStrip'
+
+/** 从微信裁剪的16:9图片中央提取约5.5:1的手牌横带；失败时不阻止用户纠错。 */
+async function cropHandStrip(path: string): Promise<string> {
+  const info = await Taro.getImageInfo({ src: path })
+  if (!info.width || !info.height) return path
+  const sourceHeight = Math.min(info.height, Math.round(info.width / 5.5))
+  const sourceY = Math.max(0, Math.round((info.height - sourceHeight) / 2))
+  const ctx = Taro.createCanvasContext(HAND_CANVAS)
+  ctx.drawImage(path, 0, sourceY, info.width, sourceHeight, 0, 0, 1280, 234)
+  await Promise.race([
+    new Promise<void>(resolve => ctx.draw(false, () => resolve())),
+    new Promise<void>((_, reject) => setTimeout(() => reject(new Error('画布裁剪超时')), 5000)),
+  ])
+  const result = await Taro.canvasToTempFilePath({
+    canvasId: HAND_CANVAS,
+    x: 0, y: 0, width: 1280, height: 234,
+    destWidth: 1280, destHeight: 234,
+    fileType: 'jpg', quality: 0.92,
+  })
+  return result.tempFilePath || path
+}
 
 type RecognitionResult = { tiles: number[]; slots?: Array<number | null>; warnings?: string[]; error?: string }
 
@@ -85,7 +107,10 @@ export default function Index() {
       if (Taro.getEnv() === Taro.ENV_TYPE.WEAPP) {
         try {
           const cropped = await Taro.cropImage({ src: filepath, cropScale: '16:9' })
-          if (cropped.tempFilePath) uploadPath = cropped.tempFilePath
+          if (cropped.tempFilePath) {
+            uploadPath = cropped.tempFilePath
+            try { uploadPath = await cropHandStrip(uploadPath) } catch { /* 画布不可用则使用原生裁剪结果 */ }
+          }
         } catch (error) {
           const reason = error instanceof Error ? error.message : String(error)
           if (/cancel/i.test(reason)) return
@@ -145,6 +170,7 @@ export default function Index() {
     ? afterDraw(hand, selectedDraw) : null, [hand, selectedDraw, analysis])
 
   return <View className='mg-app'>
+    <Canvas canvasId={HAND_CANVAS} className='mg-hand-crop-canvas' />
     <View className='mg-top'>
       <View className='mg-top-row'>
         <View className='mg-logo'><Text>听</Text></View>
@@ -163,7 +189,7 @@ export default function Index() {
         <Button className='mg-camera-button' disabled={recognizing} onClick={() => { void choosePhoto() }}>
           <Text className='mg-camera-icon'>◎</Text><Text>{recognizing ? '正在识别…' : '拍照识别手牌'}</Text><Text className='mg-camera-arrow'>↗</Text>
         </Button>
-        <Text className='mg-hero-hint'>拍摄后请裁剪至自己的13或14张手牌；照片经云端视觉模型识别，不主动保存</Text>
+        <Text className='mg-hero-hint'>裁剪时把自己的横排手牌放在画面正中央、左右尽量铺满；将提取中间窄带上传 AI</Text>
       </View> : <View className='mg-guide-hero'>
         <Text className='mg-hero-kicker'>A LITTLE GUIDE</Text>
         <Text className='mg-hero-title'>少一点摸索，<Text>多一点把握。</Text></Text>
