@@ -6,7 +6,7 @@ import './index.scss'
 
 const RECOGNIZE_URL = 'https://wx.score.majhoon.site/api/recognize'
 
-type RecognitionResult = { tiles: number[]; warnings?: string[]; error?: string }
+type RecognitionResult = { tiles: number[]; slots?: Array<number | null>; warnings?: string[]; error?: string }
 
 const SAMPLE: Tile[] = [0, 1, 2, 3, 4, 5, 9, 10, 11, 18, 19, 20, 27, 33]
 const TILE_STYLE = ['man', 'pin', 'sou', 'honor']
@@ -43,7 +43,8 @@ export default function Index() {
   const [photo, setPhoto] = useState('')
   const [photoError, setPhotoError] = useState('')
   const [recognizing, setRecognizing] = useState(false)
-  const [recognized, setRecognized] = useState<{ tiles: Tile[]; warnings: string[] } | null>(null)
+  const [recognized, setRecognized] = useState<{ slots: Array<Tile | null>; warnings: string[] } | null>(null)
+  const [editingSlot, setEditingSlot] = useState<number | null>(null)
   const [selectedDraw, setSelectedDraw] = useState<Tile | null>(null)
   const counts = useMemo(() => {
     const result = Array(34).fill(0) as number[]
@@ -93,6 +94,7 @@ export default function Index() {
       }
       setPhoto(uploadPath)
       setRecognized(null)
+      setEditingSlot(null)
       setRecognizing(true)
       try {
         const compressed = await Taro.compressImage({ src: uploadPath, quality: 82 })
@@ -123,11 +125,12 @@ export default function Index() {
         throw new Error('识别接口返回数据异常')
       }
       if (response.statusCode !== 200) throw new Error(result.error || '识别失败，请重试')
-      if (!Array.isArray(result.tiles) || result.tiles.length > 14 ||
-          !result.tiles.every(tile => Number.isInteger(tile) && tile >= 0 && tile < 34)) {
-        throw new Error('识别数据不完整，请重新拍摄')
+      const slots = result.slots ?? result.tiles
+      if (!Array.isArray(slots) || slots.length > 14 ||
+          !slots.every(tile => tile === null || (Number.isInteger(tile) && tile >= 0 && tile < 34))) {
+        throw new Error('识别数据异常，请重新拍摄')
       }
-      setRecognized({ tiles: result.tiles, warnings: result.warnings || [] })
+      setRecognized({ slots, warnings: result.warnings || [] })
     } catch (error) {
       const message = error instanceof Error ? error.message : '拍照或识别失败，请稍后再试'
       if (!/cancel/i.test(message)) setPhotoError(message)
@@ -183,25 +186,59 @@ export default function Index() {
           <Text className='mg-photo-title'>{recognizing ? '正在识别照片…' : recognized ? '识别完成，请确认' : '手牌照片'}</Text>
           <Text>只保留自己的一排正面手牌，避免带入弃牌和牌墙；请逐张核对。</Text>
         </View>
-        <Text className='mg-photo-close' onClick={() => { if (!recognizing) { setPhoto(''); setRecognized(null); setPhotoError('') } }}>×</Text>
+        <Text className='mg-photo-close' onClick={() => { if (!recognizing) { setPhoto(''); setRecognized(null); setEditingSlot(null); setPhotoError('') } }}>×</Text>
       </View>}
       {photoError && <View className='mg-notice'><Text>{photoError}。也可以手动选牌。</Text><Text onClick={() => setPhotoError('')}>知道了</Text></View>}
       {recognized && <View className='mg-recognition-review'>
-        <Text className='mg-review-title'>AI 已识别 {recognized.tiles.length} 张 · 请核对</Text>
+        <Text className='mg-review-title'>AI 识别了 {recognized.slots.filter(tile => tile !== null).length}/{recognized.slots.length} 张 · 请逐张核对</Text>
         <View className='mg-review-tiles'>
-          {recognized.tiles.map((tile, index) => <TileFace key={index} tile={tile} small />)}
+          {recognized.slots.map((tile, index) => <View key={index} className={`mg-review-slot ${editingSlot === index ? 'active' : ''}`} onClick={() => setEditingSlot(index)}>
+            {tile === null ? <View className='mg-review-unknown'>?</View> : <TileFace tile={tile} small />}
+            <Text className='mg-review-number'>第 {index + 1} 张</Text>
+          </View>)}
         </View>
         {recognized.warnings.map((message, i) => <Text key={i} className='mg-review-warning'>{message}</Text>)}
-        <Text className='mg-review-foot'>请确认与照片相符；确认后可点击牌面删除错误的牌，再从下方补充。</Text>
+        {editingSlot !== null && <View className='mg-review-editor'>
+          <Text className='mg-review-foot'>修改第 {editingSlot + 1} 张：请选择正确的牌</Text>
+          <View className='mg-suit-tabs'>
+            {TILE_GROUPS.map((item, index) => <View key={item.label} className={`mg-suit-tab ${group === index ? 'active' : ''}`} onClick={() => setGroup(index)}><Text>{item.short}</Text><Text>{item.label}</Text></View>)}
+          </View>
+          <View className='mg-palette'>
+            {Array.from({ length: TILE_GROUPS[group].end - TILE_GROUPS[group].start }, (_, i) => {
+              const tile = TILE_GROUPS[group].start + i
+              return <View key={tile} className='mg-palette-option' onClick={() => {
+                if (recognized.slots.filter((item, n) => n !== editingSlot && item === tile).length >= 4) {
+                  void Taro.showToast({ title: '同种麻将最多4张', icon: 'none' })
+                  return
+                }
+                setRecognized(current => current ? { ...current, slots: current.slots.map((item, n) => n === editingSlot ? tile : item) } : null)
+                setEditingSlot(null)
+              }}><TileFace tile={tile} small /></View>
+            })}
+          </View>
+        </View>}
+        <Text className='mg-review-foot'>点击任何一张牌可原位修改。问号表示没看清，必须人工补选；模型识别结果可能有误。</Text>
         <View className='mg-review-actions'>
           <Button className='mg-review-confirm' onClick={() => {
-            setHand([...recognized.tiles].sort((a, b) => a - b))
+            if (recognized.slots.includes(null) || (recognized.slots.length !== 13 && recognized.slots.length !== 14)) {
+              void Taro.showToast({ title: '牌数需为13或14张且没有问号', icon: 'none' })
+              return
+            }
+            setHand((recognized.slots.filter(tile => tile !== null) as Tile[]).sort((a, b) => a - b))
             setRecognized(null)
+            setEditingSlot(null)
             setSelectedDraw(null)
-          }}>使用识别结果并校正</Button>
-          <Text onClick={() => { void choosePhoto() }}>重新拍照</Text>
+          }}>确认13/14张并分析</Button>
+          <Text onClick={() => {
+            const certain = recognized.slots.filter(tile => tile !== null) as Tile[]
+            setHand([...certain].sort((a, b) => a - b))
+            setRecognized(null)
+            setEditingSlot(null)
+            setSelectedDraw(null)
+          }}>导入已识别牌</Text>
         </View>
-      </View>}
+        <Text className='mg-review-foot'>如果漏识别整张牌，可先导入已识别牌，再在下方补选到13或14张。</Text>
+      </View>
 
       <View className='mg-section-header'>
         <View>

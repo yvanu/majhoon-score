@@ -81,16 +81,18 @@ function parseTiles(raw: string) {
   const given = value.tiles as unknown[]
   if (given.length > 14) throw new Error('图中检测到超过14张牌，请只拍自己的手牌')
   const tiles: number[] = []
+  const slots: Array<number | null> = []
   const uncertain: number[] = []
   for (let i = 0; i < given.length; i++) {
     const rawName = given[i]
     const name = typeof rawName === 'string' ? rawName.trim().replace(/發/g, '发').replace(/萬/g, '万').replace(/索/g, '条') : ''
     const tile = TILE_NAMES.indexOf(name)
+    slots.push(tile < 0 ? null : tile)
     if (tile < 0) uncertain.push(i + 1)
     else tiles.push(tile)
   }
   if (!validateHand(tiles)) throw new Error('识别结果含超过4张相同牌，请重新拍摄')
-  return { tiles, recognized: tiles.length, detected: given.length, uncertain }
+  return { tiles, slots, recognized: tiles.length, detected: given.length, uncertain }
 }
 
 export function registerRecognizeRoutes(app: Hono<Env>) {

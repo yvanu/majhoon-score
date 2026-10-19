@@ -184,6 +184,12 @@ button.mg-example-button { border: 0; background: #e7f1e4; color: #256449; borde
 .mg-recognition-review { margin-bottom: 24px; padding: 22px; background: #eff7ee; border: 1px solid #b8d5c0; border-radius: 22px; }
 .mg-review-title { display: block; color: #164e40; font-size: 25px; font-weight: 800; margin-bottom: 12px; }
 .mg-review-tiles { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 9px; }
+.mg-review-slot { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 6px; border: 2px solid transparent; border-radius: 12px; }
+.mg-review-slot.active { border-color: #2e8360; background: #e0eee1; }
+.mg-review-number { color: #687e6e; font-size: 15px; }
+.mg-review-unknown { width: 54px; height: 76px; border: 2px dashed #d19b64; border-radius: 8px; background: #fff9ee; display: flex; justify-content: center; align-items: center; color: #a46231; font-size: 37px; font-weight: 800; }
+.mg-review-editor { margin: 15px 0; padding: 13px 0; border-top: 1px solid #badac1; border-bottom: 1px solid #badac1; }
+.mg-review-editor .mg-palette { gap: 15px 12px; padding: 15px 3px; }
 .mg-review-warning { display: block; font-size: 19px; color: #995a31; margin-top: 11px; }
 .mg-review-foot { display: block; color: #617b6c; font-size: 19px; line-height: 1.5; margin-top: 14px; }
 .mg-review-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px; color: #236148; font-size: 21px; }
