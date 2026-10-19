@@ -238,7 +238,7 @@ export default function Index() {
           }}>导入已识别牌</Text>
         </View>
         <Text className='mg-review-foot'>如果漏识别整张牌，可先导入已识别牌，再在下方补选到13或14张。</Text>
-      </View>
+      </View>}
 
       <View className='mg-section-header'>
         <View>
