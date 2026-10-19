@@ -4,6 +4,9 @@ import { TILE_NAMES, validateHand } from '../../src/mahjong/engine'
 import { normalizeTileName } from '../../src/mahjong/normalizeTileName'
 
 const MODEL = 'Qwen/Qwen3-VL-8B-Instruct'
+const TILE_MODEL = '@cf/google/gemma-4-26b-a4b-it'
+const SINGLE_TILE_PROMPT = '这张图只有一张麻将牌，请仔细观察并数清全部圆圈（包括红色圆圈），只能回答1-9筒、1-9万、1-9条或东南西北中发白。如果上2个圆、中1个红圆、下2个圆则是5筒；如果上2个圆、中2个圆、下2个圆则是6筒；如果上中下各3个圆则是9筒。如果上下各2个且没有中间圆则是4筒。不要漏数红圈。只输出牌名，不解释。'
+
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024
 const PROMPT = `任务：逐张读取玩家自己的麻将手牌，不是判断牌型，也不要给打牌建议。
 图像应已裁剪为最前方的一排正面手牌；若有背景，只关注最靠近镜头、横向排成一行的正面牌。忽略牌墙、牌背、弃牌和其他玩家的牌。
@@ -214,4 +217,93 @@ export function registerRecognizeRoutes(app: Hono<Env>) {
       return error('识别失败，请重新拍照', 500)
     }
   })
+
+  // 每张牌独立推理，避免整排视觉模型把重复牌幻觉成顺子。
+  app.options('/api/recognize-tiles', c => {
+    const origin = allowOrigin(c.req.header('origin'))
+    if (!origin) return c.body(null, 403)
+    return new Response(null, {
+      status: 204,
+      headers: {
+        ...responseHeaders(origin),
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Max-Age': '600',
+      },
+    })
+  })
+
+  app.post('/api/recognize-tiles', async c => {
+    const headers = responseHeaders(allowOrigin(c.req.header('origin')))
+    const fail = (message: string, status: 400 | 429 | 500 | 503) => c.json({ error: message }, status, headers)
+    if (!c.env.AI) return fail('视觉识别服务尚未配置', 503)
+    if (!(c.req.header('content-type') || '').startsWith('application/json')) {
+      return fail('请求必须是 JSON', 400)
+    }
+    if (Number(c.req.header('content-length') || 0) > 1600000) {
+      return fail('照片数据过大，请重新裁剪', 400)
+    }
+    let images: unknown
+    try {
+      const data = await c.req.json<{ images?: unknown }>()
+      images = data?.images
+    } catch {
+      return fail('图片数据无效', 400)
+    }
+    if (!Array.isArray(images) || ![13, 14].includes(images.length) ||
+        !images.every(img => typeof img === 'string' &&
+          img.length > 100 && img.length <= 120000 &&
+          img.startsWith('/9j/') && /^[A-Za-z0-9+/]+={0,2}$/.test(img))) {
+      return fail('需要13或14张有效的单牌 JPG 图片', 400)
+    }
+    const ip = c.req.header('cf-connecting-ip') || 'unknown'
+    const now = Date.now()
+    if (recentRequests.size > 500) recentRequests.clear()
+    if (now - (recentRequests.get(ip) || 0) < 12000) return fail('操作太频繁，请稍后再试', 429)
+    recentRequests.set(ip, now)
+
+    const slots: Array<number | null> = Array(images.length).fill(null)
+    // ponytail: 每批最多3个云端推理；流量增长后用 Cloudflare WAF/账户级限额控制成本。
+    for (let start = 0; start < images.length; start += 3) {
+      await Promise.all(images.slice(start, start + 3).map(async (encoded, offset) => {
+        const index = start + offset
+        try {
+          const output = await c.env.AI!.run(TILE_MODEL, {
+            messages: [{ role: 'user', content: [
+              { type: 'text', text: SINGLE_TILE_PROMPT },
+              { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${encoded}` } },
+            ] }],
+            max_tokens: 90,
+            temperature: 0,
+            chat_template_kwargs: { enable_thinking: false },
+            stream: false,
+          }) as { response?: unknown; choices?: Array<{ message?: { content?: unknown } }> }
+          const raw = modelText(output.response) || modelText(output.choices?.[0]?.message?.content)
+          const match = raw.match(/(?:[1-9一二三四五六七八九][万萬筒餅饼条索竹]|[东東南西北中发發白]|萬)/)
+          const tile = TILE_NAMES.indexOf(normalizeTileName(match?.[0] || raw))
+          if (tile >= 0) slots[index] = tile
+        } catch (cause) {
+          console.error('single_tile_recognize_error', index, cause instanceof Error ? cause.name : 'unknown')
+        }
+      }))
+    }
+    const seen = Array(34).fill(0) as number[]
+    const warnings: string[] = []
+    for (let i = 0; i < slots.length; i++) {
+      const tile = slots[i]
+      if (tile !== null && ++seen[tile] > 4) {
+        slots[i] = null
+        warnings.push(`第${i + 1}张与同类牌累计超过4张，请人工核对`)
+      }
+    }
+    const tiles = slots.filter((tile): tile is number => tile !== null)
+    if (!tiles.length) return fail('视觉模型未识别出麻将牌，请稍后重试', 503)
+    const uncertain = slots.flatMap((tile, i) => tile === null ? [i + 1] : [])
+    if (uncertain.length) warnings.push(`第${uncertain.join('、')}张未识别，请点击问号手动修正`)
+    return c.json({
+      tiles, slots, recognized: tiles.length, detected: slots.length,
+      uncertain, warnings, model: TILE_MODEL, needConfirmation: true,
+    }, 200, headers)
+  })
+
 }

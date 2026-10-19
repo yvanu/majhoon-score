@@ -9,9 +9,9 @@ const RECOGNIZE_URL = 'https://wx.score.majhoon.site/api/recognize'
 const HAND_CANVAS = 'mahjongHandStrip'
 
 /** 从微信裁剪的16:9图片中央提取约5.5:1的手牌横带；失败时不阻止用户纠错。 */
-async function cropHandStrip(path: string): Promise<{ path: string; count: number | null }> {
+async function cropHandStrip(path: string): Promise<{ path: string; count: number | null; images: string[] }> {
   const info = await Taro.getImageInfo({ src: path })
-  if (!info.width || !info.height) return { path, count: null }
+  if (!info.width || !info.height) return { path, count: null, images: [] }
   const sourceHeight = Math.min(info.height, Math.round(info.width / 5.5))
   const sourceY = Math.max(0, Math.round((info.height - sourceHeight) / 2))
   const ctx = Taro.createCanvasContext(HAND_CANVAS)
@@ -20,15 +20,35 @@ async function cropHandStrip(path: string): Promise<{ path: string; count: numbe
     new Promise<void>(resolve => ctx.draw(false, () => resolve())),
     new Promise<void>((_, reject) => setTimeout(() => reject(new Error('画布裁剪超时')), 5000)),
   ])
-  // 数牌只作为文字提示传递给模型，不再用红线/数字遮挡原照片。
+  // 检测可靠牌缝后，每张牌独立成图。不能准确分割时退回整排识别。
   let count: number | null = null
+  let images: string[] = []
   try {
     const pixels = await Taro.canvasGetImageData({
       canvasId: HAND_CANVAS, x: 0, y: 0, width: 1280, height: 234,
     })
     const borders = detectTileBorders(pixels.data, 1280, 234)
-    if (borders.length === 14 || borders.length === 15) count = borders.length - 1
-  } catch { /* 像素读取失败时正常识别原图 */ }
+    if (borders.length === 14 || borders.length === 15) {
+      count = borders.length - 1
+      const fs = Taro.getFileSystemManager()
+      const results: string[] = []
+      for (let i = 0; i < count; i++) {
+        const x = borders[i] + 1
+        const width = borders[i + 1] - x - 1
+        if (width < 20) throw new Error('牌面边界过窄')
+        const crop = await Taro.canvasToTempFilePath({
+          canvasId: HAND_CANVAS,
+          x, y: 5, width, height: 224,
+          destWidth: 300, destHeight: 650,
+          fileType: 'jpg', quality: 0.92,
+        })
+        const encoded = fs.readFileSync(crop.tempFilePath, 'base64')
+        if (typeof encoded !== 'string' || encoded.length > 120000) throw new Error('单牌文件过大')
+        results.push(encoded)
+      }
+      images = results
+    }
+  } catch { images = [] }
 
   const result = await Taro.canvasToTempFilePath({
     canvasId: HAND_CANVAS,
@@ -36,7 +56,7 @@ async function cropHandStrip(path: string): Promise<{ path: string; count: numbe
     destWidth: 1280, destHeight: 234,
     fileType: 'jpg', quality: 0.92,
   })
-  return { path: result.tempFilePath || path, count }
+  return { path: result.tempFilePath || path, count, images }
 }
 
 type RecognitionResult = { tiles: number[]; slots?: Array<number | null>; warnings?: string[]; error?: string; model?: string }
@@ -116,6 +136,7 @@ export default function Index() {
       // 微信低版本不支持 cropImage 时才回退原图；主动取消裁剪不能继续上传原图。
       let uploadPath = filepath
       let expectedCount: number | null = null
+      let tileImages: string[] = []
       if (Taro.getEnv() === Taro.ENV_TYPE.WEAPP) {
         try {
           const cropped = await Taro.cropImage({ src: filepath, cropScale: '16:9' })
@@ -125,6 +146,7 @@ export default function Index() {
               const strip = await cropHandStrip(uploadPath)
               uploadPath = strip.path
               expectedCount = strip.count
+              tileImages = strip.images
             } catch { /* 画布不可用则使用原生裁剪结果 */ }
           }
         } catch (error) {
@@ -153,20 +175,34 @@ export default function Index() {
         if (error instanceof Error && error.message.includes('2MB')) throw error
         // H5 或少数微信版本不提供 getFileInfo；仍由服务端验证图片大小。
       }
-      const response = await Taro.uploadFile({
-        url: RECOGNIZE_URL,
-        filePath: uploadPath,
-        name: 'image',
-        formData: expectedCount ? { expected_count: String(expectedCount) } : {},
-        timeout: 45000,
-      })
       let result: RecognitionResult
-      try {
-        result = JSON.parse(response.data) as RecognitionResult
-      } catch {
-        throw new Error('识别接口返回数据异常')
+      let status: number
+      if (tileImages.length === 13 || tileImages.length === 14) {
+        const response = await Taro.request<RecognitionResult>({
+          url: 'https://wx.score.majhoon.site/api/recognize-tiles',
+          method: 'POST',
+          header: { 'content-type': 'application/json' },
+          data: { images: tileImages },
+          timeout: 90000,
+        })
+        result = response.data
+        status = response.statusCode
+      } else {
+        const response = await Taro.uploadFile({
+          url: RECOGNIZE_URL,
+          filePath: uploadPath,
+          name: 'image',
+          formData: expectedCount ? { expected_count: String(expectedCount) } : {},
+          timeout: 45000,
+        })
+        try {
+          result = JSON.parse(response.data) as RecognitionResult
+        } catch {
+          throw new Error('识别接口返回数据异常')
+        }
+        status = response.statusCode
       }
-      if (response.statusCode !== 200) throw new Error(result.error || '识别失败，请重试')
+      if (status !== 200) throw new Error(result.error || '识别失败，请重试')
       const slots = result.slots ?? result.tiles
       if (!Array.isArray(slots) || slots.length > 14 ||
           !slots.every(tile => tile === null || (Number.isInteger(tile) && tile >= 0 && tile < 34))) {
@@ -206,7 +242,7 @@ export default function Index() {
         <Button className='mg-camera-button' disabled={recognizing} onClick={() => { void choosePhoto() }}>
           <Text className='mg-camera-icon'>◎</Text><Text>{recognizing ? '正在识别…' : '拍照识别手牌'}</Text><Text className='mg-camera-arrow'>↗</Text>
         </Button>
-        <Text className='mg-hero-hint'>把自己的手牌放在裁剪区中央，尽量铺满左右。识别前不会再用红线或数字遮挡牌面</Text>
+        <Text className='mg-hero-hint'>裁剪时把手牌置于中央；检测到清晰牌缝后，会逐张识别13或14张牌，支持逐张纠错</Text>
       </View> : <View className='mg-guide-hero'>
         <Text className='mg-hero-kicker'>A LITTLE GUIDE</Text>
         <Text className='mg-hero-title'>少一点摸索，<Text>多一点把握。</Text></Text>
