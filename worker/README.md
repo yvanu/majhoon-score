@@ -1,0 +1,1 @@
+This folder contains the built output assets for the worker "mahjong-score-wechat" generated at 2026-10-19T15:32:10.432Z.
