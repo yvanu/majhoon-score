@@ -9,9 +9,9 @@ const RECOGNIZE_URL = 'https://wx.score.majhoon.site/api/recognize'
 const HAND_CANVAS = 'mahjongHandStrip'
 
 /** 从微信裁剪的16:9图片中央提取约5.5:1的手牌横带；失败时不阻止用户纠错。 */
-async function cropHandStrip(path: string): Promise<string> {
+async function cropHandStrip(path: string): Promise<{ path: string; count: number | null }> {
   const info = await Taro.getImageInfo({ src: path })
-  if (!info.width || !info.height) return path
+  if (!info.width || !info.height) return { path, count: null }
   const sourceHeight = Math.min(info.height, Math.round(info.width / 5.5))
   const sourceY = Math.max(0, Math.round((info.height - sourceHeight) / 2))
   const ctx = Taro.createCanvasContext(HAND_CANVAS)
@@ -20,35 +20,15 @@ async function cropHandStrip(path: string): Promise<string> {
     new Promise<void>(resolve => ctx.draw(false, () => resolve())),
     new Promise<void>((_, reject) => setTimeout(() => reject(new Error('画布裁剪超时')), 5000)),
   ])
-  // 仅当牌顶的接缝足够清晰、且恰好形成 13/14 张牌时，才加辅助分界线与序号。
-  // 不确定时保持原图，不做可能切坏牌面的等宽分割。
+  // 数牌只作为文字提示传递给模型，不再用红线/数字遮挡原照片。
+  let count: number | null = null
   try {
     const pixels = await Taro.canvasGetImageData({
       canvasId: HAND_CANVAS, x: 0, y: 0, width: 1280, height: 234,
     })
     const borders = detectTileBorders(pixels.data, 1280, 234)
-    if (borders.length) {
-      const markings = Taro.createCanvasContext(HAND_CANVAS)
-      markings.setStrokeStyle('#d74b2f')
-      markings.setLineWidth(2)
-      markings.setFillStyle('#bd4228')
-      markings.setFontSize(21)
-      for (let i = 0; i < borders.length; i++) {
-        const x = borders[i]
-        markings.beginPath()
-        markings.moveTo(x, 0)
-        markings.lineTo(x, 50)
-        markings.stroke()
-        if (i < borders.length - 1) {
-          markings.fillText(String(i + 1), Math.round((x + borders[i + 1]) / 2) - 9, 30)
-        }
-      }
-      await Promise.race([
-        new Promise<void>(resolve => markings.draw(true, () => resolve())),
-        new Promise<void>((_, reject) => setTimeout(() => reject(new Error('分界标注超时')), 5000)),
-      ])
-    }
-  } catch { /* 无法取得图像像素时继续使用完整横带，保证旧设备可用 */ }
+    if (borders.length === 14 || borders.length === 15) count = borders.length - 1
+  } catch { /* 像素读取失败时正常识别原图 */ }
 
   const result = await Taro.canvasToTempFilePath({
     canvasId: HAND_CANVAS,
@@ -56,10 +36,10 @@ async function cropHandStrip(path: string): Promise<string> {
     destWidth: 1280, destHeight: 234,
     fileType: 'jpg', quality: 0.92,
   })
-  return result.tempFilePath || path
+  return { path: result.tempFilePath || path, count }
 }
 
-type RecognitionResult = { tiles: number[]; slots?: Array<number | null>; warnings?: string[]; error?: string }
+type RecognitionResult = { tiles: number[]; slots?: Array<number | null>; warnings?: string[]; error?: string; model?: string }
 
 const SAMPLE: Tile[] = [0, 1, 2, 3, 4, 5, 9, 10, 11, 18, 19, 20, 27, 33]
 const TILE_STYLE = ['man', 'pin', 'sou', 'honor']
@@ -96,7 +76,7 @@ export default function Index() {
   const [photo, setPhoto] = useState('')
   const [photoError, setPhotoError] = useState('')
   const [recognizing, setRecognizing] = useState(false)
-  const [recognized, setRecognized] = useState<{ slots: Array<Tile | null>; warnings: string[] } | null>(null)
+  const [recognized, setRecognized] = useState<{ slots: Array<Tile | null>; warnings: string[]; model: string } | null>(null)
   const [editingSlot, setEditingSlot] = useState<number | null>(null)
   const [selectedDraw, setSelectedDraw] = useState<Tile | null>(null)
   const counts = useMemo(() => {
@@ -135,12 +115,17 @@ export default function Index() {
       // 先由玩家框选自己的手牌，避免把牌墙、其他玩家及弃牌一同交给视觉模型。
       // 微信低版本不支持 cropImage 时才回退原图；主动取消裁剪不能继续上传原图。
       let uploadPath = filepath
+      let expectedCount: number | null = null
       if (Taro.getEnv() === Taro.ENV_TYPE.WEAPP) {
         try {
           const cropped = await Taro.cropImage({ src: filepath, cropScale: '16:9' })
           if (cropped.tempFilePath) {
             uploadPath = cropped.tempFilePath
-            try { uploadPath = await cropHandStrip(uploadPath) } catch { /* 画布不可用则使用原生裁剪结果 */ }
+            try {
+              const strip = await cropHandStrip(uploadPath)
+              uploadPath = strip.path
+              expectedCount = strip.count
+            } catch { /* 画布不可用则使用原生裁剪结果 */ }
           }
         } catch (error) {
           const reason = error instanceof Error ? error.message : String(error)
@@ -172,6 +157,7 @@ export default function Index() {
         url: RECOGNIZE_URL,
         filePath: uploadPath,
         name: 'image',
+        formData: expectedCount ? { expected_count: String(expectedCount) } : {},
         timeout: 45000,
       })
       let result: RecognitionResult
@@ -186,7 +172,7 @@ export default function Index() {
           !slots.every(tile => tile === null || (Number.isInteger(tile) && tile >= 0 && tile < 34))) {
         throw new Error('识别数据异常，请重新拍摄')
       }
-      setRecognized({ slots, warnings: result.warnings || [] })
+      setRecognized({ slots, warnings: result.warnings || [], model: result.model || 'unknown' })
     } catch (error) {
       const message = error instanceof Error ? error.message : '拍照或识别失败，请稍后再试'
       if (!/cancel/i.test(message)) setPhotoError(message)
@@ -220,7 +206,7 @@ export default function Index() {
         <Button className='mg-camera-button' disabled={recognizing} onClick={() => { void choosePhoto() }}>
           <Text className='mg-camera-icon'>◎</Text><Text>{recognizing ? '正在识别…' : '拍照识别手牌'}</Text><Text className='mg-camera-arrow'>↗</Text>
         </Button>
-        <Text className='mg-hero-hint'>将自己的13或14张手牌放在裁剪区中央并尽量铺满左右；牌面接缝清晰时会自动编号辅助识别</Text>
+        <Text className='mg-hero-hint'>把自己的手牌放在裁剪区中央，尽量铺满左右。识别前不会再用红线或数字遮挡牌面</Text>
       </View> : <View className='mg-guide-hero'>
         <Text className='mg-hero-kicker'>A LITTLE GUIDE</Text>
         <Text className='mg-hero-title'>少一点摸索，<Text>多一点把握。</Text></Text>
@@ -248,6 +234,7 @@ export default function Index() {
       {photoError && <View className='mg-notice'><Text>{photoError}。也可以手动选牌。</Text><Text onClick={() => setPhotoError('')}>知道了</Text></View>}
       {recognized && <View className='mg-recognition-review'>
         <Text className='mg-review-title'>AI 识别了 {recognized.slots.filter(tile => tile !== null).length}/{recognized.slots.length} 张 · 请逐张核对</Text>
+        <Text className='mg-review-foot'>识别模型：{recognized.model.includes('gemma') ? 'Cloudflare Gemma 4' : recognized.model.includes('Qwen') ? '硅基流动 Qwen VL' : recognized.model}</Text>
         <View className='mg-review-tiles'>
           {recognized.slots.map((tile, index) => <View key={index} className={`mg-review-slot ${editingSlot === index ? 'active' : ''}`} onClick={() => setEditingSlot(index)}>
             {tile === null ? <View className='mg-review-unknown'>?</View> : <TileFace tile={tile} small />}

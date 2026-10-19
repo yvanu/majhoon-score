@@ -1,6 +1,7 @@
 import type { Hono } from 'hono'
 import type { Env } from '../env'
 import { TILE_NAMES, validateHand } from '../../src/mahjong/engine'
+import { normalizeTileName } from '../../src/mahjong/normalizeTileName'
 
 const MODEL = 'Qwen/Qwen3-VL-8B-Instruct'
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024
@@ -9,7 +10,7 @@ const PROMPT = `任务：逐张读取玩家自己的麻将手牌，不是判断�
 先找到每张竖直牌面的边界，从左向右一张张数清楚，再分别看每张牌的图案：
 - 红色“万”和上方数字是万子；圆点是筒子；竹条是条子；汉字东南西北中发和空白是字牌。
 - 特别注意三张完全相同的牌就是重复三次，绝不能为了凑顺子而把相同牌改成一、二、三。
-- 如果顶部有红色分界线及 1、2、3 等序号，表示每张牌的左右边界，请按数字顺序逐格识别；红色标线不是麻将花纹。
+- 牌面可能经过横向裁剪，千万不要把顶端的阴影、背景或牌墙当成麻将图案；依次读取每个完整的竖直牌面。
 - 仅依据实际图案识别，不根据麻将规则猜牌或补出13/14张。
 牌名只允许：1万~9万、1筒~9筒、1条~9条、东、南、西、北、中、发、白。看不清的牌写"?"，保留其占位。
 只输出一个JSON对象：{"tiles":["1万","1万","1万","4筒","?","东"],"uncertain":[5]}。uncertain为从1开始的存疑位置。
@@ -85,8 +86,7 @@ function parseTiles(raw: string) {
   const slots: Array<number | null> = []
   const uncertain: number[] = []
   for (let i = 0; i < given.length; i++) {
-    const rawName = given[i]
-    const name = typeof rawName === 'string' ? rawName.trim().replace(/發/g, '发').replace(/萬/g, '万').replace(/索/g, '条') : ''
+    const name = normalizeTileName(given[i])
     const tile = TILE_NAMES.indexOf(name)
     slots.push(tile < 0 ? null : tile)
     if (tile < 0) uncertain.push(i + 1)
@@ -143,12 +143,17 @@ export function registerRecognizeRoutes(app: Hono<Env>) {
           : String.fromCharCode(...bytes.slice(0, 4)) === 'RIFF' &&
             String.fromCharCode(...bytes.slice(8, 12)) === 'WEBP' ? 'image/webp' : null
       if (!mime) return error('图片格式错误，请使用 JPG、PNG 或 WebP', 400)
+      const boundaryCount = Number(form.get('expected_count'))
+      const detectedCount = boundaryCount === 13 || boundaryCount === 14 ? boundaryCount : null
+      const prompt = detectedCount
+        ? `${PROMPT}\n牌面接缝检测显示大约${detectedCount}个独立位置。必须逐个位置阅读，如辨认不清就用“?”，不要为凑牌数捏造牌名。`
+        : PROMPT
       const payload = {
         model: MODEL,
         messages: [{
           role: 'user',
           content: [
-            { type: 'text', text: PROMPT },
+            { type: 'text', text: prompt },
             { type: 'image_url', image_url: { url: `data:${mime};base64,${base64(bytes)}`, detail: 'high' } },
           ],
         }],
@@ -175,14 +180,15 @@ export function registerRecognizeRoutes(app: Hono<Env>) {
       }
       if (!content && c.env.AI) {
         try {
-          const fallback = await c.env.AI.run('@cf/meta/llama-4-scout-17b-16e-instruct', {
+          const fallback = await c.env.AI.run('@cf/google/gemma-4-26b-a4b-it', {
             messages: payload.messages,
             stream: false,
-            max_tokens: 350,
-            temperature: 0.2,
+            max_tokens: 420,
+            temperature: 0,
+            chat_template_kwargs: { enable_thinking: false },
           }) as { response?: unknown; choices?: Array<{ message?: { content?: unknown } }> }
           content = modelText(fallback.response) || modelText(fallback.choices?.[0]?.message?.content)
-          model = '@cf/meta/llama-4-scout-17b-16e-instruct'
+          model = '@cf/google/gemma-4-26b-a4b-it'
         } catch (cause) {
           console.error('workers_ai_recognize_error', cause instanceof Error ? cause.name : 'unknown')
           return error('当前识别额度不足或服务繁忙，请稍后重试', 503)
